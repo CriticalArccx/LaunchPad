@@ -7,7 +7,7 @@ name: Sync Equipment Tracker & Dashboard Data
 # page load. See sync/sync-equipment-data.mjs for the actual logic.
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
       project_key:

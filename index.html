@@ -5154,23 +5154,52 @@ async function removeMember(email) {
     refreshMembersList();
 }
 
+// Core of declineUser() with no confirm()/alert()/refresh — declineUser()
+// wraps this for the single-click case, declineAllUsers() calls it directly
+// in a loop so a bulk decline doesn't pop a dialog per row.
+async function declineUserCore(email, requestId) {
+    // 1. Remove from STY4access_requests
+    const { error } = await _supabase.from(T('access_requests')).delete().eq('id', requestId);
+    if (error) throw error;
+
+    // 2. Send Notification Email via Google Script
+    const url = `${GOOGLE_SCRIPT_URL}?action=notifyDecline&email=${encodeURIComponent(email)}`;
+    await fetch(url);
+}
+
 async function declineUser(email, requestId) { // Added email parameter here
     if (!confirm(`Are you sure you want to decline the request from ${email}?`)) return;
 
     try {
-        // 1. Remove from STY4access_requests
-        const { error } = await _supabase.from(T('access_requests')).delete().eq('id', requestId);
-        if (error) throw error;
-
-        // 2. Send Notification Email via Google Script
-        const url = `${GOOGLE_SCRIPT_URL}?action=notifyDecline&email=${encodeURIComponent(email)}`;
-        await fetch(url);
-
+        await declineUserCore(email, requestId);
         alert(`Request declined and notification sent to ${email}`);
         refreshRequestList();
     } catch (e) {
         alert("Error declining request: " + e.message);
     }
+}
+
+// Declines every currently-pending request in one go, each using whatever
+// email/id it was rendered with — no per-row confirmation, just one
+// up-front confirm for the whole batch and one summary alert at the end.
+async function declineAllUsers() {
+    const pending = __pendingAccessRequests || [];
+    if (pending.length === 0) return;
+    if (!confirm(`Decline all ${pending.length} pending request${pending.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+
+    let ok = 0, fail = 0;
+    for (const req of pending) {
+        try {
+            await declineUserCore(req.email, req.id);
+            ok++;
+        } catch (e) {
+            fail++;
+            console.error('Decline All: failed for', req.email, e);
+        }
+    }
+
+    alert(`Declined ${ok} request${ok === 1 ? '' : 's'}${fail ? ` — ${fail} failed, see console` : '.'}`);
+    refreshRequestList();
 }
 
 // Reusable inline "company" editor: a dropdown of this project's known
@@ -5233,16 +5262,35 @@ function getCurrentCompanyValue(uid) {
     return select.value === '__add_new__' ? newInput.value.trim() : select.value;
 }
 
+// Cache of the last-rendered pending request rows, so admitAllUsers()/
+// declineAllUsers() can iterate them (and read each row's live role/company
+// inputs) without re-fetching or re-rendering mid-batch.
+let __pendingAccessRequests = [];
+
 async function refreshRequestList() {
     const listContainer = document.getElementById('request-list');
     const { data, error } = await _supabase.from(T('access_requests')).select('*');
 
     if (error || !data || data.length === 0) {
+        __pendingAccessRequests = [];
         listContainer.innerHTML = '<p style="color: #666; font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>';
         return;
     }
 
-    listContainer.innerHTML = data.map(req => `
+    __pendingAccessRequests = data;
+
+    const bulkBar = `
+        <div style="display: flex; gap: 8px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid #eee;">
+            <button onclick="admitAllUsers()" style="flex: 1; background: #2e7d32; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
+                Admit All (${data.length})
+            </button>
+            <button onclick="declineAllUsers()" style="flex: 1; background: #d32f2f; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
+                Decline All (${data.length})
+            </button>
+        </div>
+    `;
+
+    listContainer.innerHTML = bulkBar + data.map(req => `
         <div style="padding: 10px 0; border-bottom: 1px solid #f5f5f5;">
             <div style="font-size: 13px; font-weight: bold; color: #333;">${req.email}</div>
             <div style="font-size: 11px; color: #666; margin-bottom: 6px; display:flex; align-items:center; gap:4px;">
@@ -5254,11 +5302,11 @@ async function refreshRequestList() {
                 <option value="admin">Admin</option>
             </select>
             <div style="display: flex; gap: 5px;">
-                <button onclick="admitUser('${req.email}', getCurrentCompanyValue('req-${req.id}'), ${req.id}, document.getElementById('admit-role-${req.id}').value)" 
+                <button onclick="admitUser('${req.email}', getCurrentCompanyValue('req-${req.id}'), ${req.id}, document.getElementById('admit-role-${req.id}').value)"
                         style="background: #2e7d32; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
                     Admit
                 </button>
-                <button onclick="declineUser('${req.email}', ${req.id})" 
+                <button onclick="declineUser('${req.email}', ${req.id})"
                         style="background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
                     Decline
                 </button>
@@ -5267,11 +5315,15 @@ async function refreshRequestList() {
     `).join('');
 }
 
-async function admitUser(email, company, requestId, role) {
+// Core of admitUser() with no alert()/refresh — admitUser() wraps this for
+// the single-click case, admitAllUsers() calls it directly in a loop.
+// Returns the membershipError (if any) so callers can decide how to warn
+// about it, same as the single-click path already did inline.
+async function admitUserCore(email, company, requestId, role) {
     role = role || 'editor';
     const emailLower = email.toLowerCase();
-    try {
-        // Someone requesting a role UPGRADE (e.g. viewer -> editor via
+
+    // Someone requesting a role UPGRADE (e.g. viewer -> editor via
         // requestHigherAccess()) is already a row in authorized_editors —
         // trying to INSERT them again fails on the unique email constraint.
         // Check first, and update in place if they already exist instead.
@@ -5330,18 +5382,52 @@ async function admitUser(email, company, requestId, role) {
             console.error('Failed to add launchpad_memberships row for', email, membershipError);
         }
 
-        // 2. Remove from STY4access_requests
-        await _supabase.from(T('access_requests')).delete().eq('id', requestId);
+    // 2. Remove from STY4access_requests
+    await _supabase.from(T('access_requests')).delete().eq('id', requestId);
 
-        // 3. Send Notification Email via Google Script
-        const url = `${GOOGLE_SCRIPT_URL}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
-        await fetch(url);
+    // 3. Send Notification Email via Google Script
+    const url = `${GOOGLE_SCRIPT_URL}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
+    await fetch(url);
 
+    return membershipError || null;
+}
+
+async function admitUser(email, company, requestId, role) {
+    try {
+        const membershipError = await admitUserCore(email, company, requestId, role);
         alert(`Access granted and email sent to ${email}` + (membershipError ? '\n\n(Warning: could not add them to launchpad_memberships — check the console and add that row manually.)' : ''));
         refreshRequestList();
     } catch (e) {
         alert("Error admitting user: " + e.message);
     }
+}
+
+// Admits every currently-pending request in one go, each using whatever
+// role/company its own row currently has selected (same values a manual
+// click of that row's Admit button would use) — one confirm for the whole
+// batch, one summary alert at the end, instead of N dialogs.
+async function admitAllUsers() {
+    const pending = __pendingAccessRequests || [];
+    if (pending.length === 0) return;
+    if (!confirm(`Admit all ${pending.length} pending request${pending.length === 1 ? '' : 's'} with their currently selected roles?`)) return;
+
+    let ok = 0, fail = 0, anyMembershipWarning = false;
+    for (const req of pending) {
+        try {
+            const roleSelect = document.getElementById(`admit-role-${req.id}`);
+            const role = roleSelect ? roleSelect.value : (req.requested_role || 'editor');
+            const company = getCurrentCompanyValue(`req-${req.id}`);
+            const membershipError = await admitUserCore(req.email, company, req.id, role);
+            if (membershipError) anyMembershipWarning = true;
+            ok++;
+        } catch (e) {
+            fail++;
+            console.error('Admit All: failed for', req.email, e);
+        }
+    }
+
+    alert(`Admitted ${ok} user${ok === 1 ? '' : 's'}${fail ? ` — ${fail} failed, see console` : '.'}` + (anyMembershipWarning ? '\n\n(Warning: at least one launchpad_memberships row failed to add — check the console.)' : ''));
+    refreshRequestList();
 }
 
 let presenceChannel;
