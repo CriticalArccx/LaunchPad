@@ -10,8 +10,43 @@ export class CriticalArcDashboard {
     this.EQ_FILTER = { bldg: 'All', floor: 'All' };
     this.EQ_SEARCH = { q: '', incompleteOnly: true };
     this.ISS_THRESH = 30;
-    this.COMPLETE_STATUSES = ['Finished'];
     this.REFRESH_ENDPOINT = null;
+
+    // ─── Vocabulary ───────────────────────────────────────────────────────
+    // COMPLETE_STATUSES used to be ['Finished']. That string occurs in
+    // NEITHER SAN project -- their verified statuses are 'Verified',
+    // 'Checklist Complete' and 'Verified - Not Included in Sampling', so the
+    // comparison returned false for every row and the tab read 0%.
+    // `is_verified` came from the cx_* tables, which the dashboard no longer
+    // reads -- the Apps Script payload in launchpad_dashboard_data does not
+    // carry it (SAN's donut showed no verified slices). It is still honoured
+    // if a payload ever includes it; otherwise completion falls back to the
+    // status names below.
+    this.COMPLETE_STATUSES = ['Finished', 'Checklist Complete', 'Verified',
+                              'Verified - Not Included in Sampling'];
+    this.isComplete = (c) => c.is_verified === true ||
+                             this.COMPLETE_STATUSES.includes(c.status);
+    // Verified = the Cx agent has approved it, i.e. fully done. The rest of
+    // COMPLETE_STATUSES ('Checklist Complete') means the contractor finished
+    // but Cx has not verified yet; charts that split the two use these.
+    this.VERIFIED_STATUSES = ['Finished', 'Verified', 'Verified - Not Included in Sampling'];
+    this.isVerified = (c) => c.is_verified === true ||
+                             this.VERIFIED_STATUSES.includes(c.status);
+
+    // Tests are the ONE vocabulary still unresolved (GOLD-DESIGN Q5): whether
+    // 'Partially Passed (Test to be Repeated)' counts as a pass, and whether
+    // 'Voided' / 'Deferred to 1B' leave the denominator, is the commissioning
+    // engineer's call and not the pipeline's. Until it is answered these stay
+    // as observed: 'Passed' is real and correct for 18604; 'Failed' occurs in
+    // no SAN project at all. SAN-NT1B (49639) will legitimately read zero
+    // passed, because it has zero passes.
+    this.TEST_PASS_STATUSES = ['Passed'];
+    this.TEST_FAIL_STATUSES = ['Failed'];
+
+    // Issue statuses ARE the one list that already matched the data -- kept
+    // only to ORDER the filter, which falls back to whatever the data holds.
+    this.ISSUE_STATUS_ORDER = ['Open', 'In Progress', 'Pending Review', 'Closed'];
+    this.ISSUE_OPEN_STATUSES = ['Open', 'In Progress', 'Pending Review'];
     
     // Theme Constants
     this.FONT = 'Barlow, sans-serif';
@@ -108,6 +143,8 @@ export class CriticalArcDashboard {
       .ca-wrapper select, .ca-wrapper input[type="text"] { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; }
       .ca-connected-project { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; font-weight: 600; }
       .ca-wrapper select:focus, .ca-wrapper input[type="text"]:focus { outline: none; border-color: var(--muted); }
+      .ca-pace-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+      .ca-pace-controls input[type="date"] { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-family: inherit; font-size: 13px; color-scheme: light dark; }
 
       .ca-checkgroup { display: flex; flex-direction: column; gap: 5px; max-height: 190px; overflow-y: auto; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
       .ca-checkgroup label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
@@ -398,8 +435,43 @@ export class CriticalArcDashboard {
     
     this.buildCheckGroup('ca-fDiscipline', disciplines);
     this.buildCheckGroup('ca-fContractor', contractors);
-    this.buildCheckGroup('ca-fStatus', ['Open','In Progress','Pending Review','Closed']);
+    this.buildCheckGroup('ca-fStatus', this.orderVals(d.issues.map(i => i.status), this.ISSUE_STATUS_ORDER));
     this.buildCheckGroup('ca-fPhase', phases);
+  }
+
+  // Distinct values from the data, with any known ones first in a sensible
+  // order and anything unrecognised appended alphabetically. Every list on
+  // this page is built this way now: a hardcoded vocabulary that misses shows
+  // an empty chart rather than an error, and every hardcoded list in this
+  // file except the issue statuses turned out to be wrong for SAN.
+  orderVals(values, preferred) {
+    const present = this.uniq(values).filter(v => !this.isBad(v));
+    const known = (preferred || []).filter(v => present.includes(v));
+    const rest = present.filter(v => !known.includes(v)).sort();
+    return [...known, ...rest];
+  }
+
+  // Deterministic colour for a value the theme has no opinion about, so a
+  // level or status keeps the same colour between renders.
+  autoColor(key, i) {
+    const palette = ['#7F77DD','#1D9E75','#5DCAA5','#85B7EB','#E0894A','#C77DBB','#4A90D9','#9AA43C'];
+    if (typeof i === 'number') return palette[i % palette.length];
+    let h = 0;
+    for (const ch of String(key)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return palette[h % palette.length];
+  }
+
+  // ─── 1b. DATA ACCESS ────────────────────────────────────────────────────
+
+  // Says WHY there is nothing to draw. An empty dashboard and a
+  // misconfigured one look identical otherwise -- an unauthorised PostgREST
+  // read returns zero rows, not an error -- so every path that ends without
+  // data comes through here and names its own cause.
+  status(html) {
+    const el = this.q('ca-loading');
+    el.style.display = 'block';
+    el.innerHTML = html;
+    this.q('ca-dash').style.display = 'none';
   }
 
   // Waits briefly for window.LP_CONFIG to be populated (it's loaded by the
@@ -422,7 +494,7 @@ export class CriticalArcDashboard {
       if (label) label.textContent = cfg.clientName || cfg.projectKey || 'Connected project';
       await this.loadProject();
     } catch (e) {
-      this.q('ca-loading').textContent = 'Error: ' + e.message; 
+      this.status('Error: ' + e.message);
       console.error(e);
     }
   }
@@ -478,6 +550,7 @@ export class CriticalArcDashboard {
       }
 
       this.STATE.data = data;
+      this.STATE.snapshots = await this.loadSnapshots(supa, projectKey);
       this.STATE.eqPhase = new Map(this.STATE.data.equipment.map(e => [String(e.equipment_id), e.building_phase]));
       this.STATE.filters = { discipline: [], contractor: [], status: [], phase: [] };
       this.EQ_FILTER = { bldg: 'All', floor: 'All' };
@@ -489,11 +562,30 @@ export class CriticalArcDashboard {
       this.q('ca-dash').style.display = 'block';
       window.dispatchEvent(new Event('resize'));
     } catch (e) {
-      this.q('ca-loading').style.display = 'block';
-      this.q('ca-loading').textContent = 'Error loading dashboard data: ' + e.message;
-      this.q('ca-dash').style.display = 'none';
+      this.status('Error loading data: ' + e.message);
       console.error(e);
     }
+  }
+
+  // Friday snapshots of checklist counts (see dashboard-snapshots.sql). Paged
+  // because Supabase caps a request at 1,000 rows. A missing table or a
+  // failed read only costs the chart its history, so it never throws.
+  async loadSnapshots(supa, projectKey) {
+    const out = [], PAGE = 1000;
+    try {
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supa.from('launchpad_checklist_snapshots')
+          .select('snapshot_date, type_name, discipline, assigned_company, status, checklist_count')
+          .eq('project_key', projectKey).order('snapshot_date')
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        out.push(...data);
+        if (data.length < PAGE) break;
+      }
+    } catch (e) {
+      console.warn('Checklist snapshots unavailable; Path to Completion will show no history.', e);
+    }
+    return out;
   }
 
   renderAll() {
@@ -683,11 +775,34 @@ export class CriticalArcDashboard {
     const root = this.q('ca-tab-checklists');
     if (!cl.length) { root.innerHTML = `<div class="ca-empty">No checklist data available.</div>`; return; }
 
-    const levelsOrdered = ['L2','L3','L4','FAT'];
-    const levelVals = new Set(cl.map(c => c.level));
-    const active = levelsOrdered.filter(lv => levelVals.has(lv));
+    // SAN's Apps Script stamps every checklist level 'L1' and carries the
+    // real CxAlloy checklist type in type_name. When level has only one value
+    // across the whole project it says nothing, so group by type_name instead
+    // (null -> 'Untyped'). Decided on the unfiltered data so a filter can't
+    // flip the grouping; projects with real levels (STY4's L2-FAT) keep them.
+    const all = this.STATE.data.checklists;
+    const levelIsFlat = this.uniq(all.map(c => c.level)).length <= 1 &&
+                        all.some(c => c.type_name);
+    if (levelIsFlat) cl = cl.map(c => ({ ...c, level: c.type_name || 'Untyped' }));
 
-    let html = this.section('Checklist Status by Level') +
+    // Levels come from the data. The old hardcoded ['L2','L3','L4','FAT']
+    // matches NOTHING in either SAN project -- theirs read Pre-Functional,
+    // Closeout, Documentation Review and Other -- so `active` came back empty
+    // and this whole tab rendered as four missing donuts. Known names are
+    // ordered first purely for display; anything else is appended.
+    const active = this.orderVals(cl.map(c => c.level),
+      ['L2','L3','L4','FAT','Pre-Functional','Functional','Documentation Review','Closeout']);
+
+    // Path to Completion tracks Pre-Functional only (the old PHXA7 chart's
+    // scope); a project without that type falls back to every checklist.
+    const preFunc = cl.filter(c => c.type_name === 'Pre-Functional');
+    const paceRows = preFunc.length ? preFunc : cl;
+    const paceScope = preFunc.length ? 'Pre-Functional' : null;
+    let html = this.section(`${preFunc.length ? 'Pre-Functional Checklists' : 'Checklists'} &mdash; Path to Completion`) +
+      `<div class="ca-pace-controls"><label for="ca-pace-date">Est. completion date</label><input type="date" id="ca-pace-date" /></div>` +
+      '<div class="ca-kpi-row" id="ca-pace-kpis"></div>' + this.chartBox('ca-pace-chart', 380) +
+      '<div class="ca-caption" id="ca-pace-caption"></div>';
+    html += this.section('Checklist Status by Level') +
       `<div class="ca-kpi-row" style="grid-template-columns:repeat(${active.length},minmax(0,1fr))">` +
       active.map((lv, i) => this.chartBox(`ca-cl-donut-${i}`, 420)).join('') + '</div>';
     html += this.section('Completion by Discipline') + this.chartBox('ca-cl-disc', 400);
@@ -697,15 +812,38 @@ export class CriticalArcDashboard {
     html += '<div id="ca-cl-pending"></div>';
     root.innerHTML = html;
 
-    const dcStatusColors = { 'Not Started':'#8A8F98','In Progress':'#F5A623','GC to Verify':'#4A90D9','Finished':'#39B54A' };
+    // The date is remembered per project in this browser only. There is no
+    // project-level column for it yet; moving it to launchpad_projects would
+    // share it between viewers.
+    const dateInput = this.q('ca-pace-date');
+    try { dateInput.value = localStorage.getItem(this.paceKey()) || ''; } catch (e) {}
+    dateInput.addEventListener('change', () => {
+      try { localStorage.setItem(this.paceKey(), dateInput.value); } catch (e) {}
+      this.renderPace(paceRows, paceScope);
+    });
+    this.renderPace(paceRows, paceScope);
+
+    // Both maps were keyed on vocabularies that do not occur in SAN, so every
+    // slice fell through to the border grey. The donut now colours by whether
+    // a status is VERIFIED rather than by its spelling -- green for verified
+    // whatever it is called, a stable colour otherwise -- which is the only
+    // version that works for a client whose statuses nobody has seen yet.
+    const verifiedStatuses = new Set(cl.filter(c => this.isComplete(c)).map(c => c.status));
+    // Completed statuses get distinct shades of green so contractor-complete
+    // and Cx-verified stay distinguishable in the same donut.
+    const dcStatusColors = { 'Not Started':'#8A8F98','In Progress':'#F5A623','GC to Verify':'#4A90D9','Finished':'#39B54A',
+                             'Checklist Complete':'#8BD17C','Verified':'#39B54A','Verified - Not Included in Sampling':'#1E7A34' };
+    const statusColor = (s) => dcStatusColors[s] || (verifiedStatuses.has(s) ? this.C.green : this.autoColor(s));
+
     const levelColors = { L2:'#7F77DD', L3:'#1D9E75', L4:'#5DCAA5', FAT:'#85B7EB' };
+    active.forEach((lv, i) => { if (!levelColors[lv]) levelColors[lv] = this.autoColor(lv, i); });
 
     active.forEach((lv, i) => {
       const sub = cl.filter(c => c.level === lv);
       const sc = this.groupSize(sub, 'status');
       this.plot(`ca-cl-donut-${i}`, [{
         type: 'pie', hole: 0.65, labels: sc.map(d => d.key), values: sc.map(d => d.count),
-        marker: { colors: sc.map(d => dcStatusColors[d.key] || this.C.border) },
+        marker: { colors: sc.map(d => statusColor(d.key)) },
         textinfo: 'percent', textfont: { size: 10, color: '#23262B', family: this.FONT }, hovertemplate: '%{label}: %{value}<extra></extra>',
       }], {
         title: { text: lv, font: { size: 16, color: levelColors[lv] || this.C.text, family: this.COND }, x: 0.5, xanchor: 'center' },
@@ -717,24 +855,41 @@ export class CriticalArcDashboard {
     const discs = this.uniq(cl.map(c => c.discipline)).filter(d => !this.isBad(d));
     const dc = discs.map(d => {
       const rows = cl.filter(c => c.discipline === d);
-      const done = rows.filter(c => this.COMPLETE_STATUSES.includes(c.status)).length;
-      return { discipline: d, total: rows.length, done, remaining: rows.length - done, pct: rows.length ? +(done / rows.length * 100).toFixed(1) : 0 };
+      const done = rows.filter(c => this.isComplete(c)).length;
+      const verified = rows.filter(c => this.isVerified(c)).length;
+      const pctOf = (n) => rows.length ? +(n / rows.length * 100).toFixed(1) : 0;
+      return { discipline: d, total: rows.length, done, verified, contractorDone: done - verified,
+               remaining: rows.length - done, pct: pctOf(done), verifiedPct: pctOf(verified), contractorPct: pctOf(done - verified) };
     }).sort((a, b) => a.total - b.total);
-    
+
+    // Verified (Cx approved) and contractor-complete are stacked separately,
+    // matching the donut's greens. Counts live in the hover: the green
+    // segments are usually too thin to hold a label.
+    const discHover = (label) => `%{y}<br>${label}: %{x} (%{customdata}%)<extra></extra>`;
     this.plot('ca-cl-disc', [
-      { type: 'bar', orientation: 'h', y: dc.map(d => d.discipline), x: dc.map(d => d.done), name: 'Completed', marker: { color: this.C.green }, text: dc.map(d => d.done > 0 ? `${d.done} (${d.pct}%)` : ''), textposition: 'inside', textfont: { color: this.C.text, family: this.FONT } },
-      { type: 'bar', orientation: 'h', y: dc.map(d => d.discipline), x: dc.map(d => d.remaining), name: 'Remaining', marker: { color: this.C.border }, text: dc.map(d => String(d.total)), textposition: 'outside', textfont: { color: this.C.muted, family: this.FONT } },
+      { type: 'bar', orientation: 'h', y: dc.map(d => d.discipline), x: dc.map(d => d.verified), name: 'Verified (Cx)', marker: { color: '#39B54A' }, customdata: dc.map(d => d.verifiedPct), hovertemplate: discHover('Verified (Cx)') },
+      { type: 'bar', orientation: 'h', y: dc.map(d => d.discipline), x: dc.map(d => d.contractorDone), name: 'Checklist Complete (contractor)', marker: { color: '#8BD17C' }, customdata: dc.map(d => d.contractorPct), hovertemplate: discHover('Checklist Complete') },
+      { type: 'bar', orientation: 'h', y: dc.map(d => d.discipline), x: dc.map(d => d.remaining), name: 'Remaining', marker: { color: this.C.border }, text: dc.map(d => String(d.total)), textposition: 'outside', textfont: { color: this.C.muted, family: this.FONT }, hovertemplate: '%{y}<br>Remaining: %{x}<extra></extra>' },
     ], { barmode: 'stack', legend: { orientation: 'v', y: -0.2, yanchor: 'top', x: 0, xanchor: 'left' }, yaxis: { tickfont: { color: this.C.muted, size: 10 }, automargin: true }, margin: { t: 10, b: 100, l: 10, r: 40 } });
 
     const discColors = { Mechanical:'#E74C3C', Electrical:'#F5A623', 'Electrical Power Monitoring System':'#4A90D9', 'Fire Protection':'#39B54A' };
     const discAbbr = { 'Electrical Power Monitoring System':'EPMS' };
+    // discColors only knows the old bare names; SAN's read 'Div. 23 -
+    // HVAC/Mechanical' etc., so every bar fell back to grey. Unknown
+    // disciplines get a palette colour by alphabetical position, so a
+    // discipline keeps its colour between loads.
+    const discOrder = [...discs].sort();
+    const discColor = (d) => discColors[d] || this.autoColor(d, discOrder.indexOf(d));
+    const levelTotals = active.map(lv => cl.filter(c => c.level === lv).length);
     const ldTraces = discs.map(d => {
       const perLevel = active.map(lv => cl.filter(c => c.level === lv && c.discipline === d).length);
-      return { type: 'bar', orientation: 'h', name: discAbbr[d] || d, y: active, x: perLevel, marker: { color: discColors[d] || this.C.muted }, text: perLevel.map(v => v || ''), textposition: 'inside', textfont: { color: '#23262B', family: this.FONT }, hovertemplate: `${d}: %{x}<extra></extra>` };
+      // Segments under 3% of their bar are too thin to hold a label; the
+      // count is still in the hover.
+      return { type: 'bar', orientation: 'h', name: discAbbr[d] || d, y: active, x: perLevel, marker: { color: discColor(d) }, text: perLevel.map((v, i) => v && v / levelTotals[i] >= 0.03 ? v : ''), textposition: 'inside', textfont: { color: '#23262B', family: this.FONT }, hovertemplate: `${d}: %{x}<extra></extra>` };
     });
     this.plot('ca-cl-leveldisc', ldTraces, { barmode: 'stack', yaxis: { categoryorder: 'array', categoryarray: [...active].reverse(), tickfont: { color: this.C.text, size: 13 }, automargin: true }, legend: { orientation: 'v', y: -0.2, yanchor: 'top', x: 0, xanchor: 'left' }, margin: { t: 40, b: 120, l: 10, r: 20 } });
 
-    const openCl = cl.filter(c => !this.COMPLETE_STATUSES.includes(c.status) && active.includes(c.level));
+    const openCl = cl.filter(c => !this.isComplete(c) && active.includes(c.level));
     const coTotals = this.groupSize(openCl, 'assigned_company').sort((a, b) => b.count - a.count).slice(0, 10);
     const topCos = coTotals.map(d => d.key);
     const coTraces = active.map(lv => ({
@@ -752,7 +907,7 @@ export class CriticalArcDashboard {
     const contractorCl = cl.filter(c => classify(c) === 'contractor');
     const coSummary = this.uniq(contractorCl.map(c => c.assigned_company)).map(co => {
       const rows = contractorCl.filter(c => c.assigned_company === co);
-      const done = rows.filter(c => this.COMPLETE_STATUSES.includes(c.status)).length;
+      const done = rows.filter(c => this.isComplete(c)).length;
       return { Contractor: co, Total: rows.length, Completed: done, 'Completion %': rows.length ? +(done / rows.length * 100).toFixed(1) : 0 };
     }).sort((a, b) => b.Total - a.Total);
     this.q('ca-cl-contractor-table').innerHTML = this.table(['Contractor','Total','Completed','Completion %'].map(k => ({ k, label: k })), coSummary);
@@ -764,6 +919,108 @@ export class CriticalArcDashboard {
     }
   }
 
+  paceKey() { return 'ca_pace_target_' + ((window.LP_CONFIG && window.LP_CONFIG.projectKey) || ''); }
+
+  // Green: the Friday snapshots (dashboard-snapshots.sql), each the verified
+  // total on that date -- the old PHXA7 chart's method. The step between two
+  // Fridays is what got verified that week. A hollow marker shows today's
+  // live count, so the current week is visible before its Friday.
+  // Red: the pace required from today's count to reach 100% on the
+  // estimated completion date, i.e. remaining / weeks left. It treats every
+  // checklist as interchangeable -- sequencing is not modelled.
+  renderPace(rows, scopeType) {
+    const DAY = 86400000, WEEK = 7 * DAY;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const input = this.q('ca-pace-date');
+    const target = input.value ? new Date(input.value + 'T00:00:00') : null;
+
+    const total = rows.length;
+    const done = rows.filter(c => this.isVerified(c)).length, remaining = total - done;
+    const pct = total ? (done / total * 100).toFixed(1) : '0.0';
+
+    // Snapshots are filtered like the live rows so the line agrees with the
+    // cards. The phase filter cannot apply: snapshots carry no asset.
+    const f = this.STATE.filters;
+    const perDate = new Map();
+    (this.STATE.snapshots || []).forEach(s => {
+      if (scopeType && s.type_name !== scopeType) return;
+      if (f.discipline.length && !f.discipline.includes(s.discipline)) return;
+      if (f.contractor.length && !f.contractor.includes(s.assigned_company)) return;
+      if (f.status.length && !f.status.includes(s.status)) return;
+      perDate.set(s.snapshot_date, (perDate.get(s.snapshot_date) || 0) +
+        (this.isVerified({ status: s.status }) ? s.checklist_count : 0));
+    });
+    const dates = [...perDate.keys()].sort();
+    const greenX = dates.map(d => new Date(d + 'T00:00:00')), greenY = dates.map(d => perDate.get(d));
+
+    // Current pace: average weekly gain across the last four snapshots.
+    let pace = null;
+    if (dates.length >= 2) {
+      const back = Math.min(4, dates.length - 1);
+      const weeks = (greenX.at(-1) - greenX.at(-1 - back)) / WEEK;
+      if (weeks > 0) pace = (greenY.at(-1) - greenY.at(-1 - back)) / weeks;
+    }
+
+    const weeksLeft = target ? (target - today) / WEEK : null;
+    const redX = [], redY = [];
+    let required = null;
+    if (target && weeksLeft > 0 && remaining > 0) {
+      required = remaining / weeksLeft;
+      for (let i = 0; today.getTime() + i * WEEK < target; i++) {
+        redX.push(new Date(today.getTime() + i * WEEK));
+        redY.push(Math.min(total, Math.round(done + required * i)));
+      }
+      redX.push(target); redY.push(total);
+    }
+
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    let requiredVal = '—', requiredSub = 'Set a completion date', requiredCls = 'kpi-white';
+    if (remaining === 0) { requiredVal = '0'; requiredSub = 'All verified'; requiredCls = 'kpi-green'; }
+    else if (target && weeksLeft <= 0) { requiredVal = '—'; requiredSub = 'Completion date has passed'; requiredCls = 'kpi-red'; }
+    else if (required !== null) {
+      requiredVal = required.toFixed(1);
+      requiredSub = 'checklists / week';
+      requiredCls = pace === null ? 'kpi-yellow' : (pace >= required ? 'kpi-green' : 'kpi-red');
+    }
+    const paceVal = pace === null ? '—' : pace.toFixed(1);
+    const paceSub = pace === null ? 'Needs 2 Friday snapshots' :
+      (pace > 0 && remaining ? `Projected finish ${fmt(new Date(today.getTime() + remaining / pace * WEEK))}` : 'per week, last 4 weeks');
+
+    this.q('ca-pace-kpis').innerHTML =
+      this.kpi('Verified', done.toLocaleString(), 'kpi-green', `of ${total.toLocaleString()} (${pct}%)`) +
+      this.kpi('Remaining', remaining.toLocaleString(), 'kpi-white') +
+      this.kpi('Weeks Left', weeksLeft === null ? '—' : Math.max(0, weeksLeft).toFixed(1), 'kpi-white', target ? `to ${fmt(target)}` : 'Set a completion date') +
+      this.kpi('Required Pace', requiredVal, requiredCls, requiredSub) +
+      this.kpi('Current Pace', paceVal, 'kpi-white', paceSub);
+
+    const hover = (label) => `${label}<br>%{x|%b %d, %Y}: %{y:,}<extra></extra>`;
+    const traces = [];
+    if (greenX.length) traces.push({
+      type: 'scatter', mode: 'lines+markers', name: 'Verified (Friday snapshot)',
+      x: greenX, y: greenY, line: { color: this.C.green, shape: 'hv', width: 2 }, marker: { color: this.C.green, size: 6 },
+      fill: 'tozeroy', fillcolor: 'rgba(57,181,74,0.25)', hovertemplate: hover('Verified'),
+    });
+    traces.push({
+      type: 'scatter', mode: 'markers', name: 'Verified today (live)', x: [today], y: [done],
+      marker: { color: 'rgba(0,0,0,0)', size: 11, line: { color: this.C.green, width: 2 } }, hovertemplate: hover('Verified today'),
+    });
+    if (redX.length) traces.push({
+      type: 'scatter', mode: 'lines', name: 'Required to meet completion date',
+      x: redX, y: redY, line: { color: this.C.red, shape: 'hv', width: 2 }, hovertemplate: hover('Required'),
+    });
+    this.plot('ca-pace-chart', traces, {
+      xaxis: { type: 'date', tickformat: '%m/%d/%y', gridcolor: this.C.border, tickfont: { color: this.C.muted }, automargin: true },
+      yaxis: { range: [0, total * 1.05], gridcolor: this.C.border, tickfont: { color: this.C.muted }, automargin: true },
+      shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: total, y1: total, line: { color: this.C.muted, dash: 'dot', width: 1 } }],
+      legend: { orientation: 'h', y: 1.08, x: 0 }, margin: { t: 40, b: 40, l: 10, r: 10 },
+    });
+
+    const notes = [];
+    if (!dates.length) notes.push('Verified history is saved every Friday evening; the first point appears after the next snapshot.');
+    if (f.phase.length && dates.length) notes.push('The Building Phase filter applies to today\'s count but not to the Friday history.');
+    this.q('ca-pace-caption').textContent = notes.join(' ');
+  }
+
   // ─── TAB 3: TESTS ───────────────────────────────────────────────────────────
 
   renderTests(tests, issues) {
@@ -772,14 +1029,19 @@ export class CriticalArcDashboard {
     issues = issues || [];
 
     const total = tests.length;
-    const passed = tests.filter(t => t.status === 'Passed').length;
-    const failed = tests.filter(t => t.status === 'Failed').length;
-    const notStarted = tests.filter(t => t.status === 'Not Started').length;
+    const passed = tests.filter(t => this.TEST_PASS_STATUSES.includes(t.status)).length;
+    const failed = tests.filter(t => this.TEST_FAIL_STATUSES.includes(t.status)).length;
+    // Was a count of status === 'Not Started', which occurs in no SAN project
+    // and so read a permanent 0 while hundreds of tests sat in 'Script In
+    // Development' and 'Assigned'. Everything that is neither a pass nor a
+    // fail is counted instead, so the three KPIs always sum to the total
+    // whatever a client calls its statuses.
+    const outstanding = total - passed - failed;
     const passRate = total ? (passed / total * 100) : 0;
 
     let html = this.section('Functional Test Summary') + '<div class="ca-kpi-row">' +
       this.kpi('Total Tests', total, 'kpi-white') + this.kpi('Passed', passed, 'kpi-green') +
-      this.kpi('Failed', failed, 'kpi-red') + this.kpi('Not Started', notStarted, 'kpi-white') + '</div>';
+      this.kpi('Failed', failed, 'kpi-red') + this.kpi('Outstanding', outstanding, 'kpi-white') + '</div>';
     html += `<div class="ca-grid2" style="margin-top:16px">
       <div>${this.section('Tests by Status')}${this.chartBox('ca-ts-status', 400)}</div>
       <div>${this.section('Pass Rate')}${this.chartBox('ca-ts-gauge', 360)}</div></div>`;
@@ -802,16 +1064,19 @@ export class CriticalArcDashboard {
 
     const unitOf = (a) => { const m = String(a || '').match(/^([A-Za-z]+\d+)/); return m ? m[1] : null; };
     const units = this.uniq(tests.map(t => unitOf(t.asset_name)).filter(Boolean)).sort();
+    // One trace per status ACTUALLY present, rather than three fixed traces
+    // for statuses SAN does not use -- which drew three empty bars per unit.
     const byUnit = (st) => units.map(u => tests.filter(t => unitOf(t.asset_name) === u && t.status === st).length);
-    this.plot('ca-ts-unit', [
-      { type: 'bar', name: 'Passed', x: units, y: byUnit('Passed'), marker: { color: this.C.green } },
-      { type: 'bar', name: 'Failed', x: units, y: byUnit('Failed'), marker: { color: this.C.red } },
-      { type: 'bar', name: 'Not Started', x: units, y: byUnit('Not Started'), marker: { color: this.C.border } },
-    ], { barmode: 'stack', legend: { orientation: 'v', y: -0.2, yanchor: 'top', x: 0, xanchor: 'left' }, margin: { t: 40, b: 120, l: 10, r: 10 } });
+    const unitStatuses = this.orderVals(tests.map(t => t.status),
+      [...this.TEST_PASS_STATUSES, ...this.TEST_FAIL_STATUSES]);
+    this.plot('ca-ts-unit', unitStatuses.map((st, i) => ({
+      type: 'bar', name: st, x: units, y: byUnit(st),
+      marker: { color: tsColors[st] || this.autoColor(st, i) },
+    })), { barmode: 'stack', legend: { orientation: 'v', y: -0.2, yanchor: 'top', x: 0, xanchor: 'left' }, margin: { t: 40, b: 120, l: 10, r: 10 } });
 
     const cos = this.uniq(tests.map(t => t.assigned_company)).map(co => {
       const rows = tests.filter(t => t.assigned_company === co);
-      const p = rows.filter(t => t.status === 'Passed').length, f = rows.filter(t => t.status === 'Failed').length;
+      const p = rows.filter(t => this.TEST_PASS_STATUSES.includes(t.status)).length, f = rows.filter(t => this.TEST_FAIL_STATUSES.includes(t.status)).length;
       return { co, total: rows.length, passed: p, failed: f, other: rows.length - p - f };
     }).sort((a, b) => a.total - b.total);
     this.plot('ca-ts-contractor', [
@@ -847,9 +1112,9 @@ export class CriticalArcDashboard {
     if (!equipment.length) { root.innerHTML = `<div class="ca-empty">No equipment data available.</div>`; return; }
 
     const clAgg = new Map(), tsAgg = new Map(), issAgg = new Map();
-    for (const c of checklists) { const k = String(c.asset_key); const a = clAgg.get(k) || { total: 0, done: 0 }; a.total++; if (this.COMPLETE_STATUSES.concat(['GC to Verify']).includes(c.status)) a.done++; clAgg.set(k, a); }
-    for (const t of tests) { const k = String(t.asset_key); const a = tsAgg.get(k) || { total: 0, passed: 0, failed: 0 }; a.total++; if (t.status === 'Passed') a.passed++; if (t.status === 'Failed') a.failed++; tsAgg.set(k, a); }
-    for (const i of issues) { const k = String(i.asset_key); const a = issAgg.get(k) || { total: 0, open: 0 }; a.total++; if (['Open','In Progress'].includes(i.status)) a.open++; issAgg.set(k, a); }
+    for (const c of checklists) { const k = String(c.asset_key); const a = clAgg.get(k) || { total: 0, done: 0 }; a.total++; if (this.isComplete(c)) a.done++; clAgg.set(k, a); }
+    for (const t of tests) { const k = String(t.asset_key); const a = tsAgg.get(k) || { total: 0, passed: 0, failed: 0 }; a.total++; if (this.TEST_PASS_STATUSES.includes(t.status)) a.passed++; if (this.TEST_FAIL_STATUSES.includes(t.status)) a.failed++; tsAgg.set(k, a); }
+    for (const i of issues) { const k = String(i.asset_key); const a = issAgg.get(k) || { total: 0, open: 0 }; a.total++; if (this.ISSUE_OPEN_STATUSES.includes(i.status)) a.open++; issAgg.set(k, a); }
 
     const eq = equipment.map(e => {
       const k = String(e.equipment_id);
