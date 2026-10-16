@@ -106,6 +106,7 @@ async function syncEquipmentTracker(projectKey, scriptUrl) {
             project_key: projectKey,
             data: payload.data || [],
             phase_rules: (payload.config && payload.config.phaseRules) || [],
+            checklist_types_by_phase: (payload.config && payload.config.checklistTypesByPhase) || {},
             synced_at: new Date().toISOString(),
         }]),
     });

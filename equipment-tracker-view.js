@@ -1394,7 +1394,7 @@ export class EquipmentTrackerView extends HTMLElement {
             // Script's cold-start + Sheets-read latency on every visit.
             const [{ data: syncedRow, error: syncedError }, supabaseConfig] = await Promise.all([
                 this._supabase.from('launchpad_equipment_tracker_data')
-                    .select('data, phase_rules, synced_at')
+                    .select('data, phase_rules, checklist_types_by_phase, synced_at')
                     .eq('project_key', this.PROJECT_KEY)
                     .maybeSingle(),
                 this.fetchTrackerConfig()
@@ -1402,17 +1402,25 @@ export class EquipmentTrackerView extends HTMLElement {
             if (syncedError) throw syncedError;
             const payload = {
                 data: (syncedRow && syncedRow.data) || [],
-                config: { phaseRules: (syncedRow && syncedRow.phase_rules) || [] }
+                config: {
+                    phaseRules: (syncedRow && syncedRow.phase_rules) || [],
+                    checklistTypesByPhase: (syncedRow && syncedRow.checklist_types_by_phase) || {}
+                }
             };
 
             const rows = payload.data || [];
-            // Phase Rules stay Google-Sheets-backed by request — everything
-            // else (toggles, custom headers, status lists) comes from
-            // Supabase. The Sheet-sourced phaseRules always wins here even
-            // if an older Supabase row still has a leftover phaseRules key.
+            // Phase Rules and checklistTypesByPhase stay Apps-Script/Sheets-
+            // backed by request — everything else (toggles, custom headers,
+            // status lists) comes from the user-saved Supabase config. Both
+            // sync-owned fields always win here even if an older Supabase
+            // config row still has a leftover key of the same name, since
+            // neither one is ever set through the Settings UI that writes
+            // that row.
             const sheetPhaseRules = (payload.config && payload.config.phaseRules) || [];
+            const sheetChecklistTypesByPhase = (payload.config && payload.config.checklistTypesByPhase) || {};
             if (supabaseConfig) this.globalConfig = { ...this.globalConfig, ...supabaseConfig };
             this.globalConfig.phaseRules = sheetPhaseRules;
+            this.globalConfig.checklistTypesByPhase = sheetChecklistTypesByPhase;
 
             // --- PERF FIX: skip the (expensive) full grid rebuild if nothing has
             // actually changed since the last successful fetch. This matters most
@@ -1420,7 +1428,7 @@ export class EquipmentTrackerView extends HTMLElement {
             // and rebuild every row's DOM every single minute even when the
             // underlying data is identical — resetting scroll position and any
             // open dropdown along the way.
-            const fingerprint = JSON.stringify({ rows, config: supabaseConfig || null, phaseRules: sheetPhaseRules });
+            const fingerprint = JSON.stringify({ rows, config: supabaseConfig || null, phaseRules: sheetPhaseRules, checklistTypesByPhase: sheetChecklistTypesByPhase });
             if (isSilent && this.__lastTrackerFingerprint === fingerprint) {
                 if (this.$('global-search-input').value.trim() === '') {
                     this.$('sync-status').innerText = 'Up to date ✓';

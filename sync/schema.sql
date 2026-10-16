@@ -15,8 +15,10 @@ create table if not exists launchpad_equipment_tracker_data (
     project_key text primary key,
     data jsonb not null default '[]'::jsonb,
     phase_rules jsonb not null default '[]'::jsonb,
+    checklist_types_by_phase jsonb not null default '{}'::jsonb,
     synced_at timestamptz not null default now()
 );
+alter table launchpad_equipment_tracker_data add column if not exists checklist_types_by_phase jsonb not null default '{}'::jsonb;
 
 create table if not exists launchpad_dashboard_data (
     project_key text primary key,

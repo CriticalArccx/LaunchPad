@@ -100,6 +100,8 @@ function fetchAndUpdateCxAlloyData() {
   console.log(`Project ID: ${projectId}`)
   console.log("Equipment Data");
   fetchAndUpdateEquipmentData(projectId);
+  console.log("Checklist Templates");
+  fetchAndUpdateChecklistTemplates(projectId); // before Checklist Data, so the template_name join below has something to read
   console.log("Checklist Data");
   fetchAndUpdateChecklistData(projectId);
   console.log("Test Data");
@@ -109,7 +111,20 @@ function fetchAndUpdateCxAlloyData() {
   ifareaserved();
   moveColumnData();
   combineColumnsWithPrefix();
+  buildChecklistTypeMapping(); // append any newly-seen templates to the Checklist Type Mapping sheet, never touching rows already there
   generateChecklistMatrix();
+}
+
+// Fetches every checklist template defined for this project (not
+// individual checklist instances — the reusable templates they're created
+// from) via GET /checklisttemplate?project_id=X with no checklisttemplate_id,
+// which per CxAlloy's docs returns the full list for the project.
+function fetchAndUpdateChecklistTemplates(projectId = 45) {
+  console.log("Fetching Checklist Template Data");
+  var templateApiUrl = 'https://google.cxalloy.com/api/v1/checklisttemplate';
+  var allTemplateData = fetchData(templateApiUrl + '?project_id=' + projectId);
+  console.log("Updating Checklist Templates Sheet");
+  populateSheetWithData('Checklist Templates', allTemplateData);
 }
 
 function fetchAndUpdateProjectData() {
@@ -189,6 +204,24 @@ function fetchAndUpdateAttributeData(projectId = 45) {
   populateSheetWithData('Attributes', simplifiedEquipmentData);
 }
 
+// One-off diagnostic — run this directly from the Apps Script editor
+// (select it in the function dropdown, click Run, then View > Logs). It
+// fetches a single raw /checklist record and logs every field name CxAlloy
+// actually returns, so we can confirm (or correct) the assumption that
+// the template foreign key is called "checklisttemplate_id".
+function debugChecklistFields(projectId = 45) {
+  var checklistApiUrl = 'https://google.cxalloy.com/api/v1/checklist';
+  var requestBody = { 'project_id': projectId, 'page': 1, 'include': ['time_to_close', 'extended_status'] };
+  var response = sendRequest(checklistApiUrl, 'post', requestBody);
+  var records = (response && response.records) || [];
+  if (records.length === 0) {
+    Logger.log('No checklist records returned.');
+    return;
+  }
+  Logger.log('Field names on a raw /checklist record: ' + Object.keys(records[0]).join(', '));
+  Logger.log('Full first record: ' + JSON.stringify(records[0], null, 2));
+}
+
 function fetchAndUpdateChecklistData(projectId=45) {
   console.log("Fetching Data");
   var checklistApiUrl = 'https://google.cxalloy.com/api/v1/checklist';
@@ -210,9 +243,249 @@ function fetchAndUpdateChecklistData(projectId=45) {
     // Delete extended_status
     delete allChecklistData[i]["extended_status"]
   }
+
+  // Attach each checklist's template name, joined via its template_id
+  // against the already-populated "Checklist Templates" sheet — confirmed
+  // against a real /checklist record: the FK field is "template_id"
+  // (e.g. "17475"), not "checklisttemplate_id".
+  console.log("Joining template names onto Checklist data")
+  var templateNameById = getChecklistTemplateNameMap_();
+  for (var j = 0; j < allChecklistData.length; j++) {
+    var tplId = allChecklistData[j]["template_id"];
+    allChecklistData[j]["template_name"] = (tplId !== undefined && tplId !== null && templateNameById[tplId]) ? templateNameById[tplId] : "";
+  }
+
   // Update sheet with Data
   console.log("Updating Data")
   populateSheetWithData('Checklists', allChecklistData);
+}
+
+// Reads the "Checklist Templates" sheet into a { template_id: name }
+// lookup map, used to join a template name onto each Checklists row. The
+// Checklists sheet's own FK field is confirmed to be "template_id" (from
+// a raw /checklist record); the template's own PK field name on
+// /checklisttemplate records hasn't been directly confirmed, so this
+// tries the most likely candidates in order.
+function getChecklistTemplateNameMap_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Checklist Templates');
+  var map = {};
+  if (!sheet) return map;
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return map;
+  var headers = data[0].map(function(h) { return String(h).toLowerCase().trim(); });
+  var idIdx = headers.indexOf('template_id');
+  if (idIdx === -1) idIdx = headers.indexOf('checklisttemplate_id');
+  if (idIdx === -1) idIdx = headers.indexOf('id');
+  var nameIdx = headers.indexOf('name');
+  if (idIdx === -1 || nameIdx === -1) return map;
+  for (var i = 1; i < data.length; i++) {
+    var id = data[i][idIdx];
+    if (id !== '' && id !== undefined && id !== null) map[id] = data[i][nameIdx];
+  }
+  return map;
+}
+
+// Shared by readAssetMatrix_() and readChecklistTypeMapping_() — both
+// sheets use the identical layout: row 1 = merged Level 2/3/4 phase
+// labels (only the first cell of each merge populated), row 2 = the
+// per-column type label (Tag, Elec, NETA, ...). Returns the type columns
+// found: [{ col (0-based), phase, label }].
+function parseMatrixTypeColumns_(sheet) {
+  const data = sheet.getDataRange().getDisplayValues();
+  if (data.length < 2) return [];
+  const phaseRow = data[0];
+  const typeRow = data[1];
+  const colPhase = [];
+  let currentPhase = '';
+  for (let c = 0; c < phaseRow.length; c++) {
+    const raw = String(phaseRow[c] || '').trim();
+    const m = raw.match(/level\s*(\d)/i);
+    if (m) currentPhase = 'L' + m[1];
+    colPhase.push(currentPhase);
+  }
+  const typeCols = [];
+  for (let c = 1; c < typeRow.length; c++) {
+    const label = String(typeRow[c] || '').trim();
+    const phase = colPhase[c];
+    if (label && phase) typeCols.push({ col: c, phase: phase, label: label });
+  }
+  return typeCols;
+}
+
+// Detects an explicit phase marker in a checklist template's own name.
+// "LN" ("L2", "L3") is the Level N verification phase and maps straight
+// to the matching Asset Matrix phase. "iN" ("i2", "i3") is a DIFFERENT,
+// separate marker — confirmed NOT the same thing as Level 2/3 — so it's
+// kept as its own distinct token ("I2", "I3") rather than being folded
+// into "L2"/"L3". Since the Asset Matrix only defines Level 2/3/4
+// columns today, an i2/i3-marked template has no phase to match against
+// and is intentionally left unmapped (no column, no guessing) rather
+// than leaking into the Level 2/3 columns.
+function detectTemplatePhaseMarker_(name) {
+  const m = name.match(/\b([il])(\d)\b/i);
+  if (!m) return null;
+  return (m[1].toLowerCase() === 'i' ? 'I' : 'L') + m[2];
+}
+
+// Normalizes a label/segment for comparison — lowercase, strip everything
+// but letters/digits, so "Elec - Other" and "elec-other" and "ELEC OTHER"
+// all collapse to the same key.
+function normalizeTypeToken_(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Picks the single best type-label match for a template name, scoped to
+// one phase's columns. Template names are dash-delimited, e.g.
+// "L2 - gCUB 4.1 - ACC - Controls - Checklist - V1.0": the phase marker
+// and trailing version are stripped first, then each remaining dash
+// segment ("gCUB 4.1", "ACC", "Controls", "Checklist") is checked against
+// that phase's column labels as a WHOLE SEGMENT (exact or prefix match in
+// either direction) — never as a substring of the raw, unsplit name. That
+// isolation is what keeps "gCUB" from matching the "GC" column and
+// "Mechanical" from double-matching "Mech" everywhere it appears. Plain
+// "Checklist" is the generic catch-all suffix nearly every template ends
+// with, so it's only used if nothing more specific matched. Returns at
+// most one label, or null.
+function matchTemplateTypeForPhase_(name, phaseTypeCols) {
+  let working = name.replace(/^\s*[il]\d\s*-\s*/i, '');
+  working = working.replace(/-\s*v?\d+(\.\d+)*\s*$/i, '').trim();
+  const segments = working.split(/\s*-\s*/).map(s => s.trim()).filter(Boolean);
+  const segNorms = segments.map(normalizeTypeToken_).filter(Boolean);
+  const labelNorms = phaseTypeCols.map(tc => ({ tc: tc, norm: normalizeTypeToken_(tc.label) }));
+  // How much extra text a prefix match is allowed to carry beyond the
+  // label itself — enough slack for "Mechanical"/"Mech" and
+  // "Electrical"/"Elec" (6-char gaps), not enough for an asset name that
+  // merely happens to start with a label word, e.g. "Fire Suppression Wet
+  // Zone" vs the "Fire" column (19-char gap) — that must NOT match.
+  const MAX_PREFIX_SLACK = 6;
+
+  // Pass 1: an exact segment==label match is unambiguous — take it before
+  // trying any prefix match, so e.g. a literal "Elec" segment always wins
+  // the "Elec" column over the "Elec - Other" column it also prefixes.
+  for (const segNorm of segNorms) {
+    for (const entry of labelNorms) {
+      if (entry.norm && entry.norm !== 'checklist' && segNorm === entry.norm) return entry.tc;
+    }
+  }
+  // Pass 2: close prefix match either direction — skipped for labels
+  // under 4 characters (e.g. "GC"), since a short label is too likely to
+  // prefix-match an unrelated word by coincidence.
+  for (const segNorm of segNorms) {
+    for (const entry of labelNorms) {
+      const norm = entry.norm;
+      if (!norm || norm === 'checklist' || norm.length < 4) continue;
+      if (segNorm.startsWith(norm) && segNorm.length - norm.length <= MAX_PREFIX_SLACK) return entry.tc;
+      if (norm.startsWith(segNorm) && segNorm.length >= 4 && norm.length - segNorm.length <= MAX_PREFIX_SLACK) return entry.tc;
+    }
+  }
+  // Pass 3: fall back to the generic "Checklist" column, if this phase has
+  // one and a segment literally says "Checklist" — nothing more specific
+  // matched.
+  for (const segNorm of segNorms) {
+    for (const entry of labelNorms) {
+      if (entry.norm === 'checklist' && segNorm === 'checklist') return entry.tc;
+    }
+  }
+  return null;
+}
+
+// Keeps the "Checklist Type Mapping" sheet in sync with whatever templates
+// currently exist, laid out exactly like "Asset Matrix" (its header rows
+// are copied verbatim, merged cells included, so the two sheets can never
+// structurally drift apart) — row 1/2 = the same Level 2/3/4 phase groups
+// and type-label columns, column A = template name, 'x' marks per row
+// instead of an asset's requirements. Existing rows are NEVER touched —
+// only templates not yet represented get a new row — so any manual
+// correction (adding/removing an 'x') survives every future re-run.
+function buildChecklistTypeMapping() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const templatesSheet = ss.getSheetByName('Checklist Templates');
+  const assetMatrixSheet = ss.getSheetByName('Asset Matrix');
+  if (!templatesSheet) {
+    SpreadsheetApp.getUi().alert("The 'Checklist Templates' sheet is missing — run fetchAndUpdateChecklistTemplates() first.");
+    return;
+  }
+  if (!assetMatrixSheet) {
+    SpreadsheetApp.getUi().alert("The 'Asset Matrix' sheet is missing — it's used as the header template for 'Checklist Type Mapping'.");
+    return;
+  }
+  const templateData = templatesSheet.getDataRange().getValues();
+  if (templateData.length < 2) return;
+  const tHeaders = templateData[0].map(h => String(h).toLowerCase().trim());
+  const nameIdx = tHeaders.indexOf('name');
+  if (nameIdx === -1) return;
+  const distinctNames = Array.from(new Set(templateData.slice(1).map(r => String(r[nameIdx] || '').trim()).filter(Boolean)));
+
+  let mapSheet = ss.getSheetByName('Checklist Type Mapping');
+  if (!mapSheet) mapSheet = ss.insertSheet('Checklist Type Mapping');
+
+  // Copy Asset Matrix's own header rows (values + merges + formatting)
+  // verbatim the first time, so the column layout is guaranteed identical.
+  if (mapSheet.getLastRow() < 2) {
+    const width = assetMatrixSheet.getLastColumn();
+    assetMatrixSheet.getRange(1, 1, 2, width).copyTo(mapSheet.getRange(1, 1, 2, width));
+    mapSheet.getRange(1, 1).setValue('Template Name');
+  }
+
+  const typeCols = parseMatrixTypeColumns_(mapSheet);
+  const width = mapSheet.getLastColumn();
+
+  const existingData = mapSheet.getDataRange().getValues();
+  const existingNames = new Set();
+  if (existingData.length > 2) {
+    existingData.slice(2).forEach(r => { const n = String(r[0] || '').trim(); if (n) existingNames.add(n); });
+  }
+
+  const colsByPhase = {};
+  typeCols.forEach(tc => {
+    if (!colsByPhase[tc.phase]) colsByPhase[tc.phase] = [];
+    colsByPhase[tc.phase].push(tc);
+  });
+  const allPhases = Object.keys(colsByPhase);
+
+  const newRows = [];
+  distinctNames.forEach(name => {
+    if (existingNames.has(name)) return; // already in the sheet — leave it exactly as it is, even if blank
+    const forcedPhase = detectTemplatePhaseMarker_(name);
+    const phasesToTry = forcedPhase ? [forcedPhase] : allPhases; // the name itself says which phase — don't guess at the others when it does
+    const row = new Array(width).fill('');
+    row[0] = name;
+    phasesToTry.forEach(phase => {
+      const match = matchTemplateTypeForPhase_(name, colsByPhase[phase] || []);
+      if (match) row[match.col] = 'x';
+    });
+    newRows.push(row);
+  });
+
+  if (newRows.length > 0) {
+    mapSheet.getRange(mapSheet.getLastRow() + 1, 1, newRows.length, width).setValues(newRows);
+  }
+}
+
+// Reads the "Checklist Type Mapping" sheet (same matrix layout as "Asset
+// Matrix") into { templateName: [{phase, label}, ...] } — a template can
+// legitimately map to more than one (phase, type) pair (e.g. the same
+// "Tag" template reused at both L2 and L3), so each name collects every
+// 'x' mark on its row rather than just one.
+function readChecklistTypeMapping_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Checklist Type Mapping');
+  const map = {};
+  if (!sheet) return map;
+  const typeCols = parseMatrixTypeColumns_(sheet);
+  if (typeCols.length === 0) return map;
+  const data = sheet.getDataRange().getDisplayValues();
+  for (let r = 2; r < data.length; r++) {
+    const name = String(data[r][0] || '').trim();
+    if (!name) continue;
+    typeCols.forEach(tc => {
+      const mark = String(data[r][tc.col] || '').trim().toLowerCase();
+      if (mark === 'x') {
+        if (!map[name]) map[name] = [];
+        map[name].push({ phase: tc.phase, label: tc.label });
+      }
+    });
+  }
+  return map;
 }
 
 function fetchAndUpdateTestData(projectId=45) {
@@ -358,30 +631,10 @@ function readAssetMatrix_() {
   const data = sheet.getDataRange().getDisplayValues();
   if (data.length < 3) return empty;
 
-  const phaseRow = data[0];
-  const typeRow = data[1];
-
-  // Carry the last "Level N" cell forward across the merged span. Any
-  // other non-empty row-1 text (Asset, i2, i3) does NOT update the
-  // running phase — it's simply ignored, not treated as a new phase.
-  const colPhase = [];
-  let currentPhase = '';
-  for (let c = 0; c < phaseRow.length; c++) {
-    const raw = String(phaseRow[c] || '').trim();
-    const m = raw.match(/level\s*(\d)/i);
-    if (m) currentPhase = 'L' + m[1];
-    colPhase.push(currentPhase);
-  }
-
   // A column only counts as a checklist-type column if it has BOTH a
   // resolved phase AND its own label in row 2 — this naturally excludes
   // the Asset column and the i2/i3 helper columns (blank row-2 label).
-  const typeCols = []; // { col, phase, label }
-  for (let c = 1; c < typeRow.length; c++) {
-    const label = String(typeRow[c] || '').trim();
-    const phase = colPhase[c];
-    if (label && phase) typeCols.push({ col: c, phase: phase, label: label });
-  }
+  const typeCols = parseMatrixTypeColumns_(sheet); // { col, phase, label }
 
   const typesByPhase = { L2: [], L3: [], L4: [] };
   typeCols.forEach(tc => {
@@ -1578,6 +1831,12 @@ function generateChecklistMatrix() {
     return;
   }
 
+  // Explicit template -> (phase, type) assignments from the Checklist
+  // Type Mapping sheet. When a checklist's template has an entry here, it
+  // wins over the name-substring match below — this is what makes the
+  // sheet an actual "conversion table" rather than just documentation.
+  const templateMapping = readChecklistTypeMapping_();
+
   const activeCategories = [];
   ['L2', 'L3', 'L4'].forEach(phase => {
     (assetMatrix.typesByPhase[phase] || []).forEach(label => {
@@ -1810,6 +2069,7 @@ function generateChecklistMatrix() {
   const rawIdIdx = rawHeaders.indexOf("number");
   const rawEquipIdx = rawHeaders.indexOf("asset_name");
   const rawNameIdx = rawHeaders.indexOf("name");
+  const rawTemplateNameIdx = rawHeaders.indexOf("template_name");
   const rawStatusIdx = rawHeaders.indexOf("status");
 
   if (rawIdIdx !== -1 && rawEquipIdx !== -1 && rawNameIdx !== -1) {
@@ -1817,15 +2077,33 @@ function generateChecklistMatrix() {
       let id = rawData[j][rawIdIdx];
       let equipment = rawData[j][rawEquipIdx];
       let checklistName = rawData[j][rawNameIdx] ? rawData[j][rawNameIdx].toString().trim().toLowerCase() : "";
+      let templateName = (rawTemplateNameIdx !== -1 && rawData[j][rawTemplateNameIdx]) ? rawData[j][rawTemplateNameIdx].toString().trim() : "";
       let status = rawStatusIdx !== -1 && rawData[j][rawStatusIdx] ? rawData[j][rawStatusIdx].toString().trim().toLowerCase() : "";
 
       if (equipment === "") continue;
       if (!initAsset(equipment)) continue; // not in the Asset Matrix allowlist
 
+      // A template with an explicit row in Checklist Type Mapping wins
+      // outright; otherwise fall back to matching the checklist's own
+      // name text (the original technique, still useful for templates
+      // nobody has mapped yet). A template whose OWN name carries an i2/i3
+      // marker is explicitly NOT a Level 2/3/4 item (confirmed distinct
+      // from L2/L3), so it's excluded from every Checklists category
+      // outright — it must never fall through to the name-substring
+      // guess, which doesn't know about that distinction and could
+      // wrongly pull it into a Level column anyway.
+      const mappedEntries = templateName ? (templateMapping[templateName] || null) : null;
+      const templatePhaseMarker = templateName ? detectTemplatePhaseMarker_(templateName) : null;
+      const isNonLevelTemplate = !!templatePhaseMarker && templatePhaseMarker.charAt(0) === 'I';
+
       activeCategories.forEach(cat => {
         if (cat.source !== "Checklists") return;
         if (!assetMap[equipment][cat.name]) return; // not required for this asset
-        if (!cat.searchTerms.some(term => checklistName.includes(term))) return;
+        if (isNonLevelTemplate) return; // i2/i3-marked template — not a Level 2/3/4 item
+        const matches = mappedEntries
+          ? mappedEntries.some(m => m.phase === cat.phase && m.label.toLowerCase() === cat.label.toLowerCase())
+          : cat.searchTerms.some(term => checklistName.includes(term));
+        if (!matches) return;
 
         assetMap[equipment][cat.name].push(id);
         if (checklistOpenStatuses.includes(status)) {
