@@ -1,0 +1,720 @@
+===============================================================================
+MSA3A — Asset Matrix / per-type checklist columns
+Apps Script changes to paste into the MSA3A API Database project
+===============================================================================
+
+Applies to the SAME Apps Script project as the MSA3A_Code.txt you pasted
+earlier. All of these edits are within generateChecklistMatrix() and
+doGet() (the big try block). Apply them in order, top to bottom — each
+"FIND" block is unique enough to locate with Ctrl+F in the Apps Script
+editor.
+
+After pasting all changes: run generateChecklistMatrix() once manually to
+rebuild Output/Open Counts/LP_Data, inspect the Output sheet by eye, then
+save + deploy a new version so doGet()/doPost() pick up the changes too.
+
+-------------------------------------------------------------------------------
+0. NEW FUNCTION — add anywhere near generateChecklistMatrix()
+-------------------------------------------------------------------------------
+
+function readAssetMatrix_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Asset Matrix');
+  const empty = { assets: new Set(), requirements: {}, typesByPhase: { L2: [], L3: [], L4: [] } };
+  if (!sheet) return empty;
+
+  const data = sheet.getDataRange().getDisplayValues();
+  if (data.length < 3) return empty;
+
+  const phaseRow = data[0];
+  const typeRow = data[1];
+
+  // Carry the last "Level N" cell forward across the merged span. Any
+  // other non-empty row-1 text (Asset, i2, i3) does NOT update the
+  // running phase — it's simply ignored, not treated as a new phase.
+  const colPhase = [];
+  let currentPhase = '';
+  for (let c = 0; c < phaseRow.length; c++) {
+    const raw = String(phaseRow[c] || '').trim();
+    const m = raw.match(/level\s*(\d)/i);
+    if (m) currentPhase = 'L' + m[1];
+    colPhase.push(currentPhase);
+  }
+
+  // A column only counts as a checklist-type column if it has BOTH a
+  // resolved phase AND its own label in row 2 — this naturally excludes
+  // the Asset column and the i2/i3 helper columns (blank row-2 label).
+  const typeCols = []; // { col, phase, label }
+  for (let c = 1; c < typeRow.length; c++) {
+    const label = String(typeRow[c] || '').trim();
+    const phase = colPhase[c];
+    if (label && phase) typeCols.push({ col: c, phase: phase, label: label });
+  }
+
+  const typesByPhase = { L2: [], L3: [], L4: [] };
+  typeCols.forEach(tc => {
+    if (!typesByPhase[tc.phase]) typesByPhase[tc.phase] = [];
+    if (!typesByPhase[tc.phase].includes(tc.label)) typesByPhase[tc.phase].push(tc.label);
+  });
+
+  const assets = new Set();
+  const requirements = {};
+  for (let r = 2; r < data.length; r++) {
+    const assetName = String(data[r][0] || '').trim();
+    if (!assetName) continue;
+    assets.add(assetName);
+    requirements[assetName] = {};
+    typeCols.forEach(tc => {
+      const mark = String(data[r][tc.col] || '').trim().toLowerCase();
+      if (mark === 'x') {
+        if (!requirements[assetName][tc.phase]) requirements[assetName][tc.phase] = new Set();
+        requirements[assetName][tc.phase].add(tc.label);
+      }
+    });
+  }
+
+  return { assets, requirements, typesByPhase };
+}
+
+-------------------------------------------------------------------------------
+1. generateChecklistMatrix() — replace the Settings-driven category list
+-------------------------------------------------------------------------------
+
+FIND:
+
+  const definedCategories = [
+    { name: "L2 Gate", maxCols: 10, source: "Checklists" },
+    { name: "L2 Support", maxCols: 10, source: "Checklists" },
+    { name: "L3 Gate", maxCols: 10, source: "Checklists" },
+    { name: "L3 Support", maxCols: 10, source: "Checklists" },
+    { name: "L4 Gate", maxCols: 10, source: "Tests" },
+    { name: "L4 Support", maxCols: 10, source: "Tests" }
+  ];
+
+  const activeCategories = [];
+
+  definedCategories.forEach(cat => {
+    let idx = settingsHeaders.indexOf(cat.name);
+    if (idx !== -1 && settingsToggles[idx] === true) {
+      activeCategories.push({
+        name: cat.name,
+        index: idx,
+        maxCols: cat.maxCols,
+        source: cat.source,
+        searchTerms: getSettingsList(cat.name)
+      });
+    }
+  });
+
+  if (activeCategories.length === 0 && issuesData.length === 0) {
+    SpreadsheetApp.getUi().alert("No active categories found and no Issues data found.");
+    return;
+  }
+
+REPLACE WITH:
+
+  const assetMatrix = readAssetMatrix_();
+  if (assetMatrix.assets.size === 0) {
+    SpreadsheetApp.getUi().alert("The 'Asset Matrix' tab is missing or empty — nothing to build.");
+    return;
+  }
+
+  const activeCategories = [];
+  ['L2', 'L3', 'L4'].forEach(phase => {
+    (assetMatrix.typesByPhase[phase] || []).forEach(label => {
+      activeCategories.push({
+        name: phase + ' ' + label,
+        phase: phase,
+        label: label,
+        maxCols: 10,
+        source: (phase === 'L4') ? 'Tests' : 'Checklists',
+        searchTerms: [label.toLowerCase()]
+      });
+    });
+  });
+
+  if (activeCategories.length === 0 && issuesData.length === 0) {
+    SpreadsheetApp.getUi().alert("No checklist types found in the Asset Matrix tab, and no Issues data found.");
+    return;
+  }
+
+(getSettingsList / settingsHeaders / settingsToggles stay — still used for
+the open/closed/Cx-Complete status lists further up — just no longer drive
+category definitions.)
+
+-------------------------------------------------------------------------------
+2. generateChecklistMatrix() — initAsset() becomes the allowlist checkpoint
+-------------------------------------------------------------------------------
+
+FIND:
+
+  // --- 4. Initialize the Asset Map ---
+  const assetMap = {};
+  function initAsset(equipment) {
+    if (!assetMap[equipment]) {
+      assetMap[equipment] = {
+        Area: getAssetArea(equipment),
+        Type: equipMap[equipment] ? equipMap[equipment].Type : "", // NEW: Pulls type from mapping
+        ProjectID: equipMap[equipment] ? equipMap[equipment].ProjectID : "",
+        EquipmentID: equipMap[equipment] ? equipMap[equipment].EquipmentID : "",
+        Issues: [],
+        openCounts: {},
+        pendingCxCounts: {},
+        cxCompleteCounts: {},
+        openChecklists: {},
+        openGatingIssues: [],
+        issueMetrics: { gatingOpen: 0, gatingClosed: 0, nonGatingOpen: 0, nonGatingClosed: 0 }
+      };
+      activeCategories.forEach(cat => {
+        assetMap[equipment][cat.name] = [];
+        assetMap[equipment].openCounts[cat.name] = 0;
+        assetMap[equipment].pendingCxCounts[cat.name] = 0;
+        assetMap[equipment].cxCompleteCounts[cat.name] = 0;
+        assetMap[equipment].openChecklists[cat.name] = [];
+      });
+    }
+  }
+
+REPLACE WITH:
+
+  // --- 4. Initialize the Asset Map ---
+  // Returns false (and initializes nothing) for any asset not listed in
+  // the Asset Matrix tab — every downstream loop calls initAsset() before
+  // touching assetMap, so this is the allowlist enforcement point.
+  const assetMap = {};
+  function initAsset(equipment) {
+    if (!assetMatrix.assets.has(equipment)) return false;
+    if (!assetMap[equipment]) {
+      assetMap[equipment] = {
+        Area: getAssetArea(equipment),
+        Type: equipMap[equipment] ? equipMap[equipment].Type : "",
+        ProjectID: equipMap[equipment] ? equipMap[equipment].ProjectID : "",
+        EquipmentID: equipMap[equipment] ? equipMap[equipment].EquipmentID : "",
+        Issues: [],
+        openCounts: {},
+        pendingCxCounts: {},
+        cxCompleteCounts: {},
+        openChecklists: {},
+        openGatingIssues: [],
+        issueMetrics: { gatingOpen: 0, gatingClosed: 0, nonGatingOpen: 0, nonGatingClosed: 0 }
+      };
+      const required = assetMatrix.requirements[equipment] || {};
+      activeCategories.forEach(cat => {
+        // Only initialize buckets for types this specific asset actually
+        // requires — a category never touched for this asset stays
+        // undefined, which the Output-sheet writer reads as "leave blank."
+        if (!required[cat.phase] || !required[cat.phase].has(cat.label)) return;
+        assetMap[equipment][cat.name] = [];
+        assetMap[equipment].openCounts[cat.name] = 0;
+        assetMap[equipment].pendingCxCounts[cat.name] = 0;
+        assetMap[equipment].cxCompleteCounts[cat.name] = 0;
+        assetMap[equipment].openChecklists[cat.name] = [];
+      });
+    }
+    return true;
+  }
+
+-------------------------------------------------------------------------------
+3. generateChecklistMatrix() — Checklists loop (Step 5): match on `name`,
+   not `type_name`, and gate by allowlist + per-asset requirement
+-------------------------------------------------------------------------------
+
+FIND:
+
+  // --- 5. Process RawData (L2 & L3) ---
+  const rawHeaders = rawData[0];
+  const rawIdIdx = rawHeaders.indexOf("number");
+  const rawEquipIdx = rawHeaders.indexOf("asset_name");
+  const rawTemplateIdx = rawHeaders.indexOf("type_name");
+  const rawStatusIdx = rawHeaders.indexOf("status");
+
+  if (rawIdIdx !== -1 && rawEquipIdx !== -1 && rawTemplateIdx !== -1) {
+    for (let j = 1; j < rawData.length; j++) {
+      let id = rawData[j][rawIdIdx];
+      let equipment = rawData[j][rawEquipIdx];
+      let template = rawData[j][rawTemplateIdx] ? rawData[j][rawTemplateIdx].toString().trim().toLowerCase() : "";
+      let status = rawStatusIdx !== -1 && rawData[j][rawStatusIdx] ? rawData[j][rawStatusIdx].toString().trim().toLowerCase() : "";
+
+      if (equipment === "") continue;
+      initAsset(equipment);
+
+      activeCategories.forEach(cat => {
+        if (cat.source === "Checklists" && cat.searchTerms.includes(template)) {
+          assetMap[equipment][cat.name].push(id);
+          if (checklistOpenStatuses.includes(status)) {
+            assetMap[equipment].openCounts[cat.name]++;
+            assetMap[equipment].openChecklists[cat.name].push(id);
+          } else if (checklistClosedStatuses.includes(status) && !checklistCxCompleteStatuses.includes(status)) {
+            assetMap[equipment].pendingCxCounts[cat.name]++;
+          } else if (checklistCxCompleteStatuses.includes(status)) {
+            assetMap[equipment].cxCompleteCounts[cat.name]++;
+          }
+        }
+      });
+    }
+  }
+
+REPLACE WITH:
+
+  // --- 5. Process RawData (L2 & L3) ---
+  const rawHeaders = rawData[0];
+  const rawIdIdx = rawHeaders.indexOf("number");
+  const rawEquipIdx = rawHeaders.indexOf("asset_name");
+  const rawNameIdx = rawHeaders.indexOf("name");
+  const rawStatusIdx = rawHeaders.indexOf("status");
+
+  if (rawIdIdx !== -1 && rawEquipIdx !== -1 && rawNameIdx !== -1) {
+    for (let j = 1; j < rawData.length; j++) {
+      let id = rawData[j][rawIdIdx];
+      let equipment = rawData[j][rawEquipIdx];
+      let checklistName = rawData[j][rawNameIdx] ? rawData[j][rawNameIdx].toString().trim().toLowerCase() : "";
+      let status = rawStatusIdx !== -1 && rawData[j][rawStatusIdx] ? rawData[j][rawStatusIdx].toString().trim().toLowerCase() : "";
+
+      if (equipment === "") continue;
+      if (!initAsset(equipment)) continue; // not in the Asset Matrix allowlist
+
+      activeCategories.forEach(cat => {
+        if (cat.source !== "Checklists") return;
+        if (!assetMap[equipment][cat.name]) return; // not required for this asset
+        if (!cat.searchTerms.some(term => checklistName.includes(term))) return;
+
+        assetMap[equipment][cat.name].push(id);
+        if (checklistOpenStatuses.includes(status)) {
+          assetMap[equipment].openCounts[cat.name]++;
+          assetMap[equipment].openChecklists[cat.name].push(id);
+        } else if (checklistClosedStatuses.includes(status) && !checklistCxCompleteStatuses.includes(status)) {
+          assetMap[equipment].pendingCxCounts[cat.name]++;
+        } else if (checklistCxCompleteStatuses.includes(status)) {
+          assetMap[equipment].cxCompleteCounts[cat.name]++;
+        }
+      });
+    }
+  }
+
+-------------------------------------------------------------------------------
+4. generateChecklistMatrix() — Tests loop (Step 6): same allowlist/gate
+-------------------------------------------------------------------------------
+
+FIND:
+
+        if (equipment === "") continue;
+        initAsset(equipment);
+
+        activeCategories.forEach(cat => {
+          if (cat.source === "Tests") {
+            let isMatch = cat.searchTerms.some(term => nameStr.includes(term));
+            if (isMatch) {
+              assetMap[equipment][cat.name].push(id);
+              if (testOpenStatuses.includes(status)) {
+                assetMap[equipment].openCounts[cat.name]++;
+                assetMap[equipment].openChecklists[cat.name].push(id);
+              }
+            }
+          }
+        });
+
+REPLACE WITH:
+
+        if (equipment === "") continue;
+        if (!initAsset(equipment)) continue; // not in the Asset Matrix allowlist
+
+        activeCategories.forEach(cat => {
+          if (cat.source !== "Tests") return;
+          if (!assetMap[equipment][cat.name]) return; // not required for this asset
+          if (!cat.searchTerms.some(term => nameStr.includes(term))) return;
+
+          assetMap[equipment][cat.name].push(id);
+          if (testOpenStatuses.includes(status)) {
+            assetMap[equipment].openCounts[cat.name]++;
+            assetMap[equipment].openChecklists[cat.name].push(id);
+          }
+        });
+
+-------------------------------------------------------------------------------
+5. generateChecklistMatrix() — Issues loop (Step 7): same allowlist gate
+-------------------------------------------------------------------------------
+
+FIND:
+
+        if (equipment === "") continue;
+        initAsset(equipment);
+
+        assetMap[equipment].Issues.push(id);
+
+REPLACE WITH:
+
+        if (equipment === "") continue;
+        if (!initAsset(equipment)) continue; // not in the Asset Matrix allowlist
+
+        assetMap[equipment].Issues.push(id);
+
+-------------------------------------------------------------------------------
+6. generateChecklistMatrix() — determinePhaseStatus(): aggregate rollup
+   (per your "aggregate across all required types" decision — Max Gate CL
+   Open and Max Support CL Open now both evaluate the same total; a saved
+   rule that relied on them differing independently no longer can)
+-------------------------------------------------------------------------------
+
+FIND:
+
+  // --- 8. Evaluate Statuses Sequentially ---
+  // Updated to dynamically accept the chosen ruleSet
+  function determinePhaseStatus(phase, assetData, prevStatusTextOnly, ruleSet) {
+    let gateCount = assetData.openCounts[phase + " Gate"] || 0;
+    let supportCount = assetData.openCounts[phase + " Support"] || 0;
+    let pendingCxCount = assetData.pendingCxCounts[phase + " Support"] || 0;
+    let gatingIssueCount = assetData.issueMetrics.gatingOpen;
+    let nonGatingIssueCount = assetData.issueMetrics.nonGatingOpen;
+
+    let phaseRules = ruleSet.filter(r => r.phase === phase);
+
+REPLACE WITH:
+
+  // --- 8. Evaluate Statuses Sequentially ---
+  // Updated to dynamically accept the chosen ruleSet
+  function determinePhaseStatus(phase, assetData, prevStatusTextOnly, ruleSet) {
+    // Aggregate across every checklist type this asset actually requires
+    // at this phase — there's no longer a single named "Gate"/"Support"
+    // bucket to read, so Max Gate CL Open and Max Support CL Open both
+    // evaluate against the same total.
+    let aggregateOpen = 0, aggregatePendingCx = 0;
+    activeCategories.forEach(cat => {
+      if (cat.phase !== phase) return;
+      if (assetData.openCounts[cat.name] === undefined) return; // not required for this asset
+      aggregateOpen += assetData.openCounts[cat.name] || 0;
+      aggregatePendingCx += assetData.pendingCxCounts[cat.name] || 0;
+    });
+    let gateCount = aggregateOpen;
+    let supportCount = aggregateOpen;
+    let pendingCxCount = aggregatePendingCx;
+    let gatingIssueCount = assetData.issueMetrics.gatingOpen;
+    let nonGatingIssueCount = assetData.issueMetrics.nonGatingOpen;
+
+    let phaseRules = ruleSet.filter(r => r.phase === phase);
+
+-------------------------------------------------------------------------------
+7. generateChecklistMatrix() — determinePhaseStatus(): includeOpenCHKs
+   detail list (still inside the same function, a bit further down)
+-------------------------------------------------------------------------------
+
+FIND:
+
+        if (r.includeOpenCHKs) {
+          let phaseOpenCLs = [];
+          if (assetData.openChecklists[phase + " Support"]) {
+            phaseOpenCLs = phaseOpenCLs.concat(assetData.openChecklists[phase + " Support"]);
+          }
+          if (phaseOpenCLs.length > 0) details.push("Open CHK(s): " + phaseOpenCLs.join(", "));
+        }
+
+REPLACE WITH:
+
+        if (r.includeOpenCHKs) {
+          let phaseOpenCLs = [];
+          activeCategories.forEach(cat => {
+            if (cat.phase !== phase) return;
+            if (assetData.openChecklists[cat.name]) phaseOpenCLs = phaseOpenCLs.concat(assetData.openChecklists[cat.name]);
+          });
+          if (phaseOpenCLs.length > 0) details.push("Open CHK(s): " + phaseOpenCLs.join(", "));
+        }
+
+-------------------------------------------------------------------------------
+8. generateChecklistMatrix() — Build Headers (Step 9): one column group
+   per type instead of Gate-then-Support
+-------------------------------------------------------------------------------
+
+FIND:
+
+  // --- 9. Build Headers ---
+  const outHeaders = ["Asset", "Area"];
+  const countHeaders = ["Asset", "Area"];
+  const lpDataHeaders = ["Phase", "Asset", "Status", "Duration"]; // NEW: Added Duration
+  const phases = ["L2", "L3", "L4"];
+
+  phases.forEach(phase => {
+    let gateCat = activeCategories.find(c => c.name === phase + " Gate");
+    if (gateCat) {
+      for (let c = 1; c <= gateCat.maxCols; c++) outHeaders.push(gateCat.name + " CL " + c);
+      countHeaders.push(gateCat.name + " Open");
+    }
+
+    let hasPhase = activeCategories.some(c => c.name.startsWith(phase));
+    if (hasPhase) outHeaders.push(phase + " Overall Status");
+
+    let suppCat = activeCategories.find(c => c.name === phase + " Support");
+    if (suppCat) {
+      for (let c = 1; c <= suppCat.maxCols; c++) outHeaders.push(suppCat.name + " CL " + c);
+      countHeaders.push(suppCat.name + " Open");
+    }
+  });
+
+REPLACE WITH:
+
+  // --- 9. Build Headers ---
+  const outHeaders = ["Asset", "Area"];
+  const countHeaders = ["Asset", "Area"];
+  const lpDataHeaders = ["Phase", "Asset", "Status", "Duration"]; // NEW: Added Duration
+  const phases = ["L2", "L3", "L4"];
+
+  phases.forEach(phase => {
+    const phaseCats = activeCategories.filter(c => c.phase === phase);
+    phaseCats.forEach(cat => {
+      for (let c = 1; c <= cat.maxCols; c++) outHeaders.push(cat.name + " CL " + c);
+      countHeaders.push(cat.name + " Open");
+    });
+
+    if (phaseCats.length > 0) outHeaders.push(phase + " Overall Status");
+  });
+
+(Note: column order per phase is now "all required type CLs, then Overall
+Status" — previously it was "Gate CLs, Status, Support CLs." This is an
+intentional simplification now that there are N named types instead of 2.)
+
+-------------------------------------------------------------------------------
+9. generateChecklistMatrix() — Build Rows (Step 10): blank cells for
+   non-required types
+-------------------------------------------------------------------------------
+
+FIND:
+
+    phases.forEach(phase => {
+      let gateCat = activeCategories.find(c => c.name === phase + " Gate");
+      if (gateCat) {
+        let checklists = assetData[gateCat.name];
+        if (checklists.length > 0) hasData = true;
+        let clSlice = checklists.slice(0, gateCat.maxCols);
+        while (clSlice.length < gateCat.maxCols) clSlice.push("");
+        rowOut = rowOut.concat(clSlice);
+        rowCount.push(assetData.openCounts[gateCat.name]);
+      }
+
+      let hasPhase = activeCategories.some(c => c.name.startsWith(phase));
+      if (hasPhase) rowOut.push(statusMap[phase]);
+
+      let suppCat = activeCategories.find(c => c.name === phase + " Support");
+      if (suppCat) {
+        let checklists = assetData[suppCat.name];
+        if (checklists.length > 0) hasData = true;
+        let clSlice = checklists.slice(0, suppCat.maxCols);
+        while (clSlice.length < suppCat.maxCols) clSlice.push("");
+        rowOut = rowOut.concat(clSlice);
+        rowCount.push(assetData.openCounts[suppCat.name]);
+      }
+    });
+
+REPLACE WITH:
+
+    phases.forEach(phase => {
+      const phaseCats = activeCategories.filter(c => c.phase === phase);
+      phaseCats.forEach(cat => {
+        const checklists = assetData[cat.name]; // undefined = not required for this asset
+        if (checklists === undefined) {
+          // Not required for this asset — every cell in this type's
+          // column group, and its Open count, stays genuinely blank.
+          for (let c = 1; c <= cat.maxCols; c++) rowOut.push("");
+          rowCount.push("");
+          return;
+        }
+        if (checklists.length > 0) hasData = true;
+        let clSlice = checklists.slice(0, cat.maxCols);
+        while (clSlice.length < cat.maxCols) clSlice.push("");
+        rowOut = rowOut.concat(clSlice);
+        rowCount.push(assetData.openCounts[cat.name]);
+      });
+
+      if (phaseCats.length > 0) rowOut.push(statusMap[phase]);
+    });
+
+-------------------------------------------------------------------------------
+10. doGet() — add checklistTypesByPhase to config
+-------------------------------------------------------------------------------
+
+FIND:
+
+    let config = {
+      showL2Gate: true, showL3Gate: true, showL4Gate: true,
+      showL2Supp: true, showL3Supp: true, showL4Supp: true,
+      openStatuses: [], closedStatuses: [], cxCompleteStatuses: [],
+      testOpenStatuses: [], testClosedStatuses: [],
+      issueOpenStatuses: [], issueClosedStatuses: [],
+      gatingIssues: [], nonGatingIssues: [],
+      phaseRules: [], fallbackColor: '#f5f5f5',
+
+REPLACE WITH:
+
+    let config = {
+      showL2Gate: true, showL3Gate: true, showL4Gate: true,
+      showL2Supp: true, showL3Supp: true, showL4Supp: true,
+      openStatuses: [], closedStatuses: [], cxCompleteStatuses: [],
+      testOpenStatuses: [], testClosedStatuses: [],
+      issueOpenStatuses: [], issueClosedStatuses: [],
+      gatingIssues: [], nonGatingIssues: [],
+      checklistTypesByPhase: { L2: [], L3: [], L4: [] },
+      phaseRules: [], fallbackColor: '#f5f5f5',
+
+Then, right after the `let config = { ... };` block closes (i.e. right
+after the line `maxCols: { l2: 0, l3: 0, l4: 0, iss: 0 }` and its closing
+`};`), ADD:
+
+    const assetMatrix = readAssetMatrix_();
+    config.checklistTypesByPhase = {
+      L2: assetMatrix.typesByPhase.L2 || [],
+      L3: assetMatrix.typesByPhase.L3 || [],
+      L4: assetMatrix.typesByPhase.L4 || []
+    };
+
+-------------------------------------------------------------------------------
+11. doGet() — filter validRows to the Asset Matrix allowlist
+-------------------------------------------------------------------------------
+
+FIND:
+
+    const validRows = assetData.slice(1).filter(row => row[assetColIdx] && String(row[assetColIdx]).trim() !== '');
+
+REPLACE WITH:
+
+    const validRows = assetData.slice(1).filter(row => row[assetColIdx] && String(row[assetColIdx]).trim() !== '' && assetMatrix.assets.has(String(row[assetColIdx]).trim()));
+
+-------------------------------------------------------------------------------
+12. doGet() — generalize maxCols/actualMaxCols column counting
+-------------------------------------------------------------------------------
+
+FIND:
+
+    // --- UPDATED: Bulletproof Column Counting ---
+    let maxCols = { l2: 0, l3: 0, l4: 0, iss: 0, l2Gate: 1, l3Gate: 1, l4Gate: 1 };
+    assetHeaders.forEach(h => {
+        let m2 = h.match(/L2\s*Support.*?(\d+)/i); if (m2) maxCols.l2 = Math.max(maxCols.l2, parseInt(m2[1]));
+        let m3 = h.match(/L3\s*Support.*?(\d+)/i); if (m3) maxCols.l3 = Math.max(maxCols.l3, parseInt(m3[1]));
+        let m4 = h.match(/L4\s*Support.*?(\d+)/i); if (m4) maxCols.l4 = Math.max(maxCols.l4, parseInt(m4[1]));
+        let mIss = h.match(/Issue.*?(\d+)/i);       if (mIss) maxCols.iss = Math.max(maxCols.iss, parseInt(mIss[1]));
+
+        let g2 = h.match(/L2\s*Gate.*?(\d+)/i); if (g2) maxCols.l2Gate = Math.max(maxCols.l2Gate, parseInt(g2[1]));
+        let g3 = h.match(/L3\s*Gate.*?(\d+)/i); if (g3) maxCols.l3Gate = Math.max(maxCols.l3Gate, parseInt(g3[1]));
+        let g4 = h.match(/L4\s*Gate.*?(\d+)/i); if (g4) maxCols.l4Gate = Math.max(maxCols.l4Gate, parseInt(g4[1]));
+    });
+
+    let actualMaxCols = { l2: 0, l3: 0, l4: 0, iss: 0, l2Gate: 1, l3Gate: 1, l4Gate: 1 };
+
+REPLACE WITH:
+
+    // Column counting, generalized to one dynamic entry per (phase, type
+    // label) pair instead of hardcoded Gate/Support regexes — keyed by
+    // "L2 Tag" etc., same key shape as generateChecklistMatrix()'s
+    // activeCategories[].name.
+    let maxCols = { iss: 0 };
+    ['L2', 'L3', 'L4'].forEach(phase => {
+      (config.checklistTypesByPhase[phase] || []).forEach(label => {
+        maxCols[phase + ' ' + label] = 1;
+      });
+    });
+    assetHeaders.forEach(h => {
+        let mIss = h.match(/Issue.*?(\d+)/i); if (mIss) maxCols.iss = Math.max(maxCols.iss, parseInt(mIss[1]));
+        ['L2', 'L3', 'L4'].forEach(phase => {
+          (config.checklistTypesByPhase[phase] || []).forEach(label => {
+            const key = phase + ' ' + label;
+            const re = new RegExp('^' + phase + '\\s*' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*?(\\d+)$', 'i');
+            const m = h.match(re);
+            if (m) maxCols[key] = Math.max(maxCols[key] || 1, parseInt(m[1]));
+          });
+        });
+    });
+
+    let actualMaxCols = { iss: 0 };
+    Object.keys(maxCols).forEach(k => { if (k !== 'iss') actualMaxCols[k] = 1; });
+
+-------------------------------------------------------------------------------
+13. doGet() — replace the levels.forEach Gate/Support link-resolution loop
+-------------------------------------------------------------------------------
+
+FIND:
+
+      const levels = ['L2', 'L3', 'L4'];
+      levels.forEach(level => {
+        let key = level.toLowerCase();
+        let currentMap = (level === 'L4') ? testMap : clMap;
+
+        // --- UPDATED: Bulletproof Dynamic Gate Processing ---
+        let maxGate = maxCols[key + 'Gate'] || 1;
+        for (let i = 1; i <= maxGate; i++) {
+
+          // Automatically hunt for the exact header name that exists in the sheet
+          let gateKeyRegex = new RegExp(`^${level}\\s*Gate.*?${i}$`, 'i');
+          let gateKey = Object.keys(obj).find(k => gateKeyRegex.test(k)) || `${level} Gate CL ${i}`;
+
+          if (obj[gateKey]) {
+            // Strip out any pre-existing statuses to guarantee a clean ID lookup
+            let cleanId = obj[gateKey].toString().replace(/\(.*?\)/g, '').trim();
+
+            if (cleanId && cleanId !== 'N/A' && cleanId !== 'Clear' && cleanId !== '-') {
+                let matchData = currentMap[cleanId] || {status: 'Unknown', link: ''};
+
+                obj[gateKey] = `${cleanId} (${matchData.status})`;
+                obj[gateKey + '_Link'] = matchData.link;
+
+                actualMaxCols[key + 'Gate'] = Math.max(actualMaxCols[key + 'Gate'] || 1, i);
+            }
+          }
+        }
+
+        // Loop through Support CLs
+        for (let i = 1; i <= maxCols[key]; i++) {
+          let suppKeyRegex = new RegExp(`^${level}\\s*Support.*?${i}$`, 'i');
+          let suppKey = Object.keys(obj).find(k => suppKeyRegex.test(k)) || `${level} Support CL ${i}`;
+
+          if (obj[suppKey]) {
+            let cleanId = obj[suppKey].toString().replace(/\(.*?\)/g, '').trim();
+            if (cleanId && cleanId !== 'N/A' && cleanId !== 'Clear' && cleanId !== '-') {
+                let matchData = currentMap[cleanId] || {status: 'Unknown', link: ''};
+                obj[suppKey] = `${cleanId} (${matchData.status})`;
+                obj[suppKey + '_Link'] = matchData.link;
+                actualMaxCols[key] = Math.max(actualMaxCols[key] || 1, i);
+            }
+          }
+        }
+      });
+
+REPLACE WITH:
+
+      ['L2', 'L3', 'L4'].forEach(level => {
+        let currentMap = (level === 'L4') ? testMap : clMap;
+        (config.checklistTypesByPhase[level] || []).forEach(label => {
+          const catKey = level + ' ' + label;
+          const maxN = maxCols[catKey] || 1;
+          for (let i = 1; i <= maxN; i++) {
+            const cellKeyRegex = new RegExp('^' + level + '\\s*' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*?' + i + '$', 'i');
+            const cellKey = Object.keys(obj).find(k => cellKeyRegex.test(k)) || `${catKey} CL ${i}`;
+
+            if (obj[cellKey]) {
+              let cleanId = obj[cellKey].toString().replace(/\(.*?\)/g, '').trim();
+              if (cleanId && cleanId !== 'N/A' && cleanId !== 'Clear' && cleanId !== '-') {
+                  let matchData = currentMap[cleanId] || {status: 'Unknown', link: ''};
+                  obj[cellKey] = `${cleanId} (${matchData.status})`;
+                  obj[cellKey + '_Link'] = matchData.link;
+                  actualMaxCols[catKey] = Math.max(actualMaxCols[catKey] || 1, i);
+              }
+            }
+          }
+        });
+      });
+
+(`config.maxCols = actualMaxCols;` at the end of doGet() stays unchanged —
+it just now carries the new per-type key shape instead of the old
+{l2,l3,l4,iss,l2Gate,l3Gate,l4Gate} shape.)
+
+===============================================================================
+STILL OUTSTANDING (not in this file)
+===============================================================================
+
+- equipment-tracker-view.js front-end generalization (header generation,
+  renderGateCells/renderSupportCells, maxCols consumers, settings toggles,
+  filter column indices, PDF_OPTIONS) — per the approved plan, this is a
+  separate pass once the Apps Script output above is verified correct by
+  eye in the MSA3A Output sheet. Not included here since it's a different
+  file with a much larger blast radius (shared by every project).
+- The "i2"/"i3" Asset Matrix columns (B, G) are assumed irrelevant to this
+  feature and are skipped automatically by readAssetMatrix_() (no row-2
+  label under them) — flag if that's wrong.
+- Multiple checklists of the same type for one asset: the code above
+  supports it (numbered CL slots per type, same pattern Gate/Support used),
+  untested against real data since it wasn't confirmed whether this
+  actually occurs in practice.

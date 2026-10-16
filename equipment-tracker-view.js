@@ -81,12 +81,21 @@ function generateGateHeaderHTML(level, maxCount, baseTitle, filterColIndex) {
     return html;
 }
 
-function generateHeaderHTML(level, max) {
+// supportTypes: [{label, maxCols, legacy}] — legacy (no Apps Script
+// checklistTypesByPhase for this project, the vast majority) is always
+// exactly one entry {label:'Support', legacy:true}, producing the exact
+// same "Supp 1, Supp 2, ..." headers this always has. A project whose
+// Apps Script DOES provide checklistTypesByPhase (currently only MSA3A)
+// gets one named header group per real checklist type instead.
+function generateHeaderHTML(level, supportTypes) {
     let html = '';
-    for (let i = 1; i <= max; i++) {
-        let isLast = (i === max) ? 'divider-right' : '';
-        html += `<div class="header-cell col-details ${level.toLowerCase()}-supp-details cl-cell dynamic-header ${isLast}">Supp ${i}</div>`;
-    }
+    supportTypes.forEach((t, tIdx) => {
+        for (let i = 1; i <= t.maxCols; i++) {
+            let isVeryLast = (tIdx === supportTypes.length - 1 && i === t.maxCols) ? 'divider-right' : '';
+            let title = t.legacy ? `Supp ${i}` : (t.maxCols > 1 ? `${t.label} ${i}` : t.label);
+            html += `<div class="header-cell col-details ${level.toLowerCase()}-supp-details cl-cell dynamic-header ${isVeryLast}">${title}</div>`;
+        }
+    });
     return html;
 }
 
@@ -1174,13 +1183,17 @@ export class EquipmentTrackerView extends HTMLElement {
 
     generateGateHeaderHTML(level, maxCount, baseTitle, filterColIndex) { return generateGateHeaderHTML(level, maxCount, baseTitle, filterColIndex); }
 
-    renderGateCells(row, level, maxCount) {
+    renderGateCells(row, level, maxCount, gateLabel) {
+        // gateLabel defaults to the literal 'Gate' — every project except
+        // MSA3A has no Apps Script checklistTypesByPhase, so this stays
+        // identical to the original behavior.
+        gateLabel = gateLabel || 'Gate';
         let html = '';
         let type = (level === 'L4') ? 'test' : 'checklist';
         for (let i = 1; i <= maxCount; i++) {
             // Search the row object for whatever exact column name the backend used
-            let gateKeyRegex = new RegExp(`^${level}\\s*Gate.*?${i}$`, 'i');
-            let gateKey = Object.keys(row).find(k => gateKeyRegex.test(k)) || `${level} Gate CL ${i}`;
+            let gateKeyRegex = new RegExp(`^${level}\\s*${gateLabel}.*?${i}$`, 'i');
+            let gateKey = Object.keys(row).find(k => gateKeyRegex.test(k)) || `${level} ${gateLabel} CL ${i}`;
 
             let val = row[gateKey] || '';
             let link = row[`${gateKey}_Link`] || row[`${gateKey} Link`] || '';
@@ -1223,15 +1236,20 @@ export class EquipmentTrackerView extends HTMLElement {
         }
     }
 
-    renderSupportCells(row, level, maxCount) {
+    // supportTypes: [{label, maxCols, legacy}] — see generateHeaderHTML()'s
+    // comment for the legacy-vs-named-type split.
+    renderSupportCells(row, level, supportTypes) {
         let html = '';
         let type = (level === 'L4') ? 'test' : 'checklist';
-        for (let i = 1; i <= maxCount; i++) {
-            const isLast = (i === maxCount) ? 'divider-right' : '';
-            let cellVal = row[`${level} Support CL ${i}`];
-            let cellLink = row[`${level} Support CL ${i}_Link`] || row[`${level} Support CL ${i} Link`];
-            html += this.renderStackedCell(cellVal, `cell-row-detail col-details ${level.toLowerCase()}-supp-details cl-cell ${isLast}`, type, cellLink).replace('filter-target', '');
-        }
+        supportTypes.forEach((t, tIdx) => {
+            const prefix = t.legacy ? `${level} Support` : `${level} ${t.label}`;
+            for (let i = 1; i <= t.maxCols; i++) {
+                const isVeryLast = (tIdx === supportTypes.length - 1 && i === t.maxCols) ? 'divider-right' : '';
+                let cellVal = row[`${prefix} CL ${i}`];
+                let cellLink = row[`${prefix} CL ${i}_Link`] || row[`${prefix} CL ${i} Link`];
+                html += this.renderStackedCell(cellVal, `cell-row-detail col-details ${level.toLowerCase()}-supp-details cl-cell ${isVeryLast}`, type, cellLink).replace('filter-target', '');
+            }
+        });
         return html;
     }
 
@@ -1283,7 +1301,9 @@ export class EquipmentTrackerView extends HTMLElement {
     }
 
     // --- FIX FOR FILTER BUG: Now returns rawText properly for parsing ---
-    combineOpenSupportCLs(row, level, maxCount) {
+    // supportTypes: [{label, maxCols, legacy}] — see generateHeaderHTML()'s
+    // comment for the legacy-vs-named-type split.
+    combineOpenSupportCLs(row, level, supportTypes) {
         let openIds = [];
         let rawIds = [];
         let closedArr = (level === 'L4') ? (this.globalConfig.testClosedStatuses || []) : (this.globalConfig.closedStatuses || []);
@@ -1291,27 +1311,30 @@ export class EquipmentTrackerView extends HTMLElement {
         // no Gate checklist to lean on, a Support CL marked Cx Complete
         // should stop counting as "open" too, not just ones marked plain Closed.
         let cxCompleteArr = (level === 'L4') ? [] : (this.globalConfig.cxCompleteStatuses || []);
-        for (let i = 1; i <= maxCount; i++) {
-            const val = row[`${level} Support CL ${i}`];
-            const link = row[`${level} Support CL ${i}_Link`] || row[`${level} Support CL ${i} Link`];
-            if (val && val !== 'N/A' && val !== 'Clear' && String(val).trim() !== '') {
-                const match = String(val).match(/(.+?)\s*\((.+)\)/);
-                let id = ""; let include = false;
-                if (match) {
-                    if (!isStatusMatch(match[2], closedArr) && !isStatusMatch(match[2], cxCompleteArr) && !String(match[2]).toLowerCase().includes('no cl')) {
-                        id = match[1].trim(); include = true;
+        supportTypes.forEach(t => {
+            const prefix = t.legacy ? `${level} Support` : `${level} ${t.label}`;
+            for (let i = 1; i <= t.maxCols; i++) {
+                const val = row[`${prefix} CL ${i}`];
+                const link = row[`${prefix} CL ${i}_Link`] || row[`${prefix} CL ${i} Link`];
+                if (val && val !== 'N/A' && val !== 'Clear' && String(val).trim() !== '') {
+                    const match = String(val).match(/(.+?)\s*\((.+)\)/);
+                    let id = ""; let include = false;
+                    if (match) {
+                        if (!isStatusMatch(match[2], closedArr) && !isStatusMatch(match[2], cxCompleteArr) && !String(match[2]).toLowerCase().includes('no cl')) {
+                            id = match[1].trim(); include = true;
+                        }
+                    } else if (String(val).toLowerCase() !== 'no cl' && String(val).toLowerCase() !== 'unknown') {
+                        id = String(val).trim(); include = true;
                     }
-                } else if (String(val).toLowerCase() !== 'no cl' && String(val).toLowerCase() !== 'unknown') {
-                    id = String(val).trim(); include = true;
-                }
-                if (include) {
-                    let safeLink = String(link || '').trim();
-                    let idDisplay = (safeLink && safeLink !== 'undefined' && safeLink !== 'null' && safeLink !== '') ? `<a href="${safeLink}" target="_blank" class="chk-link">${id}</a>` : id;
-                    openIds.push(idDisplay);
-                    rawIds.push(id);
+                    if (include) {
+                        let safeLink = String(link || '').trim();
+                        let idDisplay = (safeLink && safeLink !== 'undefined' && safeLink !== 'null' && safeLink !== '') ? `<a href="${safeLink}" target="_blank" class="chk-link">${id}</a>` : id;
+                        openIds.push(idDisplay);
+                        rawIds.push(id);
+                    }
                 }
             }
-        }
+        });
         if (openIds.length === 0) return { display: "-", rawText: "-", count: 0 };
         return { display: openIds.join(', '), rawText: rawIds.join(', '), count: openIds.length };
     }
@@ -1425,25 +1448,51 @@ export class EquipmentTrackerView extends HTMLElement {
                 this.updateHeaderElement('iss-status-title', this.globalConfig.customHeaders.issStatus, true);
             }
 
-            let actualMaxCols = { l2: 0, l3: 0, l4: 0, iss: 0, l2Gate: 1, l3Gate: 1, l4Gate: 1 };
+            // Which checklist type plays "Gate" (singular, always-visible)
+            // and which types play "Support" (collapsible, possibly many)
+            // per phase — driven entirely by config.checklistTypesByPhase,
+            // which only MSA3A's Apps Script currently produces. Every
+            // other project falls through to the literal 'Gate'/'Support'
+            // labels this always used, so nothing changes for them.
+            const typesByPhase = this.globalConfig.checklistTypesByPhase;
+            const gateLabelByPhase = {};
+            const supportLabelListByPhase = {};
+            ['L2', 'L3', 'L4'].forEach(level => {
+                const types = (typesByPhase && typesByPhase[level] && typesByPhase[level].length) ? typesByPhase[level] : null;
+                if (types) {
+                    const tagLabel = types.find(l => l.toLowerCase() === 'tag');
+                    gateLabelByPhase[level] = tagLabel || 'Gate';
+                    supportLabelListByPhase[level] = tagLabel ? types.filter(l => l !== tagLabel) : types.slice();
+                } else {
+                    gateLabelByPhase[level] = 'Gate';
+                    supportLabelListByPhase[level] = ['Support'];
+                }
+            });
+            this.globalConfig.gateLabelByPhase = gateLabelByPhase;
+
+            let actualMaxCols = { l2: 0, l3: 0, l4: 0, iss: 0, l2Gate: 1, l3Gate: 1, l4Gate: 1, byType: { L2: {}, L3: {}, L4: {} } };
 
             rows.forEach(row => {
                 ['L2', 'L3', 'L4'].forEach(level => {
                     let key = level.toLowerCase();
                     let gateKey = key + 'Gate';
+                    const gateLabel = gateLabelByPhase[level];
+                    const byType = actualMaxCols.byType[level];
 
-                    for (let i = 1; i <= 100; i++) {
-                        let val = row[`${level} Support CL ${i}`];
-                        if (val !== undefined && val !== null) {
-                            let clean = String(val).replace(/\(Unknown\)/ig, '').trim();
-                            if (clean !== '' && clean !== 'N/A' && clean !== 'Clear' && clean !== '-') {
-                                actualMaxCols[key] = Math.max(actualMaxCols[key], i);
+                    supportLabelListByPhase[level].forEach(label => {
+                        for (let i = 1; i <= 100; i++) {
+                            let val = row[`${level} ${label} CL ${i}`];
+                            if (val !== undefined && val !== null) {
+                                let clean = String(val).replace(/\(Unknown\)/ig, '').trim();
+                                if (clean !== '' && clean !== 'N/A' && clean !== 'Clear' && clean !== '-') {
+                                    byType[label] = Math.max(byType[label] || 0, i);
+                                }
                             }
                         }
-                    }
+                    });
 
                     for (let i = 1; i <= 20; i++) {
-                        let val = row[`${level} Gate CL ${i}`] || row[`${level} Gate ${i}`] || row[`${level} Gate CL${i}`];
+                        let val = row[`${level} ${gateLabel} CL ${i}`] || row[`${level} ${gateLabel} ${i}`] || row[`${level} ${gateLabel} CL${i}`];
                         if (val !== undefined && val !== null) {
                             let clean = String(val).replace(/\(Unknown\)/ig, '').trim();
                             if (clean !== '' && clean !== 'N/A' && clean !== 'Clear' && clean !== '-') {
@@ -1462,6 +1511,21 @@ export class EquipmentTrackerView extends HTMLElement {
                     }
                 }
             });
+
+            // Roll up each phase's total Support column count (width calc
+            // and "is there anything to show" checks already key off this
+            // single number, unchanged) and build the per-type lists the
+            // new render/header functions need.
+            const supportTypesByPhase = {};
+            ['L2', 'L3', 'L4'].forEach(level => {
+                const legacy = supportLabelListByPhase[level].length === 1 && supportLabelListByPhase[level][0] === 'Support' && !(typesByPhase && typesByPhase[level] && typesByPhase[level].length);
+                const list = supportLabelListByPhase[level]
+                    .map(label => ({ label, maxCols: actualMaxCols.byType[level][label] || 0, legacy }))
+                    .filter(t => t.maxCols > 0);
+                supportTypesByPhase[level] = list;
+                actualMaxCols[level.toLowerCase()] = list.reduce((sum, t) => sum + t.maxCols, 0);
+            });
+            this.globalConfig.supportTypesByPhase = supportTypesByPhase;
             this.globalConfig.maxCols = actualMaxCols;
 
             this.classList.toggle('hide-l2-gate', this.globalConfig.showL2Gate === false);
@@ -1485,9 +1549,9 @@ export class EquipmentTrackerView extends HTMLElement {
             let l4GateCol = this.shadowRoot.querySelector('.l4-gate-col:not(.dynamic-gate-header)');
             if (l4GateCol) l4GateCol.style.display = 'none';
 
-            if (this.globalConfig.maxCols.l2 > 0) this.$('l2-supp-header').insertAdjacentHTML('afterend', generateHeaderHTML('L2', this.globalConfig.maxCols.l2));
-            if (this.globalConfig.maxCols.l3 > 0) this.$('l3-supp-header').insertAdjacentHTML('afterend', generateHeaderHTML('L3', this.globalConfig.maxCols.l3));
-            if (this.globalConfig.maxCols.l4 > 0) this.$('l4-supp-header').insertAdjacentHTML('afterend', generateHeaderHTML('L4', this.globalConfig.maxCols.l4));
+            if (this.globalConfig.maxCols.l2 > 0) this.$('l2-supp-header').insertAdjacentHTML('afterend', generateHeaderHTML('L2', this.globalConfig.supportTypesByPhase.L2));
+            if (this.globalConfig.maxCols.l3 > 0) this.$('l3-supp-header').insertAdjacentHTML('afterend', generateHeaderHTML('L3', this.globalConfig.supportTypesByPhase.L3));
+            if (this.globalConfig.maxCols.l4 > 0) this.$('l4-supp-header').insertAdjacentHTML('afterend', generateHeaderHTML('L4', this.globalConfig.supportTypesByPhase.L4));
             if (this.globalConfig.maxCols.iss > 0) this.$('global-iss-header').insertAdjacentHTML('afterend', generateIssHeaderHTML(this.globalConfig.maxCols.iss));
 
             const l2Title = this.globalConfig.customHeaders?.l2Gate || 'Gate CL';
@@ -1532,18 +1596,19 @@ export class EquipmentTrackerView extends HTMLElement {
                 const assetDisplay = assetLink ? `<a href="${assetLink}" target="_blank" class="asset-link">${assetId}</a>` : assetId;
                 const areaVal = row['Area'] || 'N/A';
 
-                const l2Open = this.combineOpenSupportCLs(row, 'L2', this.globalConfig.maxCols.l2);
-                const l3Open = this.combineOpenSupportCLs(row, 'L3', this.globalConfig.maxCols.l3);
-                const l4Open = this.combineOpenSupportCLs(row, 'L4', this.globalConfig.maxCols.l4);
+                const l2Open = this.combineOpenSupportCLs(row, 'L2', this.globalConfig.supportTypesByPhase.L2);
+                const l3Open = this.combineOpenSupportCLs(row, 'L3', this.globalConfig.supportTypesByPhase.L3);
+                const l4Open = this.combineOpenSupportCLs(row, 'L4', this.globalConfig.supportTypesByPhase.L4);
                 const issuesOpen = this.combineOpenIssues(row, this.globalConfig.maxCols.iss);
 
+                const gateLabelByPhase = this.globalConfig.gateLabelByPhase || { L2: 'Gate', L3: 'Gate', L4: 'Gate' };
                 let fVal0 = String(assetId).trim();
                 let fVal1 = String(areaVal).trim();
-                let fVal2 = getGateVal(row['L2 Gate CL 1']);
+                let fVal2 = getGateVal(row[`L2 ${gateLabelByPhase.L2} CL 1`]);
                 let fVal3 = String(row['L2 Overall Status'] || 'N/A').trim();
-                let fVal4 = getGateVal(row['L3 Gate CL 1']);
+                let fVal4 = getGateVal(row[`L3 ${gateLabelByPhase.L3} CL 1`]);
                 let fVal5 = String(row['L3 Overall Status'] || 'N/A').trim();
-                let fVal6 = getGateVal(row['L4 Gate CL 1']);
+                let fVal6 = getGateVal(row[`L4 ${gateLabelByPhase.L4} CL 1`]);
                 let fVal7 = String(row['L4 Overall Status'] || 'N/A').trim();
                 let fVal8 = String(issuesOpen.rawText).trim();
 
@@ -1557,19 +1622,19 @@ export class EquipmentTrackerView extends HTMLElement {
                     </div>
                     <div class="phase-gap"></div>
 
-                    ${this.renderGateCells(row, 'L2', this.globalConfig.maxCols.l2Gate)}
+                    ${this.renderGateCells(row, 'L2', this.globalConfig.maxCols.l2Gate, gateLabelByPhase.L2)}
                     <div class="filter-target summary-cell l2-supp-summary divider-right" style="${this.getDynamicStyle(row['L2 Overall Status'], 'checklist', true)}" data-val="${row['L2 Overall Status'] || 'N/A'}">${row['L2 Overall Status'] || 'N/A'}</div>
-                    ${this.renderSupportCells(row, 'L2', this.globalConfig.maxCols.l2)}
+                    ${this.renderSupportCells(row, 'L2', this.globalConfig.supportTypesByPhase.L2)}
                     <div class="phase-gap"></div>
 
-                    ${this.renderGateCells(row, 'L3', this.globalConfig.maxCols.l3Gate)}
+                    ${this.renderGateCells(row, 'L3', this.globalConfig.maxCols.l3Gate, gateLabelByPhase.L3)}
                     <div class="filter-target summary-cell l3-supp-summary divider-right" style="${this.getDynamicStyle(row['L3 Overall Status'], 'checklist', true)}" data-val="${row['L3 Overall Status'] || 'N/A'}">${row['L3 Overall Status'] || 'N/A'}</div>
-                    ${this.renderSupportCells(row, 'L3', this.globalConfig.maxCols.l3)}
+                    ${this.renderSupportCells(row, 'L3', this.globalConfig.supportTypesByPhase.L3)}
                     <div class="phase-gap"></div>
 
-                    ${this.renderGateCells(row, 'L4', this.globalConfig.maxCols.l4Gate)}
+                    ${this.renderGateCells(row, 'L4', this.globalConfig.maxCols.l4Gate, gateLabelByPhase.L4)}
                     <div class="filter-target summary-cell l4-supp-summary divider-right" style="${this.getDynamicStyle(row['L4 Overall Status'], 'test', true)}" data-val="${row['L4 Overall Status'] || 'N/A'}">${row['L4 Overall Status'] || 'N/A'}</div>
-                    ${this.renderSupportCells(row, 'L4', this.globalConfig.maxCols.l4)}
+                    ${this.renderSupportCells(row, 'L4', this.globalConfig.supportTypesByPhase.L4)}
                     <div class="phase-gap"></div>
 
                     <div class="filter-target summary-cell global-iss-summary divider-right" style="${this.getDynamicStyle(issuesOpen.count, 'issue', false)}" data-val="${fVal8}">${issuesOpen.display}</div>
