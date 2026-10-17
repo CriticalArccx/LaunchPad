@@ -70,15 +70,13 @@ const getGateVal = (val) => {
     return "";
 };
 
+// One header cell spanning all maxCount instance columns (each a fixed
+// 100px .gate-cell beneath it) instead of repeating baseTitle once per
+// instance ("Gate CL 1", "Gate CL 2", ...).
 function generateGateHeaderHTML(level, maxCount, baseTitle, filterColIndex) {
-    let html = '';
-    for (let i = 1; i <= maxCount; i++) {
-        let title = maxCount > 1 ? `${baseTitle} ${i}` : baseTitle;
-        // Only attach the filter dropdown to the first Gate column to preserve filter logic
-        let filterHtml = (i === 1) ? `<span class="filter-icon" data-col="${filterColIndex}" onclick="this.getRootNode().host.toggleFilter(event, ${filterColIndex})">▼</span>` : '';
-        html += `<div class="header-cell gate-cell ${level.toLowerCase()}-gate-col dynamic-gate-header"><div class="title-wrap"><span class="col-title" data-original="${title}">${title}</span>${filterHtml}</div></div>`;
-    }
-    return html;
+    const width = maxCount * 100;
+    const filterHtml = `<span class="filter-icon" data-col="${filterColIndex}" onclick="this.getRootNode().host.toggleFilter(event, ${filterColIndex})">▼</span>`;
+    return `<div class="header-cell ${level.toLowerCase()}-gate-col dynamic-gate-header" style="flex:0 0 ${width}px; width:${width}px; min-width:${width}px; max-width:${width}px;"><div class="title-wrap"><span class="col-title" data-original="${baseTitle}">${baseTitle}</span>${filterHtml}</div></div>`;
 }
 
 // supportTypes: [{label, maxCols, legacy}] — legacy (no Apps Script
@@ -86,15 +84,18 @@ function generateGateHeaderHTML(level, maxCount, baseTitle, filterColIndex) {
 // exactly one entry {label:'Support', legacy:true}, producing the exact
 // same "Supp 1, Supp 2, ..." headers this always has. A project whose
 // Apps Script DOES provide checklistTypesByPhase (currently only MSA3A)
-// gets one named header group per real checklist type instead.
+// gets one named header group per real checklist type instead — ONE
+// header cell per type, sized to span all of that type's instance
+// columns (each a fixed 100px .cl-cell, so maxCols*100px lines the
+// header up exactly with the data cells beneath it), rather than
+// repeating the type's name once per instance ("Elec 1", "Elec 2", ...).
 function generateHeaderHTML(level, supportTypes) {
     let html = '';
     supportTypes.forEach((t, tIdx) => {
-        for (let i = 1; i <= t.maxCols; i++) {
-            let isVeryLast = (tIdx === supportTypes.length - 1 && i === t.maxCols) ? 'divider-right' : '';
-            let title = t.legacy ? `Supp ${i}` : (t.maxCols > 1 ? `${t.label} ${i}` : t.label);
-            html += `<div class="header-cell col-details ${level.toLowerCase()}-supp-details cl-cell dynamic-header ${isVeryLast}">${title}</div>`;
-        }
+        const isVeryLast = (tIdx === supportTypes.length - 1) ? 'divider-right' : '';
+        const title = t.legacy ? 'Supp' : t.label;
+        const width = t.maxCols * 100;
+        html += `<div class="header-cell col-details ${level.toLowerCase()}-supp-details dynamic-header ${isVeryLast}" style="flex:0 0 ${width}px; width:${width}px; min-width:${width}px; max-width:${width}px;">${title}</div>`;
     });
     return html;
 }
@@ -641,6 +642,14 @@ const STYLE = `
         color: #999999 !important;
     }
 
+    /* Blacked-out "not required / no data" cells — already near-black in
+       light mode, so dark mode just needs to keep the text equally
+       invisible against whatever background wins (!important order). */
+    :host(.dark-mode) [style*="background-color:#1a1a1a"] {
+        background-color: #000000 !important;
+        color: #000000 !important;
+    }
+
     /* Zero/empty numeric cells (e.g. Open Gating Issues "-", previously light blue #e1f5fe) */
     :host(.dark-mode) [style*="background-color:#e1f5fe"] {
         background-color: #2c2c2c !important;
@@ -1094,7 +1103,11 @@ export class EquipmentTrackerView extends HTMLElement {
         const globalConfig = this.globalConfig;
         let fbColor = isOverallStatus ? (globalConfig.fallbackColor || '#f5f5f5') : '#f5f5f5';
         let fbStyle = `background-color:${fbColor}; color:${getContrastYIQ(fbColor)};`;
-        let emptyStyle = `background-color:#f5f5f5; color:#616161;`;
+        // Blacked out rather than light grey — a cell with no value is either
+        // genuinely not required for this asset or has no data yet, and
+        // either way it should read as "nothing to see here" at a glance
+        // instead of blending into the rest of the grid.
+        let emptyStyle = `background-color:#1a1a1a; color:#1a1a1a;`;
 
         if (value === undefined || value === null || value === "N/A" || value === "Clear" || value === "" || value === "-") {
             return emptyStyle;
@@ -1225,8 +1238,8 @@ export class EquipmentTrackerView extends HTMLElement {
 
         if (id === '') {
             return `<div class="filter-target stacked-cell ${extraClasses}" data-val="" data-link="">
-                        <div class="checklist-header">-</div>
-                        <div class="checklist-status" style="background-color:#f5f5f5; color:#616161;">-</div>
+                        <div class="checklist-header" style="background-color:#1a1a1a; color:#1a1a1a;">-</div>
+                        <div class="checklist-status" style="background-color:#1a1a1a; color:#1a1a1a;">-</div>
                     </div>`;
         } else {
             return `<div class="filter-target stacked-cell ${extraClasses}" data-val="${rawVal}" data-link="${safeLink}">
