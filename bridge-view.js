@@ -2081,6 +2081,9 @@ export class BridgeView extends HTMLElement {
                 // happening automatically instead of only on request.
                 this.repairLaunchPadLinks().catch(err => console.error('Background LaunchPad link repair failed', err));
             }
+            // Ordering-violation sweep applies either way — it's about the
+            // predecessor_ids graph itself, not how it syncs to Schedule.
+            this.repairPredecessorOrdering().catch(err => console.error('Background predecessor ordering repair failed', err));
         }
     }
 
@@ -3709,6 +3712,36 @@ export class BridgeView extends HTMLElement {
         evaluateSuccessors(origItemId, lastActiveDayIndexFor(hypotheticalItem.start_ts, hypotheticalItem.duration_hours));
 
         return changes;
+    }
+
+    // Full-schedule sweep for predecessor/successor ordering violations —
+    // a predecessor whose own last active day falls AFTER a successor it's
+    // linked to. enforceDependencies() only ever runs reactively, starting
+    // from one specific item that just changed, so it can't catch a
+    // violation introduced some other way (a bulk import, a direct DB
+    // edit, a gap from before this enforcement existed). This re-validates
+    // every linked pair and fixes any violation found, via the same
+    // enforceDependencies() engine — same category of self-healing
+    // repairLaunchPadLinks()/clearOrphanedScheduleRows() already do for
+    // their own kind of drift. Returns how many root predecessors needed a
+    // fix (each may have cascaded further down its own chain).
+    async repairPredecessorOrdering() {
+        const predecessorIds = new Set();
+        this.DATA.items.forEach(it => (it.predecessor_ids || []).forEach(pid => predecessorIds.add(pid)));
+
+        let fixedCount = 0;
+        for (const id of predecessorIds) {
+            if (!this.DATA.items.find(it => it.id === id)) continue; // predecessor_ids pointing at a since-deleted item
+            const before = this.DATA.items.map(it => it.start_ts).join('|');
+            await this.enforceDependencies(id);
+            const after = this.DATA.items.map(it => it.start_ts).join('|');
+            if (before !== after) fixedCount++;
+        }
+        if (fixedCount > 0) {
+            this.renderGantt();
+            this.updatePendingSyncUI();
+        }
+        return fixedCount;
     }
 
     /* =========================================================================
