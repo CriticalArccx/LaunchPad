@@ -3597,12 +3597,32 @@ export class BridgeView extends HTMLElement {
     }
 
     // The last calendar day-index (within TIMELINE_START's frame) an item is
-    // actually active on — itemEndMs() sits exactly on the boundary instant
-    // (e.g. 7am the day AFTER a whole-day activity's last active day), so
-    // this pulls back 1ms before flooring, landing on that last active day
-    // instead of the following one.
+    // actually active on.
+    //
+    // Previously computed as floor(dayIndexForDate(itemEndMs(item) - 1ms)) —
+    // pulling back 1ms before flooring to land on the end's own day instead
+    // of the following one. That only works when every item starts at the
+    // exact same anchor hour dayIndexToMs() schedules into (originally
+    // assumed to be a fixed hour across the board). Real items don't all
+    // start at that hour (confirmed against live data: items recorded at
+    // 14:00, not the scheduler's 7am placement hour) — whenever an item's
+    // OWN start hour sits past that anchor, a whole-day-duration item's end
+    // instant crosses into the next calendar day even after the -1ms pullback,
+    // so lastActiveDayIndex silently returned one day too LATE. Every
+    // successor then got scheduled a full day later than the "can share the
+    // same calendar day as its predecessor" rule intends — compounding at
+    // every hop down a chain, which is what was corrupting both predecessor-
+    // ordering repairs and critical path's float calculation (two chains
+    // accumulating different amounts of pure scheduling padding ahead of
+    // identical real work no longer compare correctly against each other).
+    //
+    // Fixed by deriving this from the item's own START day (always exact,
+    // no anchor-hour assumption) plus how many whole calendar days its
+    // duration spans — independent of what hour the item actually starts at.
     lastActiveDayIndex(item) {
-        return Math.floor(this.dayIndexForDate(new Date(this.itemEndMs(item) - 1)));
+        const startDayIdx = Math.floor(this.dayIndexForDate(new Date(item.start_ts)));
+        const spanDays = Math.max(1, Math.ceil((parseFloat(item.duration_hours) || 24) / 24));
+        return startDayIdx + spanDays - 1;
     }
     // 7am on a given day-index, as an absolute timestamp — the same
     // start-of-day convention every item's start_ts already uses.
@@ -3681,10 +3701,14 @@ export class BridgeView extends HTMLElement {
             const it = this.DATA.items.find(i => i.id === id);
             return (it && it.duration_hours) || 24;
         };
+        // Same start-day + whole-day-span derivation as lastActiveDayIndex()
+        // above — not anchor-hour-fragile like the old end-timestamp
+        // approach was (see that function's comment for the full story).
         const lastActiveDayIndexFor = (startTs, durationHours) => {
             if (!startTs) return -Infinity;
-            const endMs = new Date(startTs).getTime() + (durationHours || 24) * 3600000;
-            return Math.floor(this.dayIndexForDate(new Date(endMs - 1)));
+            const startDayIdx = Math.floor(this.dayIndexForDate(new Date(startTs)));
+            const spanDays = Math.max(1, Math.ceil((parseFloat(durationHours) || 24) / 24));
+            return startDayIdx + spanDays - 1;
         };
 
         const evaluateSuccessors = (predecessorSearchId, predLastDay) => {
