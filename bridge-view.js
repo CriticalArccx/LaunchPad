@@ -3482,10 +3482,30 @@ export class BridgeView extends HTMLElement {
             comp.forEach(id => { floatById[id] = Math.round(((lsById[id] - esById[id]) / 3600000) * 100) / 100; });
         });
 
-        return { floatById, esById, efById, lsById, lfById };
+        // ---- critical CHAIN, not just zero-float items ----
+        // Float alone only flags the exact items with no slack — which, once
+        // early start follows each item's own real date (see pass 1 above),
+        // is often just the last activity or two of a chain whenever a real
+        // gap sits upstream of it. On its own that reads as a few
+        // disconnected boxes instead of "the path", so this walks backward
+        // from every zero-float item through its real predecessor_ids,
+        // pulling in the whole lineage back to that chain's root — the
+        // actual path that produces the project's latest finish, not just
+        // its last zero-slack link.
+        const criticalChainIds = new Set();
+        const walkBack = id => {
+            if (criticalChainIds.has(id)) return;
+            criticalChainIds.add(id);
+            (byId[id]?.predecessor_ids || []).forEach(pid => { if (byId[pid]) walkBack(pid); });
+        };
+        Object.keys(floatById).forEach(id => {
+            if (floatById[id] !== null && floatById[id] !== undefined && floatById[id] <= 0.01) walkBack(id);
+        });
+
+        return { floatById, esById, efById, lsById, lfById, criticalChainIds };
     }
     isCriticalItem(id) {
-        return !!(this.criticalPathData && this.criticalPathData.floatById[id] !== null && this.criticalPathData.floatById[id] !== undefined && this.criticalPathData.floatById[id] <= 0.01);
+        return !!(this.criticalPathData && this.criticalPathData.criticalChainIds && this.criticalPathData.criticalChainIds.has(id));
     }
     criticalPathFloatLabel(id) {
         if (!this.criticalPathData) return '—';
