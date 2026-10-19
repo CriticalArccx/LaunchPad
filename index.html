@@ -1649,10 +1649,11 @@ body.help-docked #loading-overlay {
             <div><strong>Asset:</strong> <span id="reschedule-modal-asset"></span></div>
         </div>
         <label style="display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">New Date</label>
-        <input type="date" id="reschedule-new-date" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 20px;">
+        <input type="date" id="reschedule-new-date" oninput="onRescheduleDateChanged()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 12px;">
+        <div id="reschedule-preview" style="font-size: 12.5px; color: #555; background: #fffde7; border: 1px solid #fff59d; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto;"></div>
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button onclick="closeRescheduleModal()" style="padding: 8px 15px; cursor: pointer; background: #f1f3f4; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; color: #555;">Cancel</button>
-            <button onclick="confirmReschedule()" style="padding: 8px 15px; background: #2e7d32; color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Schedule It</button>
+            <button id="reschedule-confirm-btn" onclick="confirmReschedule()" disabled style="padding: 8px 15px; background: #2e7d32; color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; opacity: 0.5; cursor: not-allowed;">Schedule It</button>
         </div>
     </div>
 </div>
@@ -7805,12 +7806,95 @@ function openRescheduleModal(rowNumericId, dayLabel) {
     // with how "today" is computed everywhere else here.
     const now = new Date();
     dateInput.min = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+
+    setRescheduleConfirmEnabled(false);
+    const preview = document.getElementById('reschedule-preview');
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    __pendingRescheduleCascade = [];
+
     document.getElementById('reschedule-modal').style.display = 'flex';
 }
 
 function closeRescheduleModal() {
     document.getElementById('reschedule-modal').style.display = 'none';
     __pendingRescheduleSource = null;
+    __pendingRescheduleCascade = [];
+}
+
+function setRescheduleConfirmEnabled(enabled) {
+    const btn = document.getElementById('reschedule-confirm-btn');
+    btn.disabled = !enabled;
+    btn.style.opacity = enabled ? '1' : '0.5';
+    btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+}
+
+// What simulateReschedulePreview() found last time the date changed — the
+// REAL Bridge items (with their current start_ts) that would cascade-move
+// as a result of the chosen date, applied for real on confirm.
+let __pendingRescheduleCascade = [];
+let __rescheduleCalcToken = 0; // guards against a slow-arriving calc overwriting a newer one if the user changes the date again before it finishes
+
+async function onRescheduleDateChanged() {
+    const newDate = document.getElementById('reschedule-new-date').value;
+    const preview = document.getElementById('reschedule-preview');
+    setRescheduleConfirmEnabled(false);
+    __pendingRescheduleCascade = [];
+
+    if (!newDate || !__pendingRescheduleSource) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    const myToken = ++__rescheduleCalcToken;
+    preview.style.display = 'block';
+    preview.innerHTML = 'Calculating impact on other activities…';
+
+    try {
+        await ensureViewMounted('bridge');
+        const bridgeEl = document.querySelector('bridge-view');
+        if (!bridgeEl) throw new Error('Bridge view could not be loaded');
+        if (bridgeEl.whenReady) await bridgeEl.whenReady(); // in case this is the first time Bridge has ever been mounted this session
+        await bridgeEl.reloadAllData();
+        if (myToken !== __rescheduleCalcToken) return; // a newer date change superseded this one
+
+        const origItem = (bridgeEl.DATA.items || []).find(it => it.launchpad_id === __pendingRescheduleSource.originalRowId);
+        if (!origItem) {
+            preview.innerHTML = 'No linked Bridge item found for the original activity — nothing else will move.';
+            setRescheduleConfirmEnabled(true);
+            return;
+        }
+
+        const hypotheticalItem = {
+            id: `__reschedule_preview_${Date.now()}`,
+            start_ts: new Date(newDate + 'T07:00').toISOString(),
+            duration_hours: origItem.duration_hours || 24
+        };
+        const cascade = bridgeEl.simulateReschedulePreview(hypotheticalItem);
+        if (myToken !== __rescheduleCalcToken) return;
+
+        __pendingRescheduleCascade = cascade;
+        if (!cascade.length) {
+            preview.innerHTML = 'No other activities will need to move.';
+        } else {
+            const rows = cascade.map(c => {
+                const oldD = new Date(c.oldStartTs).toISOString().slice(0, 10);
+                const newD = new Date(c.newStartTs).toISOString().slice(0, 10);
+                return `<div>• <strong>${escapeHtmlForReschedule(c.item.asset_name)} — ${escapeHtmlForReschedule(c.item.activity_name)}</strong>: ${oldD} → ${newD}</div>`;
+            }).join('');
+            preview.innerHTML = `<div style="margin-bottom:6px; font-weight:bold;">This will also move ${cascade.length} activit${cascade.length === 1 ? 'y' : 'ies'}:</div>${rows}`;
+        }
+        setRescheduleConfirmEnabled(true);
+    } catch (e) {
+        console.error('Reschedule impact calculation failed', e);
+        if (myToken !== __rescheduleCalcToken) return;
+        preview.innerHTML = 'Could not calculate impact on other activities — check the console. You can still proceed; only this activity will be affected.';
+        setRescheduleConfirmEnabled(true);
+    }
+}
+
+function escapeHtmlForReschedule(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // Bridge's predecessor/successor graph does NOT live on BackEndData for
@@ -7828,27 +7912,17 @@ function closeRescheduleModal() {
 // Schedule side instead of from inside Bridge.
 async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel, activity, asset, tradePartners) {
     try {
-        const itemsTable = T('schedule_items');
-
-        const normalizePreds = (raw) => {
-            let preds = raw;
-            if (typeof preds === 'string') {
-                try { preds = JSON.parse(preds); } catch (e) { preds = []; }
-            }
-            return Array.isArray(preds) ? preds.filter(p => typeof p === 'string') : [];
-        };
+        await ensureViewMounted('bridge');
+        const bridgeEl = document.querySelector('bridge-view');
+        if (!bridgeEl) throw new Error('Bridge view could not be loaded');
+        if (bridgeEl.whenReady) await bridgeEl.whenReady();
+        await bridgeEl.reloadAllData();
 
         // Find the Bridge item for the activity that got cancelled. If it
         // was never synced into Bridge (no schedule_items row links back to
         // it), there's nothing to connect — the Schedule-side reschedule
         // already happened regardless, so just stop here quietly.
-        const { data: origRows, error: origErr } = await _supabase
-            .from(itemsTable)
-            .select('id, zone, area, asset_type, type, duration_hours, launchpad_day_label')
-            .eq('launchpad_id', originalRowId)
-            .limit(1);
-        if (origErr) throw origErr;
-        const origItem = origRows && origRows[0];
+        const origItem = (bridgeEl.DATA.items || []).find(it => it.launchpad_id === originalRowId);
         if (!origItem) {
             console.warn(`Reschedule: no Bridge item is linked to the cancelled activity (launchpad_id ${originalRowId}) — nothing to connect in Bridge.`);
             return;
@@ -7856,11 +7930,10 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
 
         // Create the new Bridge item as a successor of the cancelled one,
         // carrying over its zone/area/type/duration (a fresh instance of
-        // the same work), but NOT its predecessor_ids — this new item's
-        // only predecessor is the activity it's replacing.
-        const newItemId = crypto.randomUUID();
-        const { error: insertErr } = await _supabase.from(itemsTable).insert({
-            id: newItemId,
+        // the same work) — through Bridge's own insert path (ItemsDB),
+        // which lets Postgres assign the real id rather than guessing one
+        // client-side, same as any item Bridge creates itself.
+        const newItem = await bridgeEl.ItemsDB.insert({
             asset_name: asset || '',
             activity_name: activity || '',
             contractor_name: tradePartners || '',
@@ -7875,24 +7948,39 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             launchpad_id: newRowId,
             launchpad_day_label: newDayLabel
         });
-        if (insertErr) throw insertErr;
+        if (!newItem) throw new Error('Bridge item creation failed');
+        bridgeEl.DATA.items.push(newItem); // enforceDependencies()/syncItemToLaunchPad() below read this in-memory list
 
         // Everything that depended on the cancelled activity now depends on
-        // its replacement instead.
-        const { data: allItems, error: fetchErr } = await _supabase
-            .from(itemsTable)
-            .select('id, predecessor_ids')
-            .not('predecessor_ids', 'is', null);
-        if (fetchErr) throw fetchErr;
-
-        const successors = (allItems || []).filter(it => it.id !== newItemId && normalizePreds(it.predecessor_ids).includes(origItem.id));
+        // its replacement instead — same "redirect downstream links to the
+        // replacement" pattern Bridge's own duplicate-merge logic uses.
+        const successors = bridgeEl.DATA.items.filter(it => it.id !== newItem.id && (it.predecessor_ids || []).includes(origItem.id));
         for (const succ of successors) {
-            const updatedPreds = normalizePreds(succ.predecessor_ids)
-                .filter(id => id !== origItem.id)
-                .concat(newItemId);
-            const { error: updErr } = await _supabase.from(itemsTable).update({ predecessor_ids: updatedPreds }).eq('id', succ.id);
-            if (updErr) console.error(`Failed to redirect predecessor link on Bridge item ${succ.id}`, updErr);
+            succ.predecessor_ids = (succ.predecessor_ids || []).filter(id => id !== origItem.id).concat(newItem.id);
+            await bridgeEl.ItemsDB.update(succ.id, { predecessor_ids: succ.predecessor_ids });
         }
+
+        // Apply the real cascade — the exact same engine
+        // simulateReschedulePreview() already showed the user a preview of.
+        // This writes every affected successor's new start_ts for real and
+        // tracks each one as pending-sync (Bridge's own bookkeeping).
+        const pendingBefore = new Set(bridgeEl.pendingSyncIds);
+        await bridgeEl.enforceDependencies(newItem.id);
+        const newlyPending = Array.from(bridgeEl.pendingSyncIds).filter(id => !pendingBefore.has(id));
+
+        // Publish the new item and every cascaded item to Schedule right
+        // now, rather than leaving it sitting as a pending change someone
+        // has to separately Accept inside Bridge — "automatically moving
+        // items if applicable" is this feature's whole point.
+        for (const id of [newItem.id, ...newlyPending]) {
+            const item = bridgeEl.DATA.items.find(it => it.id === id);
+            if (!item) continue;
+            const ok = await bridgeEl.syncItemToLaunchPad(item);
+            if (ok) bridgeEl.pendingSyncIds.delete(id);
+        }
+        bridgeEl.savePendingSyncState();
+        bridgeEl.updatePendingSyncUI();
+        bridgeEl.renderGantt();
     } catch (e) {
         // Non-fatal — the Schedule-side reschedule already succeeded above;
         // worst case the Bridge dependency graph needs a manual fix-up.
