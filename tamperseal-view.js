@@ -134,12 +134,32 @@ const STYLE = `
     /* A custom element defaults to display:inline (unlike the real <body>
        this rule used to target), which would break every block/flex/sticky
        layout assumption below -- explicit display:block restores that. */
-    display: block;
+    display: flex;
+    flex-direction: column;
+    /* The shell (index.html) sets html/body to overflow:hidden and expects
+       every embedded view to scroll internally (see equipment-tracker-view.js's
+       .tracker-container) -- this view originally relied on the real
+       window scrolling instead (a leftover from when it was a standalone
+       iframe, which had its own independent scroll context). Bounding the
+       host's height and letting #main-content-area (below) be the one
+       scrollable region restores an actual scroll path now that it's
+       embedded directly in the shell instead. */
+    height: 100%;
+    overflow: hidden;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     min-width: 1300px;
     margin: 0;
     padding: 0;
     background-color: #f8f9fa; /* Restores a light background color */
+}
+/* The subheader/header stay fixed size (normal flex children); this is
+   the one flex child allowed to grow and scroll. min-height:0 overrides
+   flexbox's default "never shrink below content size," which would
+   otherwise silently defeat overflow-y:auto here. */
+#main-content-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
         /* Styling for all cells except the Status column */
 .cell-row textarea {
@@ -2563,7 +2583,9 @@ export class TamperSealView extends HTMLElement {
         // 1. Capture State and Scroll Position to prevent UI jumps
         const openAreas = new Set();
         const openAssets = new Set();
-        const scrollPos = window.scrollY;
+        // #main-content-area is now the actual scrolling element (see its
+        // :host/overflow-y:auto rule) rather than the browser window.
+        const scrollPos = container.scrollTop;
 
         if (isSilent) {
             this.$$('.area-container').forEach(areaDiv => {
@@ -2940,7 +2962,7 @@ export class TamperSealView extends HTMLElement {
 
         if (loadPromises.length > 0) await Promise.all(loadPromises);
         if (scrollPos > 0) {
-            window.scrollTo(0, scrollPos);
+            container.scrollTop = scrollPos;
         }
         this.syncHeaderWidthToAssetRows();
     }
