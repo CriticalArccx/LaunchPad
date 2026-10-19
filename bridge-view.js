@@ -436,6 +436,12 @@ input,select,textarea{font-family:inherit;}
 .gantt-item.not-ready{box-shadow:0 0 0 3px #d32f2f, 0 1px 3px rgba(0,0,0,0.25);}
 .gantt-item.not-ready.critical{box-shadow:0 0 0 3px #d32f2f, 0 0 0 5px #f57c00;}
 .gantt-item.dimmed{opacity:0.28; filter:grayscale(0.85); box-shadow:none; z-index:100;}
+/* Rescheduled onto a new date from the Schedule side — the replacement
+   activity exists as its own (normal-looking) item elsewhere on the
+   timeline; this one stays visible for history but reads as "superseded,
+   not live work" at a glance. */
+.gantt-item.superseded{filter:grayscale(0.9); opacity:0.5;}
+.gantt-item.superseded .gi-asset, .gantt-item.superseded .gi-activity{text-decoration:line-through;}
 .gantt-item.critical{border:3px solid #f57c00; box-shadow:0 0 0 1px rgba(245,124,0,0.35), 0 2px 8px rgba(0,0,0,0.3);}
 .gantt-item.critical.dimmed{border-color:rgba(245,124,0,0.4);}
 .gantt-item.critical.focused{box-shadow:0 0 0 3px var(--green-dark), 0 2px 8px rgba(0,0,0,0.35);}
@@ -2203,7 +2209,16 @@ export class BridgeView extends HTMLElement {
         endInput.disabled = useLast;
         if (useLast) {
             const latest = this.latestActivityDate();
-            if (latest) endInput.value = latest.toISOString().slice(0, 10);
+            if (latest) {
+                // Pad at least a month past the last scheduled activity,
+                // even though nothing's actually planned in that stretch —
+                // keeps room visible for rescheduling/dragging activities
+                // out further instead of the timeline dead-ending exactly
+                // where the last activity happens to sit today.
+                const padded = new Date(latest);
+                padded.setDate(padded.getDate() + 30);
+                endInput.value = padded.toISOString().slice(0, 10);
+            }
         }
         const startVal = startInput.value, endVal = endInput.value;
         if (!startVal || !endVal) return;
@@ -3126,6 +3141,7 @@ export class BridgeView extends HTMLElement {
         // to link.
         const launchpadLinked = !this.UNIFIED_SCHEDULE && !!it.launchpad_id;
         const notReady = this.isStatusNotReady(it.asset_name, it.activity_name);
+        const superseded = !!it.superseded_by;
         // Compact zoom still shows the asset name (that's the whole point of
         // being able to read the bar), but the activity is color-only there
         // (activityColor already encodes which activity it is) rather than
@@ -3136,7 +3152,7 @@ export class BridgeView extends HTMLElement {
         // hover away via the title tooltip regardless of zoom. The "thin"
         // class (Overview + Overview Extended) drops min-height/padding so
         // each one-per-row bar takes as little vertical space as possible.
-        return `<div class="gantt-item ${this.isWaterfallZoom ? 'thin' : ''} ${overdue ? 'overdue' : ''} ${focused ? 'focused' : ''} ${dimmed ? 'dimmed' : ''} ${critical ? 'critical' : ''} ${multiselected ? 'multiselected' : ''} ${notReady ? 'not-ready' : ''}" data-id="${it.id}" style="left:${left}px; width:${width}px; top:${top}px; background:${color};" title="${escAttr(it.asset_name)} — ${escAttr(it.activity_name)}${overdue ? ' (past zone target end date)' : ''}${floatTitle}${launchpadLinked ? ' — linked to LaunchPad' : ''}${notReady ? ' — NOT READY (status open/incomplete)' : ''}">
+        return `<div class="gantt-item ${this.isWaterfallZoom ? 'thin' : ''} ${overdue ? 'overdue' : ''} ${focused ? 'focused' : ''} ${dimmed ? 'dimmed' : ''} ${critical ? 'critical' : ''} ${multiselected ? 'multiselected' : ''} ${notReady ? 'not-ready' : ''} ${superseded ? 'superseded' : ''}" data-id="${it.id}" style="left:${left}px; width:${width}px; top:${top}px; background:${color};" title="${escAttr(it.asset_name)} — ${escAttr(it.activity_name)}${overdue ? ' (past zone target end date)' : ''}${floatTitle}${launchpadLinked ? ' — linked to LaunchPad' : ''}${notReady ? ' — NOT READY (status open/incomplete)' : ''}${superseded ? ' — rescheduled to a new date' : ''}">
             ${resizable ? `<div class="resize-handle left" data-id="${it.id}" data-edge="left"></div>` : ''}
             ${launchpadLinked ? `<span class="launchpad-badge" title="Linked to a LaunchPad row">📡</span>` : ''}
             ${this.isOverviewZoom ? '' : `<span class="gi-asset">${escHtml(it.asset_name)}</span>`}

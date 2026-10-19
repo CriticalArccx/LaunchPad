@@ -49,3 +49,23 @@ alter table launchpad_projects add column if not exists dashboard_display_name t
 -- the Result dropdown's onchange handler. launchpad_schedule_config itself
 -- is created elsewhere (holds column_config); this just adds the column.
 alter table launchpad_schedule_config add column if not exists reschedule_trigger_results jsonb not null default '[]'::jsonb;
+
+-- Marks a schedule_items row as superseded by the replacement activity a
+-- Schedule-side reschedule created for it (see index.html's
+-- linkRescheduledItemInBridge()) — Bridge strikes through and greys out
+-- any item with this set (see bridge-view.js's item rendering). Only
+-- applies to projects still on the separate schedule_items table; skips
+-- any project that doesn't have one (nothing to alter).
+do $$
+declare
+    proj record;
+begin
+    for proj in select table_prefix from launchpad_projects loop
+        if to_regclass(format('public.%I', proj.table_prefix || 'schedule_items')) is not null then
+            execute format(
+                'alter table %I add column if not exists superseded_by uuid',
+                proj.table_prefix || 'schedule_items'
+            );
+        end if;
+    end loop;
+end $$;

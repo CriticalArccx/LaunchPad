@@ -7971,6 +7971,12 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
         if (!newItem) throw new Error('Bridge item creation failed');
         bridgeEl.DATA.items.push(newItem); // enforceDependencies()/syncItemToLaunchPad() below read this in-memory list
 
+        // Mark the cancelled activity as superseded — Bridge greys it out
+        // and strikes through its label (see itemBarHtml()) rather than
+        // just leaving it looking like ordinary, still-live work.
+        origItem.superseded_by = newItem.id;
+        await bridgeEl.ItemsDB.update(origItem.id, { superseded_by: newItem.id });
+
         // Everything that depended on the cancelled activity now depends on
         // its replacement instead — same "redirect downstream links to the
         // replacement" pattern Bridge's own duplicate-merge logic uses.
