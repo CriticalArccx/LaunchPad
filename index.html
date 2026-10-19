@@ -7789,6 +7789,7 @@ function openRescheduleModal(rowNumericId, dayLabel) {
     const tradeEl = document.getElementById(`${dayLabel}-r${rowNumericId}-c6`);
 
     __pendingRescheduleSource = {
+        originalRowId: rowNumericId,
         activity: activityEl?.value || "",
         asset: assetEl?.value || "",
         tradePartners: tradeEl?.getAttribute('data-selected') || ""
@@ -7796,7 +7797,14 @@ function openRescheduleModal(rowNumericId, dayLabel) {
 
     document.getElementById('reschedule-modal-activity').innerText = __pendingRescheduleSource.activity || "(none)";
     document.getElementById('reschedule-modal-asset').innerText = __pendingRescheduleSource.asset || "(none)";
-    document.getElementById('reschedule-new-date').value = "";
+    const dateInput = document.getElementById('reschedule-new-date');
+    dateInput.value = "";
+    // Only today or later — this is a NEW future instance of the activity,
+    // never a backdate. Same local-date (not UTC) construction the targeted
+    // refresh logic elsewhere in this file already uses, so this lines up
+    // with how "today" is computed everywhere else here.
+    const now = new Date();
+    dateInput.min = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
     document.getElementById('reschedule-modal').style.display = 'flex';
 }
 
@@ -7805,11 +7813,65 @@ function closeRescheduleModal() {
     __pendingRescheduleSource = null;
 }
 
+// Bridge's predecessor/successor graph lives directly on this same
+// BackEndData table in Unified Schedule mode (Bridge reads/writes it
+// straight through — see bridge-view.js's UNIFIED_SCHEDULE). The new
+// activity becomes a successor of the one that got cancelled, and takes
+// over as predecessor of everything the cancelled one was a predecessor
+// of — same "redirect downstream links to the replacement" pattern
+// Bridge's own duplicate-merge logic already uses for an equivalent case.
+async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel) {
+    try {
+        const normalizePreds = (raw) => {
+            let preds = raw;
+            if (typeof preds === 'string') {
+                try { preds = JSON.parse(preds); } catch (e) { preds = []; }
+            }
+            return Array.isArray(preds) ? preds.map(Number).filter(Number.isFinite) : [];
+        };
+
+        // New activity is a successor of the cancelled one. Upserting with
+        // day_label alongside it (not just .update()) means this is safe
+        // even if saveCell()'s own fire-and-forget writes for this row
+        // haven't landed yet — partial upserts on the same id merge rather
+        // than clobber, the same way every saveCell() call already composes.
+        const { error: newRowErr } = await _supabase.from(T('BackEndData')).upsert({
+            id: newRowId,
+            day_label: newDayLabel,
+            predecessor_ids: [originalRowId]
+        });
+        if (newRowErr) throw newRowErr;
+
+        // Everything that depended on the cancelled activity now depends on
+        // its replacement instead.
+        const { data: allRows, error: fetchErr } = await _supabase
+            .from(T('BackEndData'))
+            .select('id, predecessor_ids')
+            .not('predecessor_ids', 'is', null);
+        if (fetchErr) throw fetchErr;
+
+        const successors = (allRows || []).filter(r => r.id !== newRowId && normalizePreds(r.predecessor_ids).includes(originalRowId));
+        for (const succ of successors) {
+            const updatedPreds = normalizePreds(succ.predecessor_ids)
+                .filter(id => id !== originalRowId)
+                .concat(newRowId);
+            const { error: updErr } = await _supabase.from(T('BackEndData')).update({ predecessor_ids: updatedPreds }).eq('id', succ.id);
+            if (updErr) console.error(`Failed to redirect predecessor link on row ${succ.id}`, updErr);
+        }
+    } catch (e) {
+        // Non-fatal — the Schedule-side reschedule already succeeded above;
+        // worst case the Bridge dependency graph needs a manual fix-up.
+        console.error('Failed to update Bridge predecessor/successor links for rescheduled activity', e);
+    }
+}
+
 async function confirmReschedule() {
     const newDate = document.getElementById('reschedule-new-date').value;
     if (!newDate) { alert("Pick a date first."); return; }
+    const todayStr = (() => { const n = new Date(); return [n.getFullYear(), String(n.getMonth() + 1).padStart(2, '0'), String(n.getDate()).padStart(2, '0')].join('-'); })();
+    if (newDate < todayStr) { alert("Pick today or a future date."); return; }
     if (!__pendingRescheduleSource) return;
-    const { activity, asset, tradePartners } = __pendingRescheduleSource;
+    const { originalRowId, activity, asset, tradePartners } = __pendingRescheduleSource;
 
     if (!ensureWeekRenderedForDayLabel(newDate)) {
         alert("That date is outside this project's scheduled date range.");
@@ -7855,6 +7917,8 @@ async function confirmReschedule() {
         }
     }
     if (activity || asset) lookupColumn5Value(rowNum, newDate, false);
+
+    await linkRescheduledItemInBridge(originalRowId, rowNum, newDate);
 
     closeRescheduleModal();
     alert(`Scheduled "${activity || asset}" on ${newDate}.`);
