@@ -1266,10 +1266,23 @@ export class BridgeView extends HTMLElement {
             return (data || []).map(r => ({ id: r.id, name: r[column] }));
         }
         if (!column && self._supabase) {
-            // items: query the real table directly
-            const { data, error } = await self._supabase.from(table).select('*').order('created_at', { ascending: true });
-            if (error) { this._reportError('load', table, error); return []; }
-            return data || [];
+            // items: query the real table directly. Paginated explicitly —
+            // without a .range(), PostgREST silently caps at its default
+            // page size (1000 rows), and since this orders by created_at
+            // ascending, any row past that cap (i.e. any RECENTLY created
+            // row — including a freshly rescheduled activity) would be
+            // silently missing from every load instead of erroring.
+            const PAGE_SIZE = 1000;
+            let allRows = [];
+            let offset = 0;
+            while (true) {
+                const { data, error } = await self._supabase.from(table).select('*').order('created_at', { ascending: true }).range(offset, offset + PAGE_SIZE - 1);
+                if (error) { this._reportError('load', table, error); return allRows; }
+                allRows = allRows.concat(data || []);
+                if (!data || data.length < PAGE_SIZE) break;
+                offset += PAGE_SIZE;
+            }
+            return allRows;
         }
         return (self.DATA_STORE[table] || []).slice();
     },
