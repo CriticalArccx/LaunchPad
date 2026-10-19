@@ -3637,38 +3637,39 @@ export class BridgeView extends HTMLElement {
     // isn't in this.DATA.items yet (and may never be — this is a preview),
     // and returns what WOULD shift instead of writing anything. Used by the
     // Schedule-side reschedule flow to show impact before the user commits.
-    // hypotheticalItem only needs { id, start_ts, duration_hours } — id just
-    // has to not collide with a real item id (a fresh uid() is fine), since
-    // it's never looked up in this.DATA.items, only used as the dependency
-    // graph's starting point via successors' predecessor_ids.
-    simulateReschedulePreview(hypotheticalItem) {
+    //
+    // origItemId is the REAL item being replaced (the cancelled activity).
+    // Real successors' predecessor_ids point at THAT id, never at
+    // hypotheticalItem's — nothing in the live data can possibly reference
+    // an id that doesn't exist yet — so the walk has to start by looking up
+    // origItemId's successors, just scored against hypotheticalItem's dates
+    // instead of origItemId's own current ones (since that's what they'll
+    // actually depend on once the real reschedule redirects those
+    // predecessor_ids from origItemId to the new item). Every hop after
+    // that first one is a normal walk between real, already-linked items,
+    // same as enforceDependencies().
+    simulateReschedulePreview(hypotheticalItem, origItemId) {
         const changes = []; // [{ item, oldStartTs, newStartTs }], item = the REAL DATA.items object
         const working = new Map(); // real item id -> proposed new start_ts, for items already shifted earlier in this same walk
         const visited = new Set();
 
         const currentStartTs = (id) => {
             if (working.has(id)) return working.get(id);
-            if (id === hypotheticalItem.id) return hypotheticalItem.start_ts;
             const it = this.DATA.items.find(i => i.id === id);
             return it ? it.start_ts : null;
         };
         const durationOf = (id) => {
-            if (id === hypotheticalItem.id) return hypotheticalItem.duration_hours || 24;
             const it = this.DATA.items.find(i => i.id === id);
             return (it && it.duration_hours) || 24;
         };
-        const lastActiveDayIndexOf = (id) => {
-            const startTs = currentStartTs(id);
+        const lastActiveDayIndexFor = (startTs, durationHours) => {
             if (!startTs) return -Infinity;
-            const endMs = new Date(startTs).getTime() + durationOf(id) * 3600000;
+            const endMs = new Date(startTs).getTime() + (durationHours || 24) * 3600000;
             return Math.floor(this.dayIndexForDate(new Date(endMs - 1)));
         };
 
-        const walk = (changedId) => {
-            if (visited.has(changedId)) return;
-            visited.add(changedId);
-            const predLastDay = lastActiveDayIndexOf(changedId);
-            const successors = this.DATA.items.filter(i => (i.predecessor_ids || []).includes(changedId));
+        const evaluateSuccessors = (predecessorSearchId, predLastDay) => {
+            const successors = this.DATA.items.filter(i => (i.predecessor_ids || []).includes(predecessorSearchId));
             for (const succ of successors) {
                 const succDay = Math.floor(this.dayIndexForDate(new Date(currentStartTs(succ.id))));
                 if (predLastDay > succDay) {
@@ -3680,7 +3681,17 @@ export class BridgeView extends HTMLElement {
             }
         };
 
-        walk(hypotheticalItem.id);
+        const walk = (changedId) => {
+            if (visited.has(changedId)) return;
+            visited.add(changedId);
+            evaluateSuccessors(changedId, lastActiveDayIndexFor(currentStartTs(changedId), durationOf(changedId)));
+        };
+
+        // First hop: origItemId's real successors, scored against the
+        // hypothetical item's dates rather than origItemId's own.
+        visited.add(origItemId);
+        evaluateSuccessors(origItemId, lastActiveDayIndexFor(hypotheticalItem.start_ts, hypotheticalItem.duration_hours));
+
         return changes;
     }
 

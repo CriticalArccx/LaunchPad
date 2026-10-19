@@ -7890,7 +7890,7 @@ async function onRescheduleDateChanged() {
             start_ts: new Date(newDate + 'T07:00').toISOString(),
             duration_hours: origItem.duration_hours || 24
         };
-        const cascade = bridgeEl.simulateReschedulePreview(hypotheticalItem);
+        const cascade = bridgeEl.simulateReschedulePreview(hypotheticalItem, origItem.id);
         if (myToken !== __rescheduleCalcToken) return;
 
         __pendingRescheduleCascade = cascade;
