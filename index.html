@@ -2551,37 +2551,42 @@ function setReadyFilter(type, btnElement) {
 /**
  * Refreshes only the schedule data and dropdowns without a full page reload.
  */
+// btn is optional — present for a real click (UI feedback: loading/success/
+// error text on the button itself), omitted when this runs programmatically
+// (see switchMainView()'s call on returning to the Schedule module), where
+// there's no specific button the trigger came from.
 async function refreshScheduleData(btn) {
-    const originalText = btn.innerHTML;
-    
+    const originalText = btn ? btn.innerHTML : null;
+
     // UI Feedback: Show loading state
-    btn.innerHTML = "⏳ Syncing...";
-    btn.disabled = true;
+    if (btn) { btn.innerHTML = "⏳ Syncing..."; btn.disabled = true; }
     document.getElementById('saveIndicator').innerText = "Syncing with cloud...";
     document.getElementById('saveIndicator').style.display = 'inline-block';
-    
+
     try {
         // 1. Fetch latest dropdown options (in case someone added a new asset/activity)
         await fetchDropdownOptions();
         refreshDropdowns();
-        
+
         // 2. Fetch the latest schedule line items
         await loadData();
-        
+
         // UI Feedback: Success
-        btn.innerHTML = "✅ Synced";
+        if (btn) btn.innerHTML = "✅ Synced";
         document.getElementById('saveIndicator').innerText = `Synced at: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     } catch (error) {
         console.error("Refresh Error:", error);
-        btn.innerHTML = "❌ Error";
+        if (btn) btn.innerHTML = "❌ Error";
         document.getElementById('saveIndicator').innerText = "Sync failed";
     }
-    
+
     // Reset button after 2 seconds
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }, 2000);
+    if (btn) {
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }, 2000);
+    }
 }
 
 /**
@@ -2936,6 +2941,13 @@ function ensureDashboardMounted() {
 }
 
 function switchMainView(viewType, btn) {
+    // Captured before window.__currentView gets overwritten below — used
+    // further down to auto-refresh Schedule data only when actually
+    // RETURNING to it from a different module (Bridge in particular can
+    // publish changes straight to Schedule's own BackEndData table while
+    // you're on that other tab), not on the very first load.
+    const cameFromDifferentView = !!(window.__currentView && window.__currentView !== viewType);
+
     // Tear down whichever iframe-based tab is being LEFT (not the one being
     // entered) — resetting its src to '' fully destroys that iframe's JS
     // context, closing its own Supabase client, any polling intervals, and
@@ -3094,6 +3106,12 @@ function switchMainView(viewType, btn) {
         if (mainContent) mainContent.style.display = 'block';
         if (subheader) subheader.style.display = 'flex';
         if (frozenBar) frozenBar.style.display = 'flex';
+
+        // Same sync the Refresh button runs, fired automatically on
+        // returning to this tab — picks up anything another module (Bridge,
+        // most notably) wrote to Schedule's data while you were away,
+        // without waiting for a manual click.
+        if (cameFromDifferentView) refreshScheduleData();
     }
 }
 
