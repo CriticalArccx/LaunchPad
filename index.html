@@ -7813,50 +7813,85 @@ function closeRescheduleModal() {
     __pendingRescheduleSource = null;
 }
 
-// Bridge's predecessor/successor graph lives directly on this same
-// BackEndData table in Unified Schedule mode (Bridge reads/writes it
-// straight through — see bridge-view.js's UNIFIED_SCHEDULE). The new
-// activity becomes a successor of the one that got cancelled, and takes
-// over as predecessor of everything the cancelled one was a predecessor
-// of — same "redirect downstream links to the replacement" pattern
-// Bridge's own duplicate-merge logic already uses for an equivalent case.
-async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel) {
+// Bridge's predecessor/successor graph does NOT live on BackEndData for
+// this project — confirmed directly against Supabase (MSA3A/RNO04 are both
+// unified_schedule: false). Bridge keeps its own "{prefix}schedule_items"
+// table with its own uuid ids; a BackEndData row is only linked to its
+// Bridge item via that item's launchpad_id column. predecessor_ids here is
+// an array of schedule_items uuids, NOT BackEndData row ids — a completely
+// different id space than the one this file uses for everything else.
+//
+// The new activity becomes a successor of the cancelled one, and takes
+// over as predecessor of everything the cancelled one was a predecessor of
+// — same "redirect downstream links to the replacement" pattern Bridge's
+// own duplicate-merge logic uses for an equivalent case, just run from the
+// Schedule side instead of from inside Bridge.
+async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel, activity, asset, tradePartners) {
     try {
+        const itemsTable = T('schedule_items');
+
         const normalizePreds = (raw) => {
             let preds = raw;
             if (typeof preds === 'string') {
                 try { preds = JSON.parse(preds); } catch (e) { preds = []; }
             }
-            return Array.isArray(preds) ? preds.map(Number).filter(Number.isFinite) : [];
+            return Array.isArray(preds) ? preds.filter(p => typeof p === 'string') : [];
         };
 
-        // New activity is a successor of the cancelled one. Upserting with
-        // day_label alongside it (not just .update()) means this is safe
-        // even if saveCell()'s own fire-and-forget writes for this row
-        // haven't landed yet — partial upserts on the same id merge rather
-        // than clobber, the same way every saveCell() call already composes.
-        const { error: newRowErr } = await _supabase.from(T('BackEndData')).upsert({
-            id: newRowId,
-            day_label: newDayLabel,
-            predecessor_ids: [originalRowId]
+        // Find the Bridge item for the activity that got cancelled. If it
+        // was never synced into Bridge (no schedule_items row links back to
+        // it), there's nothing to connect — the Schedule-side reschedule
+        // already happened regardless, so just stop here quietly.
+        const { data: origRows, error: origErr } = await _supabase
+            .from(itemsTable)
+            .select('id, zone, area, asset_type, type, duration_hours, launchpad_day_label')
+            .eq('launchpad_id', originalRowId)
+            .limit(1);
+        if (origErr) throw origErr;
+        const origItem = origRows && origRows[0];
+        if (!origItem) {
+            console.warn(`Reschedule: no Bridge item is linked to the cancelled activity (launchpad_id ${originalRowId}) — nothing to connect in Bridge.`);
+            return;
+        }
+
+        // Create the new Bridge item as a successor of the cancelled one,
+        // carrying over its zone/area/type/duration (a fresh instance of
+        // the same work), but NOT its predecessor_ids — this new item's
+        // only predecessor is the activity it's replacing.
+        const newItemId = crypto.randomUUID();
+        const { error: insertErr } = await _supabase.from(itemsTable).insert({
+            id: newItemId,
+            asset_name: asset || '',
+            activity_name: activity || '',
+            contractor_name: tradePartners || '',
+            type: origItem.type || '',
+            zone: origItem.zone || '',
+            area: origItem.area || '',
+            asset_type: origItem.asset_type || '',
+            start_ts: new Date(newDayLabel + 'T07:00').toISOString(),
+            duration_hours: origItem.duration_hours || 24,
+            notes: `Rescheduled from ${origItem.launchpad_day_label || 'a previous date'}.`,
+            predecessor_ids: [origItem.id],
+            launchpad_id: newRowId,
+            launchpad_day_label: newDayLabel
         });
-        if (newRowErr) throw newRowErr;
+        if (insertErr) throw insertErr;
 
         // Everything that depended on the cancelled activity now depends on
         // its replacement instead.
-        const { data: allRows, error: fetchErr } = await _supabase
-            .from(T('BackEndData'))
+        const { data: allItems, error: fetchErr } = await _supabase
+            .from(itemsTable)
             .select('id, predecessor_ids')
             .not('predecessor_ids', 'is', null);
         if (fetchErr) throw fetchErr;
 
-        const successors = (allRows || []).filter(r => r.id !== newRowId && normalizePreds(r.predecessor_ids).includes(originalRowId));
+        const successors = (allItems || []).filter(it => it.id !== newItemId && normalizePreds(it.predecessor_ids).includes(origItem.id));
         for (const succ of successors) {
             const updatedPreds = normalizePreds(succ.predecessor_ids)
-                .filter(id => id !== originalRowId)
-                .concat(newRowId);
-            const { error: updErr } = await _supabase.from(T('BackEndData')).update({ predecessor_ids: updatedPreds }).eq('id', succ.id);
-            if (updErr) console.error(`Failed to redirect predecessor link on row ${succ.id}`, updErr);
+                .filter(id => id !== origItem.id)
+                .concat(newItemId);
+            const { error: updErr } = await _supabase.from(itemsTable).update({ predecessor_ids: updatedPreds }).eq('id', succ.id);
+            if (updErr) console.error(`Failed to redirect predecessor link on Bridge item ${succ.id}`, updErr);
         }
     } catch (e) {
         // Non-fatal — the Schedule-side reschedule already succeeded above;
@@ -7918,7 +7953,7 @@ async function confirmReschedule() {
     }
     if (activity || asset) lookupColumn5Value(rowNum, newDate, false);
 
-    await linkRescheduledItemInBridge(originalRowId, rowNum, newDate);
+    await linkRescheduledItemInBridge(originalRowId, rowNum, newDate, activity, asset, tradePartners);
 
     closeRescheduleModal();
 }
