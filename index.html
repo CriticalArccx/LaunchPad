@@ -7921,7 +7921,6 @@ async function confirmReschedule() {
     await linkRescheduledItemInBridge(originalRowId, rowNum, newDate);
 
     closeRescheduleModal();
-    alert(`Scheduled "${activity || asset}" on ${newDate}.`);
 }
 
 const __rowCompactionTimers = {};
