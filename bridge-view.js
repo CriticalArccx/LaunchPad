@@ -3426,13 +3426,28 @@ export class BridgeView extends HTMLElement {
             }
             if (topoOrder.length < comp.length) { comp.forEach(id => floatById[id] = null); return; } // shouldn't happen (cycles are blocked elsewhere), but bail out safely
 
+            // Early start is the item's own real scheduled start — NOT
+            // max(predecessor finishes), which is the textbook CPM formula
+            // but wrong here: real schedules in this app routinely have a
+            // gap between when a predecessor finishes and when its
+            // successor is actually scheduled to start (weekends, resource
+            // buffers, etc.). Using the theoretical earliest-possible start
+            // instead of the real one "optimistically" collapsed those gaps
+            // out of the forward pass, understating how late a chain with
+            // built-in buffers truly finishes — confirmed against live
+            // data: a chain with zero internal gaps (AC-D02: L2→L3→L4 back
+            // to back) was winning over chains that finish a full day LATER
+            // in reality (AC-F01/AC-F03/ACP-1/ACP-2, each with a 1-day real
+            // gap at every step) because the gapped chains' theoretical EF
+            // came out earlier than their actual EF. Anchoring to the real
+            // start means float now measures actual slack against the
+            // real schedule, and the chain that really finishes last is
+            // the one that ends up with zero float.
             topoOrder.forEach(id => {
-                const preds = (byId[id].predecessor_ids || []).filter(p => compSet.has(p));
                 const durMs = (parseFloat(byId[id].duration_hours) || 0) * 3600000;
                 const ownStartMs = new Date(byId[id].start_ts).getTime();
-                const es = preds.length ? Math.max(...preds.map(p => efById[p])) : ownStartMs;
-                esById[id] = es;
-                efById[id] = es + durMs;
+                esById[id] = ownStartMs;
+                efById[id] = ownStartMs + durMs;
             });
             compInfos.push({ comp, compSet, topoOrder });
         });
