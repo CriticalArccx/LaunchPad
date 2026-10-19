@@ -2083,7 +2083,13 @@ export class BridgeView extends HTMLElement {
             }
             // Ordering-violation sweep applies either way — it's about the
             // predecessor_ids graph itself, not how it syncs to Schedule.
-            this.repairPredecessorOrdering().catch(err => console.error('Background predecessor ordering repair failed', err));
+            // Chained (not run in parallel with itself across loads) so a
+            // slow repairPredecessorOrdering() pass can't overlap with
+            // repairStaleScheduleLinks() both touching the same items.
+            this.repairPredecessorOrdering()
+                .catch(err => { console.error('Background predecessor ordering repair failed', err); return 0; })
+                .then(() => this.repairStaleScheduleLinks())
+                .catch(err => console.error('Background stale-schedule-link repair failed', err));
         }
     }
 
@@ -3754,6 +3760,7 @@ export class BridgeView extends HTMLElement {
         this.DATA.items.forEach(it => (it.predecessor_ids || []).forEach(pid => predecessorIds.add(pid)));
 
         let fixedCount = 0;
+        const pendingBefore = new Set(this.pendingSyncIds);
         for (const id of predecessorIds) {
             if (!this.DATA.items.find(it => it.id === id)) continue; // predecessor_ids pointing at a since-deleted item
             const before = this.DATA.items.map(it => it.start_ts).join('|');
@@ -3761,8 +3768,56 @@ export class BridgeView extends HTMLElement {
             const after = this.DATA.items.map(it => it.start_ts).join('|');
             if (before !== after) fixedCount++;
         }
+
         if (fixedCount > 0) {
+            // This is an automated correctness fix, not a deliberate edit —
+            // it shouldn't sit in pendingSyncIds waiting for someone to
+            // notice and manually Accept it. Confirmed happening in
+            // production: this runs in the background on every load
+            // (never awaited by init()), so a user's Accept & Publish click
+            // can easily land before this sweep finishes — whatever it
+            // fixes afterward was left stranded, correct in Bridge but
+            // never reaching Schedule, with nothing visibly showing it was
+            // still outstanding. Publishing immediately instead closes that
+            // race, same as the Schedule-side reschedule flow already does
+            // for its own cascade.
+            if (!this.UNIFIED_SCHEDULE) {
+                const newlyPending = Array.from(this.pendingSyncIds).filter(id => !pendingBefore.has(id));
+                for (const id of newlyPending) {
+                    const item = this.DATA.items.find(it => it.id === id);
+                    if (!item) continue;
+                    const ok = await this.syncItemToLaunchPad(item);
+                    if (ok) this.pendingSyncIds.delete(id);
+                }
+                this.savePendingSyncState();
+            }
             this.renderGantt();
+            this.updatePendingSyncUI();
+        }
+        return fixedCount;
+    }
+
+    // Catches items already left stranded by the race described above
+    // (before this fix existed) — a Bridge item whose own start_ts no
+    // longer matches the date its Schedule link (launchpad_day_label)
+    // points at. Confirmed directly in production: Bridge showed the
+    // correct new date, Accept & Publish had been clicked, but Schedule
+    // still had the old row and no new one — this is exactly that
+    // signature. Independent of pendingSyncIds (which is per-browser,
+    // localStorage-backed, and wouldn't even still reference a change from
+    // a previous session) — this instead trusts the data itself.
+    async repairStaleScheduleLinks() {
+        if (this.UNIFIED_SCHEDULE) return 0; // one shared table either way — nothing to drift out of sync with
+        let fixedCount = 0;
+        for (const item of this.DATA.items) {
+            if (!item.launchpad_id) continue; // never published at all — not this repair's job
+            const actualDayLabel = new Date(item.start_ts).toISOString().slice(0, 10);
+            if (item.launchpad_day_label === actualDayLabel) continue; // already in sync
+            const ok = await this.syncItemToLaunchPad(item);
+            if (ok) { fixedCount++; this.pendingSyncIds.delete(item.id); }
+        }
+        if (fixedCount > 0) {
+            this.savePendingSyncState();
             this.updatePendingSyncUI();
         }
         return fixedCount;
