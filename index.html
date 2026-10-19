@@ -7680,12 +7680,30 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
 // whenever it was last touched. Matches autoCleanUI()'s own definition of
 // "actually empty" (no Activity and no Asset) so both agree on what counts
 // as blank.
+// Checks ALL 10 columns, not just Activity/Asset — checking only those two
+// meant a row with, say, real data in Notes or Trade Partners but a blank
+// Activity/Asset got classified as "blank" and silently wiped by
+// compactDayRows() below (which overwrites every column of a "blank" slot
+// with "" and persists that to the database). Column extraction mirrors
+// compactDayRows()'s own scraping logic so both agree on what "empty"
+// means per column type (status is a span with a "..." placeholder, trade
+// partners stores its real value in data-selected, not .value).
 function isRowReallyBlank(row) {
-    const col3 = row.querySelector('[data-col-index="3"]');
-    const col4 = row.querySelector('[data-col-index="4"]');
-    const val3 = (col3?.value || "").toLowerCase().trim();
-    const val4 = (col4?.value || "").toLowerCase().trim();
-    return (val3 === "" || val3.includes("select")) && (val4 === "" || val4.includes("select"));
+    for (let col = 1; col <= 10; col++) {
+        const el = row.querySelector(`[data-col-index="${col}"]`);
+        if (!el) continue;
+        let val;
+        if (col === 5) {
+            val = (el.innerText || "").trim();
+            if (val === "...") val = "";
+        } else if (col === 6) {
+            val = (el.getAttribute('data-selected') || el.value || "").trim();
+        } else {
+            val = (el.value || "").trim();
+        }
+        if (val !== "" && !val.toLowerCase().includes("select")) return false;
+    }
+    return true;
 }
 
 const __rowCompactionTimers = {};
@@ -9508,7 +9526,7 @@ async function orderChronologically() {
         // 1. Scrape the data from the current rows
         const rowDataList = occupiedRows.map(row => {
             const rowData = { timeStr: "", cols: {} };
-            for (let col = 1; col <= 9; col++) {
+            for (let col = 1; col <= 10; col++) {
                 const el = row.querySelector(`[data-col-index="${col}"]`);
                 let val = "";
                 let html = ""; // Capture HTML for the hyperlink
@@ -9537,8 +9555,8 @@ async function orderChronologically() {
         for (let i = 0; i < occupiedRows.length; i++) {
             const targetRow = occupiedRows[i];
             const sourceData = rowDataList[i];
-            
-            for (let col = 1; col <= 9; col++) {
+
+            for (let col = 1; col <= 10; col++) {
                 const targetEl = targetRow.querySelector(`[data-col-index="${col}"]`);
                 if (!targetEl) continue;
                 
