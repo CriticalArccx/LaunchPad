@@ -42,3 +42,10 @@ create policy "Allow anon read" on launchpad_dashboard_data for select using (tr
 -- policy needed since that update already runs through whatever policy
 -- currently allows an authorized admin to update their own project's row.
 alter table launchpad_projects add column if not exists dashboard_display_name text;
+
+-- Which Result (Schedule col 7) values should prompt a user to reschedule
+-- an activity onto a new date when picked — set in the Schedule config
+-- modal (Save All Settings), read by index.html's showRescheduleModal()/
+-- the Result dropdown's onchange handler. launchpad_schedule_config itself
+-- is created elsewhere (holds column_config); this just adds the column.
+alter table launchpad_schedule_config add column if not exists reschedule_trigger_results jsonb not null default '[]'::jsonb;

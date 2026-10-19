@@ -1601,6 +1601,12 @@ body.help-docked #loading-overlay {
             </div>
         </div>
 
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
+            <h2 style="color: #333; margin: 0;">Reschedule Trigger Results</h2>
+            <p style="font-size:12px; color:#666; margin-bottom: 15px;">When a user picks one of these Results on a Schedule row, they'll be prompted to create that activity again on a new date (the original row is left as-is).</p>
+            <div id="reschedule-trigger-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; max-height: 150px; overflow-y: auto;"></div>
+        </div>
+
         <div style="border-top: 1px solid #ddd; padding-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
@@ -1633,7 +1639,24 @@ body.help-docked #loading-overlay {
         </div>
     </div>
 </div>
-    
+
+<div id="reschedule-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
+    <div style="background: white; width: 380px; max-width: 95%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 25px;">
+        <h3 style="margin-top: 0; color: #333;">Reschedule Activity</h3>
+        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">This Result flags a reschedule. The original row is left as-is — pick a new date to schedule this activity again.</p>
+        <div style="background: #f8f9fa; border: 1px solid #eee; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; font-size: 13px;">
+            <div><strong>Activity:</strong> <span id="reschedule-modal-activity"></span></div>
+            <div><strong>Asset:</strong> <span id="reschedule-modal-asset"></span></div>
+        </div>
+        <label style="display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">New Date</label>
+        <input type="date" id="reschedule-new-date" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="closeRescheduleModal()" style="padding: 8px 15px; cursor: pointer; background: #f1f3f4; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; color: #555;">Cancel</button>
+            <button onclick="confirmReschedule()" style="padding: 8px 15px; background: #2e7d32; color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Schedule It</button>
+        </div>
+    </div>
+</div>
+
 <div id="scanner-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
     <div style="background: white; width: 450px; max-width: 95%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
         <div style="padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa;">
@@ -2210,10 +2233,14 @@ async function loadScheduleConfig() {
     try {
         const { data: row, error } = await _supabase
             .from('launchpad_schedule_config')
-            .select('column_config')
+            .select('column_config, reschedule_trigger_results')
             .eq('project_key', window.LP_CONFIG.projectKey)
             .maybeSingle();
         if (error) throw error;
+        if (row) {
+            rescheduleTriggerResults = row.reschedule_trigger_results || [];
+            LP_CACHE.set('rescheduleTriggerResults', rescheduleTriggerResults);
+        }
         if (row && row.column_config && row.column_config.length) {
             scheduleColConfig = row.column_config;
             
@@ -2300,6 +2327,12 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 let scheduleColConfig = defaultScheduleConfig; // Now defaults to global variable
+
+// Which Result (col 7) values should prompt the user to reschedule the
+// activity onto a new date when picked in a Schedule row — set in the
+// Schedule config modal, persisted on the same launchpad_schedule_config
+// row as column_config (see loadScheduleConfig()/saveAllSettings()).
+let rescheduleTriggerResults = [];
 
 function saveScheduleConfig() {
     localStorage.setItem('userScheduleConfig', JSON.stringify(scheduleColConfig));
@@ -6443,8 +6476,10 @@ async function continueStartAppAfterProject(user) {
             const cachedAppConfig = LP_CACHE.get('appConfig');
             const cachedEqActivities = LP_CACHE.get('equivalentActivitiesConfig');
             const cachedDropdowns = LP_CACHE.get('dropdownData');
+            const cachedRescheduleTriggers = LP_CACHE.get('rescheduleTriggerResults');
 
             if (cachedColConfig) { scheduleColConfig = cachedColConfig; renderDynamicHeaders(); }
+            if (cachedRescheduleTriggers) { rescheduleTriggerResults = cachedRescheduleTriggers; }
             if (cachedAppConfig) { appConfig = { ...appConfig, ...cachedAppConfig }; applySidebarConfig(); }
             if (cachedEqActivities) { equivalentActivitiesConfig = cachedEqActivities; renderEquivalentActivitiesUI(); }
             if (cachedDropdowns) {
@@ -6732,6 +6767,28 @@ function openScheduleConfigModal() {
     document.getElementById('cfg-nav-bridge').checked = appConfig.sidebar.bridge;
     document.getElementById('cfg-nav-tamperseals').checked = appConfig.sidebar.tamperSeals;
     document.getElementById('cfg-nav-sealform').checked = appConfig.sidebar.sealForm;
+
+    renderRescheduleTriggerList();
+}
+
+// Builds one checkbox per known Result value (same list the Result
+// dropdown itself is populated from) so the admin can pick which ones
+// should prompt a reschedule. Checked state comes from whatever was last
+// saved (rescheduleTriggerResults); saveAllSettings() reads it back out.
+function renderRescheduleTriggerList() {
+    const container = document.getElementById('reschedule-trigger-list');
+    if (!container) return;
+    const options = (window.dropdownData?.col7 || []);
+    if (options.length === 0) {
+        container.innerHTML = '<span style="color:#999; font-size:13px;">No Result values defined yet — add some under System Data first.</span>';
+        return;
+    }
+    container.innerHTML = options.map(val => `
+        <label style="display:flex; align-items:center; gap:6px; background:white; border:1px solid #eee; border-radius:4px; padding:5px 10px; cursor:pointer; font-size:13px;">
+            <input type="checkbox" class="reschedule-trigger-cb" value="${val.replace(/"/g, '&quot;')}" ${rescheduleTriggerResults.includes(val) ? 'checked' : ''}>
+            ${val}
+        </label>
+    `).join('');
 }
 
 // Helper to swap array items
@@ -6777,6 +6834,9 @@ async function saveAllSettings(btn) {
         }
     });
 
+    // 3b. Gather Reschedule Trigger Results
+    rescheduleTriggerResults = Array.from(document.querySelectorAll('.reschedule-trigger-cb:checked')).map(cb => cb.value);
+
 // 4. SAVE THE THREE SUPABASE-BACKED SETTINGS, PLUS PHASE RULES (still sheet-backed)
     try {
         const savedBy = window.__currentUserEmail || null;
@@ -6790,6 +6850,7 @@ async function saveAllSettings(btn) {
             _supabase.from('launchpad_schedule_config').upsert({
                 project_key: window.LP_CONFIG.projectKey,
                 column_config: scheduleColConfig,
+                reschedule_trigger_results: rescheduleTriggerResults,
                 updated_by: savedBy
             }, { onConflict: 'project_key' }),
             _supabase.from('launchpad_nav_config').upsert({
@@ -6816,6 +6877,7 @@ async function saveAllSettings(btn) {
         LP_CACHE.set('scheduleColConfig', scheduleColConfig);
         LP_CACHE.set('appConfig', appConfig);
         LP_CACHE.set('equivalentActivitiesConfig', equivalentActivitiesConfig);
+        LP_CACHE.set('rescheduleTriggerResults', rescheduleTriggerResults);
         
         // Phase Rules still writes to Google Sheets in the background, so we
         // still give that a moment to finish before reloading — the three
@@ -7231,6 +7293,14 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
                         }
                     }
                     if (col === 3 || col === 4) lookupColumn5Value(rowNumericId, dayLabel, false);
+
+                    // If this Result value is flagged (Schedule config ->
+                    // Reschedule Trigger Results), prompt for a new date to
+                    // create this activity again on. The original row is
+                    // left exactly as it is — this is a NEW instance.
+                    if (col === 7 && rescheduleTriggerResults.includes(element.value)) {
+                        openRescheduleModal(rowNumericId, dayLabel);
+                    }
                 };
             }
             else if (col === 8) {
@@ -7704,6 +7774,90 @@ function isRowReallyBlank(row) {
         if (val !== "" && !val.toLowerCase().includes("select")) return false;
     }
     return true;
+}
+
+// --- RESCHEDULE ON TRIGGER RESULT ---
+// Opened from the Result (col 7) onchange handler above when the picked
+// value is in rescheduleTriggerResults (set in the Schedule config modal).
+// The original row is never touched — this only creates a new instance of
+// the activity on whatever date the user picks.
+let __pendingRescheduleSource = null;
+
+function openRescheduleModal(rowNumericId, dayLabel) {
+    const activityEl = document.getElementById(`${dayLabel}-r${rowNumericId}-c3`);
+    const assetEl = document.getElementById(`${dayLabel}-r${rowNumericId}-c4`);
+    const tradeEl = document.getElementById(`${dayLabel}-r${rowNumericId}-c6`);
+
+    __pendingRescheduleSource = {
+        activity: activityEl?.value || "",
+        asset: assetEl?.value || "",
+        tradePartners: tradeEl?.getAttribute('data-selected') || ""
+    };
+
+    document.getElementById('reschedule-modal-activity').innerText = __pendingRescheduleSource.activity || "(none)";
+    document.getElementById('reschedule-modal-asset').innerText = __pendingRescheduleSource.asset || "(none)";
+    document.getElementById('reschedule-new-date').value = "";
+    document.getElementById('reschedule-modal').style.display = 'flex';
+}
+
+function closeRescheduleModal() {
+    document.getElementById('reschedule-modal').style.display = 'none';
+    __pendingRescheduleSource = null;
+}
+
+async function confirmReschedule() {
+    const newDate = document.getElementById('reschedule-new-date').value;
+    if (!newDate) { alert("Pick a date first."); return; }
+    if (!__pendingRescheduleSource) return;
+    const { activity, asset, tradePartners } = __pendingRescheduleSource;
+
+    if (!ensureWeekRenderedForDayLabel(newDate)) {
+        alert("That date is outside this project's scheduled date range.");
+        return;
+    }
+    const container = document.getElementById(`rows-${newDate}`);
+    if (!container) { alert("Could not find that day on the schedule."); return; }
+
+    // Find an open slot, building 5 more if every currently-built one on
+    // this day is already occupied — same fallback "+ Add 5 Rows" uses.
+    let targetRow = Array.from(container.querySelectorAll('.cell-row')).find(r => isRowReallyBlank(r));
+    if (!targetRow) {
+        const currentCount = container.querySelectorAll('.cell-row').length;
+        addRowsToContainer(container, newDate, null, currentCount, 5);
+        targetRow = Array.from(container.querySelectorAll('.cell-row')).find(r => isRowReallyBlank(r));
+    }
+    if (!targetRow) { alert("Could not find an open slot on that date."); return; }
+    targetRow.style.display = 'flex'; // newly-added slots beyond the first 15 default to hidden
+
+    const rowNum = parseInt(targetRow.id.replace('row-wrapper-', ''), 10);
+
+    const setAndSave = (col, value) => {
+        const el = targetRow.querySelector(`[data-col-index="${col}"]`);
+        if (!el || !value) return;
+        if (el.tagName === 'SELECT') {
+            const exists = Array.from(el.options).some(opt => opt.value === value);
+            if (!exists) el.add(new Option(value, value));
+        }
+        el.value = value;
+        applyCellColor(el, value);
+        saveCell(el, value, col, true);
+    };
+
+    setAndSave(3, activity);
+    setAndSave(4, asset);
+    if (tradePartners) {
+        const tradeEl = targetRow.querySelector('[data-col-index="6"]');
+        if (tradeEl) {
+            tradeEl.setAttribute('data-selected', tradePartners);
+            if (tradeEl.options && tradeEl.options[0]) tradeEl.options[0].text = `Selected: ${tradePartners}`;
+            applyCellColor(tradeEl, tradePartners);
+            saveCell(tradeEl, tradePartners, 6, true);
+        }
+    }
+    if (activity || asset) lookupColumn5Value(rowNum, newDate, false);
+
+    closeRescheduleModal();
+    alert(`Scheduled "${activity || asset}" on ${newDate}.`);
 }
 
 const __rowCompactionTimers = {};
