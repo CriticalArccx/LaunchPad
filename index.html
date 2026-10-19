@@ -7822,6 +7822,26 @@ function closeRescheduleModal() {
     __pendingRescheduleCascade = [];
 }
 
+// Bridge's own async init() (Supabase connect, TABLES.items/ItemsDB setup)
+// isn't finished just because the custom element has been mounted and
+// connectedCallback has run — connectedCallback fires init() without
+// awaiting it. whenReady() (if this browser has the current bridge-view.js)
+// resolves once that's done; as a belt-and-suspenders fallback for a
+// not-yet-redeployed/cached bridge-view.js without it, this also polls for
+// ItemsDB directly — reloadAllData() throws "Cannot read properties of
+// undefined (reading 'fetchAll')" if called before ItemsDB exists, which is
+// exactly the race this closes either way.
+async function waitForBridgeReady(bridgeEl, timeoutMs = 8000) {
+    if (bridgeEl.whenReady) {
+        try { await bridgeEl.whenReady(); } catch (e) { console.warn('bridge-view whenReady() rejected, falling back to polling for ItemsDB', e); }
+    }
+    const start = Date.now();
+    while (!bridgeEl.ItemsDB && (Date.now() - start) < timeoutMs) {
+        await new Promise(r => setTimeout(r, 150));
+    }
+    if (!bridgeEl.ItemsDB) throw new Error('Bridge did not finish loading in time.');
+}
+
 function setRescheduleConfirmEnabled(enabled) {
     const btn = document.getElementById('reschedule-confirm-btn');
     btn.disabled = !enabled;
@@ -7854,7 +7874,7 @@ async function onRescheduleDateChanged() {
         await ensureViewMounted('bridge');
         const bridgeEl = document.querySelector('bridge-view');
         if (!bridgeEl) throw new Error('Bridge view could not be loaded');
-        if (bridgeEl.whenReady) await bridgeEl.whenReady(); // in case this is the first time Bridge has ever been mounted this session
+        await waitForBridgeReady(bridgeEl); // in case this is the first time Bridge has ever been mounted this session
         await bridgeEl.reloadAllData();
         if (myToken !== __rescheduleCalcToken) return; // a newer date change superseded this one
 
@@ -7915,7 +7935,7 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
         await ensureViewMounted('bridge');
         const bridgeEl = document.querySelector('bridge-view');
         if (!bridgeEl) throw new Error('Bridge view could not be loaded');
-        if (bridgeEl.whenReady) await bridgeEl.whenReady();
+        await waitForBridgeReady(bridgeEl);
         await bridgeEl.reloadAllData();
 
         // Find the Bridge item for the activity that got cancelled. If it
