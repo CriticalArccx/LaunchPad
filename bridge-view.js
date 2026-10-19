@@ -3638,22 +3638,23 @@ export class BridgeView extends HTMLElement {
         d.setHours(7, 0, 0, 0);
         return d.getTime();
     }
-    // A successor is always allowed to share the same calendar day as its
-    // predecessor (e.g. predecessor finishes that morning, successor picks
-    // up that afternoon) — so the earliest a successor may start is 7am on
-    // whichever predecessor's own LAST active day is latest, not the exact
-    // millisecond each predecessor finishes. Returns null with no predecessors.
+    // A successor must start on a calendar day strictly after every one of
+    // its predecessors' own last active day — never the same day — so the
+    // earliest a successor may start is 7am the day AFTER whichever
+    // predecessor's own last active day is latest. Returns null with no
+    // predecessors.
     minAllowedStartMs(predItems) {
         if (!predItems || !predItems.length) return null;
-        return Math.max(...predItems.map(p => this.dayIndexToMs(this.lastActiveDayIndex(p))));
+        return Math.max(...predItems.map(p => this.dayIndexToMs(this.lastActiveDayIndex(p) + 1)));
     }
 
-    /* Successors can share the same day as their predecessor — they're only
-       force-moved when the predecessor now runs STRICTLY past the day the
-       successor is already sitting on (a real conflict, not just "the same
-       day"), and even then only far enough to clear it: the very next day
-       after the predecessor's own last active day, not all the way out to
-       the predecessor's exact finish time. The shift cascades down the chain. */
+    /* A successor must start strictly after its predecessor's own last
+       active day — sharing the same calendar day is NOT allowed — so this
+       force-moves whenever the predecessor's last active day is the same
+       as or later than the successor's current day, always to the very
+       next day after the predecessor's own last active day (not all the
+       way out to the predecessor's exact finish time). The shift cascades
+       down the chain. */
     async enforceDependencies(changedId, visited) {
         visited = visited || new Set();
         if (visited.has(changedId)) return;
@@ -3664,7 +3665,7 @@ export class BridgeView extends HTMLElement {
         const successors = this.DATA.items.filter(i => (i.predecessor_ids || []).includes(changedId));
         for (const succ of successors) {
             const succDay = Math.floor(this.dayIndexForDate(new Date(succ.start_ts)));
-            if (predLastDay > succDay) {
+            if (predLastDay >= succDay) {
                 succ.start_ts = new Date(this.dayIndexToMs(predLastDay + 1)).toISOString();
                 await this.ItemsDB.update(succ.id, { start_ts: succ.start_ts });
                 // this successor's date just changed as a side effect of the
@@ -3721,7 +3722,7 @@ export class BridgeView extends HTMLElement {
             const successors = this.DATA.items.filter(i => (i.predecessor_ids || []).includes(predecessorSearchId));
             for (const succ of successors) {
                 const succDay = Math.floor(this.dayIndexForDate(new Date(currentStartTs(succ.id))));
-                if (predLastDay > succDay) {
+                if (predLastDay >= succDay) {
                     const newStartTs = new Date(this.dayIndexToMs(predLastDay + 1)).toISOString();
                     working.set(succ.id, newStartTs);
                     changes.push({ item: succ, oldStartTs: succ.start_ts, newStartTs });
@@ -4053,15 +4054,15 @@ export class BridgeView extends HTMLElement {
             item.duration_hours = Math.max(0.25, this.snapHours((newWidthPx / this.DAY_WIDTH) * 24));
         }
 
-        // an item can never sit on a day before its own predecessor's last
-        // active day (same day as the predecessor is fine — see
-        // minAllowedStartMs()) — clamp forward if needed
+        // an item can never sit on or before its own predecessor's last
+        // active day — must be strictly after (see minAllowedStartMs()) —
+        // clamp forward if needed
         if (item.predecessor_ids && item.predecessor_ids.length) {
             const predItems = item.predecessor_ids.map(pid => this.DATA.items.find(i => i.id === pid)).filter(Boolean);
             const minStart = this.minAllowedStartMs(predItems);
             if (minStart !== null && new Date(item.start_ts).getTime() < minStart) {
                 item.start_ts = new Date(minStart).toISOString();
-                this.toast("Snapped to its predecessor's day — can't start earlier than that.");
+                this.toast("Snapped to the day after its predecessor — can't start any earlier than that.");
             }
         }
 
@@ -4276,7 +4277,7 @@ export class BridgeView extends HTMLElement {
             const minStart = this.minAllowedStartMs(predItems);
             if (minStart !== null && new Date(startTs).getTime() < minStart) {
                 startTs = new Date(minStart).toISOString();
-                this.toast("Start date adjusted — can't begin before its predecessor's day.");
+                this.toast("Start date adjusted — can't begin until the day after its predecessor.");
             }
         }
 
