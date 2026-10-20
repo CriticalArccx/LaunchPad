@@ -7991,6 +7991,19 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             // call since that one writes live (see bridge-view.js), the
             // rest stages into draft like any other edit and gets picked
             // up by the Accept pass below.
+            // predecessor_ids goes FIRST and is reflected on newItem
+            // in-memory before the carryOver patch below — itemToBackEndRow()
+            // embeds the item's CURRENT predecessor_ids into every draft
+            // snapshot it builds (not just predecessor_ids-only patches), so
+            // if the carryOver patch below ran first, it would stage a
+            // draft with the still-empty predecessor_ids, and committing
+            // that draft later (via acceptPendingChanges()) would silently
+            // overwrite the correct value this write is about to set live.
+            // Confirmed happening in production: the new row ended up with
+            // predecessor_ids: [] despite this exact call appearing to set
+            // it — because it ran after, not before, the draft got staged.
+            newItem.predecessor_ids = [origItem.id];
+            await bridgeEl.ItemsDB.update(newItem.id, { predecessor_ids: [origItem.id] });
             const carryOver = {
                 type: origItem.type || '', zone: origItem.zone || '', area: origItem.area || '',
                 asset_type: origItem.asset_type || '', duration_hours: origItem.duration_hours || 24,
@@ -7999,8 +8012,6 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             Object.assign(newItem, carryOver);
             await bridgeEl.ItemsDB.update(newItem.id, carryOver);
             bridgeEl.markPendingSync(newItem);
-            await bridgeEl.ItemsDB.update(newItem.id, { predecessor_ids: [origItem.id] });
-            newItem.predecessor_ids = [origItem.id];
         } else {
             // Create the new Bridge item as a successor of the cancelled one,
             // carrying over its zone/area/type/duration (a fresh instance of
@@ -8025,12 +8036,6 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             if (!newItem) throw new Error('Bridge item creation failed');
             bridgeEl.DATA.items.push(newItem); // enforceDependencies()/syncItemToLaunchPad() below read this in-memory list
         }
-
-        // Mark the cancelled activity as superseded — Bridge greys it out
-        // and strikes through its label (see itemBarHtml()) rather than
-        // just leaving it looking like ordinary, still-live work.
-        origItem.superseded_by = newItem.id;
-        await bridgeEl.ItemsDB.update(origItem.id, { superseded_by: newItem.id });
 
         // Everything that depended on the cancelled activity now depends on
         // its replacement instead — same "redirect downstream links to the
@@ -8073,6 +8078,24 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             bridgeEl.savePendingSyncState();
             bridgeEl.updatePendingSyncUI();
             bridgeEl.renderGantt();
+        }
+
+        // Mark the cancelled activity as superseded — Bridge greys it out
+        // and strikes through its label (see itemBarHtml()) rather than
+        // just leaving it looking like ordinary, still-live work. Last and
+        // in its own try/catch deliberately: this is purely cosmetic (the
+        // predecessor links and cascade above are the part that actually
+        // matters), and on a project that hasn't yet run sync/schema.sql's
+        // superseded_by column addition this write fails — it must not be
+        // able to take the real linking work above down with it the way it
+        // did when it ran in the middle of this function instead of at the
+        // end.
+        try {
+            origItem.superseded_by = newItem.id;
+            await bridgeEl.ItemsDB.update(origItem.id, { superseded_by: newItem.id });
+            bridgeEl.renderGantt();
+        } catch (e) {
+            console.warn('Could not mark the original activity as superseded (has sync/schema.sql been run for this project?) — the reschedule itself still succeeded.', e);
         }
     } catch (e) {
         // Non-fatal — the Schedule-side reschedule already succeeded above;
