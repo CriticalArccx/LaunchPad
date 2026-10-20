@@ -7896,7 +7896,9 @@ async function onRescheduleDateChanged() {
         await bridgeEl.reloadAllData();
         if (myToken !== __rescheduleCalcToken) return; // a newer date change superseded this one
 
-        const origItem = (bridgeEl.DATA.items || []).find(it => it.launchpad_id === __pendingRescheduleSource.originalRowId);
+        // launchpad_id is a string for unified-mode items, a number for
+        // non-unified schedule_items — compare as strings either way.
+        const origItem = (bridgeEl.DATA.items || []).find(it => String(it.launchpad_id) === String(__pendingRescheduleSource.originalRowId));
         if (!origItem) {
             preview.innerHTML = 'No linked Bridge item found for the original activity — nothing else will move.';
             setRescheduleConfirmEnabled(true);
@@ -7956,38 +7958,73 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
         await waitForBridgeReady(bridgeEl);
         await bridgeEl.reloadAllData();
 
-        // Find the Bridge item for the activity that got cancelled. If it
-        // was never synced into Bridge (no schedule_items row links back to
-        // it), there's nothing to connect — the Schedule-side reschedule
-        // already happened regardless, so just stop here quietly.
-        const origItem = (bridgeEl.DATA.items || []).find(it => it.launchpad_id === originalRowId);
+        // Find the Bridge item for the activity that got cancelled. launchpad_id
+        // is a string for unified-mode items (it mirrors the item's own id)
+        // and a number for non-unified schedule_items, so compare as
+        // strings to match either way. If none is found, there's nothing to
+        // connect — the Schedule-side reschedule already happened
+        // regardless, so just stop here quietly.
+        const origItem = (bridgeEl.DATA.items || []).find(it => String(it.launchpad_id) === String(originalRowId));
         if (!origItem) {
             console.warn(`Reschedule: no Bridge item is linked to the cancelled activity (launchpad_id ${originalRowId}) — nothing to connect in Bridge.`);
             return;
         }
 
-        // Create the new Bridge item as a successor of the cancelled one,
-        // carrying over its zone/area/type/duration (a fresh instance of
-        // the same work) — through Bridge's own insert path (ItemsDB),
-        // which lets Postgres assign the real id rather than guessing one
-        // client-side, same as any item Bridge creates itself.
-        const newItem = await bridgeEl.ItemsDB.insert({
-            asset_name: asset || '',
-            activity_name: activity || '',
-            contractor_name: tradePartners || '',
-            type: origItem.type || '',
-            zone: origItem.zone || '',
-            area: origItem.area || '',
-            asset_type: origItem.asset_type || '',
-            start_ts: new Date(newDayLabel + 'T07:00').toISOString(),
-            duration_hours: origItem.duration_hours || 24,
-            notes: `Rescheduled from ${origItem.launchpad_day_label || 'a previous date'}.`,
-            predecessor_ids: [origItem.id],
-            launchpad_id: newRowId,
-            launchpad_day_label: newDayLabel
-        });
-        if (!newItem) throw new Error('Bridge item creation failed');
-        bridgeEl.DATA.items.push(newItem); // enforceDependencies()/syncItemToLaunchPad() below read this in-memory list
+        let newItem;
+        if (bridgeEl.UNIFIED_SCHEDULE) {
+            // Unified mode: Schedule just wrote the new activity straight
+            // into BackEndData (confirmReschedule()'s setAndSave() calls,
+            // before this function ever runs) — that row IS this project's
+            // Bridge item too, same table, so the reloadAllData() above
+            // already picked it up. Find it instead of inserting a second,
+            // disconnected one (ItemsDB.insert() in unified mode only ever
+            // stages a local-only draft anyway, which isn't what's needed
+            // here — the row already exists for real).
+            newItem = bridgeEl.DATA.items.find(it => String(it.launchpad_id) === String(newRowId));
+            if (!newItem) throw new Error('New Schedule row not found in Bridge after reload');
+            // Schedule's own setAndSave() calls only ever touch
+            // activity/asset/trade partners — zone/area/type/duration/notes
+            // are Bridge-only columns on this project's BackEndData that
+            // Scheduler never writes, so carry those over from the
+            // cancelled activity the same way the non-unified insert below
+            // does. predecessor_ids goes through its own ItemsDB.update()
+            // call since that one writes live (see bridge-view.js), the
+            // rest stages into draft like any other edit and gets picked
+            // up by the Accept pass below.
+            const carryOver = {
+                type: origItem.type || '', zone: origItem.zone || '', area: origItem.area || '',
+                asset_type: origItem.asset_type || '', duration_hours: origItem.duration_hours || 24,
+                notes: `Rescheduled from ${origItem.launchpad_day_label || 'a previous date'}.`
+            };
+            Object.assign(newItem, carryOver);
+            await bridgeEl.ItemsDB.update(newItem.id, carryOver);
+            bridgeEl.markPendingSync(newItem);
+            await bridgeEl.ItemsDB.update(newItem.id, { predecessor_ids: [origItem.id] });
+            newItem.predecessor_ids = [origItem.id];
+        } else {
+            // Create the new Bridge item as a successor of the cancelled one,
+            // carrying over its zone/area/type/duration (a fresh instance of
+            // the same work) — through Bridge's own insert path (ItemsDB),
+            // which lets Postgres assign the real id rather than guessing one
+            // client-side, same as any item Bridge creates itself.
+            newItem = await bridgeEl.ItemsDB.insert({
+                asset_name: asset || '',
+                activity_name: activity || '',
+                contractor_name: tradePartners || '',
+                type: origItem.type || '',
+                zone: origItem.zone || '',
+                area: origItem.area || '',
+                asset_type: origItem.asset_type || '',
+                start_ts: new Date(newDayLabel + 'T07:00').toISOString(),
+                duration_hours: origItem.duration_hours || 24,
+                notes: `Rescheduled from ${origItem.launchpad_day_label || 'a previous date'}.`,
+                predecessor_ids: [origItem.id],
+                launchpad_id: newRowId,
+                launchpad_day_label: newDayLabel
+            });
+            if (!newItem) throw new Error('Bridge item creation failed');
+            bridgeEl.DATA.items.push(newItem); // enforceDependencies()/syncItemToLaunchPad() below read this in-memory list
+        }
 
         // Mark the cancelled activity as superseded — Bridge greys it out
         // and strikes through its label (see itemBarHtml()) rather than
@@ -8016,15 +8053,27 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
         // now, rather than leaving it sitting as a pending change someone
         // has to separately Accept inside Bridge — "automatically moving
         // items if applicable" is this feature's whole point.
-        for (const id of [newItem.id, ...newlyPending]) {
-            const item = bridgeEl.DATA.items.find(it => it.id === id);
-            if (!item) continue;
-            const ok = await bridgeEl.syncItemToLaunchPad(item);
-            if (ok) bridgeEl.pendingSyncIds.delete(id);
+        if (bridgeEl.UNIFIED_SCHEDULE) {
+            // No per-item publish primitive exists in unified mode — Accept
+            // always commits everything currently pending (see
+            // _acceptPendingChangesUnified()), same as clicking the
+            // Accept & Publish button would. newItem's carried-over fields
+            // and every cascaded successor above are already tracked via
+            // markPendingSync(), so this picks all of it up; it'll also
+            // publish any other unrelated pending edit already sitting in
+            // Bridge, same as a manual Accept click always has.
+            await bridgeEl.acceptPendingChanges();
+        } else {
+            for (const id of [newItem.id, ...newlyPending]) {
+                const item = bridgeEl.DATA.items.find(it => it.id === id);
+                if (!item) continue;
+                const ok = await bridgeEl.syncItemToLaunchPad(item);
+                if (ok) bridgeEl.pendingSyncIds.delete(id);
+            }
+            bridgeEl.savePendingSyncState();
+            bridgeEl.updatePendingSyncUI();
+            bridgeEl.renderGantt();
         }
-        bridgeEl.savePendingSyncState();
-        bridgeEl.updatePendingSyncUI();
-        bridgeEl.renderGantt();
     } catch (e) {
         // Non-fatal — the Schedule-side reschedule already succeeded above;
         // worst case the Bridge dependency graph needs a manual fix-up.

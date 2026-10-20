@@ -1579,6 +1579,22 @@ export class BridgeView extends HTMLElement {
                     current.predecessor_ids = patch.predecessor_ids;
                     return current;
                 }
+                if (patchKeys.length === 1 && patchKeys[0] === 'superseded_by') {
+                    // Same reasoning as predecessor_ids above: this is a
+                    // Bridge-only display flag (see itemBarHtml()'s
+                    // superseded styling), not a schedule change Scheduler
+                    // needs to show or anyone needs to review — staging it
+                    // into `draft` would wrongly mark a rescheduled
+                    // activity's original row as "pending" until someone
+                    // happens to Accept. Requires sync/schema.sql's
+                    // superseded_by column on this project's BackEndData.
+                    const { error } = await this._supabase.from(this.LAUNCHPAD_TABLE)
+                        .update({ superseded_by: patch.superseded_by })
+                        .eq('id', Number(id));
+                    if (error) { console.error('ItemsDB.update (superseded_by) failed — has sync/schema.sql been run for this project?', error); return null; }
+                    current.superseded_by = patch.superseded_by;
+                    return current;
+                }
 
                 // Everything else — including a day change — just stages
                 // into `draft` on this SAME row. No id churn, no
@@ -1668,7 +1684,12 @@ export class BridgeView extends HTMLElement {
                 : (typeof source.predecessor_ids === 'string' ? (JSON.parse(source.predecessor_ids || '[]')).map(String) : []),
             launchpad_id: String(row.id),
             launchpad_day_label: dayLabel,
-            _pendingDraft: hasDraft
+            _pendingDraft: hasDraft,
+            // Always read off the live row, never `source` — this is
+            // written live (see ItemsDB.update()'s special case above),
+            // never staged into draft, so there's nothing draft-side to
+            // prefer here the way every other field above does.
+            superseded_by: row.superseded_by ? String(row.superseded_by) : null
         };
     }
 

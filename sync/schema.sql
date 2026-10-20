@@ -50,21 +50,32 @@ alter table launchpad_projects add column if not exists dashboard_display_name t
 -- is created elsewhere (holds column_config); this just adds the column.
 alter table launchpad_schedule_config add column if not exists reschedule_trigger_results jsonb not null default '[]'::jsonb;
 
--- Marks a schedule_items row as superseded by the replacement activity a
--- Schedule-side reschedule created for it (see index.html's
--- linkRescheduledItemInBridge()) — Bridge strikes through and greys out
--- any item with this set (see bridge-view.js's item rendering). Only
--- applies to projects still on the separate schedule_items table; skips
--- any project that doesn't have one (nothing to alter).
+-- Marks an item as superseded by the replacement activity a Schedule-side
+-- reschedule created for it (see index.html's linkRescheduledItemInBridge())
+-- — Bridge strikes through and greys out any item with this set (see
+-- bridge-view.js's item rendering). Non-unified projects track this on
+-- their separate schedule_items table (uuid ids); unified projects track
+-- it directly on BackEndData instead (bigint ids, same scheme as that
+-- table's own id/predecessor_ids — see bridge-view.js's ItemsDB.update()
+-- "superseded_by" special case, which writes this column live, bypassing
+-- the draft/Accept staging every other field goes through, since it's a
+-- Bridge-only display concern rather than a schedule change needing
+-- review). Skips any project that has neither table (nothing to alter).
 do $$
 declare
     proj record;
 begin
-    for proj in select table_prefix from launchpad_projects loop
+    for proj in select table_prefix, unified_schedule from launchpad_projects loop
         if to_regclass(format('public.%I', proj.table_prefix || 'schedule_items')) is not null then
             execute format(
                 'alter table %I add column if not exists superseded_by uuid',
                 proj.table_prefix || 'schedule_items'
+            );
+        end if;
+        if proj.unified_schedule and to_regclass(format('public.%I', proj.table_prefix || 'BackEndData')) is not null then
+            execute format(
+                'alter table %I add column if not exists superseded_by bigint',
+                proj.table_prefix || 'BackEndData'
             );
         end if;
     end loop;
