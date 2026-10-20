@@ -1737,10 +1737,18 @@ export class BridgeView extends HTMLElement {
         return e.composedPath().some(el => el.nodeType === 1 && el.matches && el.matches(selector));
     }
 
-    init() {
+    async init() {
         this._setupGanttScrollListener();
         this._setupNewItemMenuReset();
-        this.initApp();
+        // Must be awaited, not fire-and-forgotten — connectedCallback() hands
+        // this function's own return value out as _initPromise/whenReady()
+        // specifically so callers like index.html's reschedule flow can wait
+        // for the real data load (project flags, ItemsDB, first
+        // reloadAllData()) to finish before reading this.DATA.items. Without
+        // await here, init() was a plain sync function returning undefined,
+        // so whenReady() resolved instantly instead of ever actually
+        // waiting for initApp() to complete.
+        await this.initApp();
     }
 
     // A document-level click listener sees `event.target` retargeted to this
