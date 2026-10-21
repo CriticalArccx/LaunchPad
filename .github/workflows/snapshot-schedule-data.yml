@@ -1,0 +1,24 @@
+name: Snapshot Schedule Data
+
+# Daily point-in-time backup of each listed project's BackEndData table
+# into launchpad_schedule_snapshots, so there's somewhere to recover real
+# data from if rows are ever lost again. See
+# sync/snapshot-schedule-data.mjs for the actual logic and the list of
+# which projects are currently covered (MSA3A only, for now).
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Snapshot BackEndData
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node sync/snapshot-schedule-data.mjs

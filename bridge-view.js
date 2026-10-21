@@ -5975,7 +5975,25 @@ export class BridgeView extends HTMLElement {
             return 0;
         }
 
-        const linkedIds = new Set(this.DATA.items.filter(it => it.launchpad_id != null).map(it => String(it.launchpad_id)));
+        // linkedIds MUST come from a fresh query, not this.DATA.items —
+        // confirmed causing real data loss in production: this runs
+        // automatically after every Accept & Publish, and this.DATA.items
+        // is whatever Bridge last loaded, possibly hours stale in a tab
+        // left open. Any BackEndData row created directly in Schedule since
+        // then (never pulled into this session), or created moments ago by
+        // a DIFFERENT concurrent Bridge session, looked "orphaned" against
+        // that stale in-memory list and got permanently deleted with no
+        // confirmation (silent mode). Querying schedule_items directly here
+        // instead reflects every link that exists right now, regardless of
+        // what this particular browser tab happens to have loaded.
+        const { data: linkedRows, error: linkedErr } = await this._supabase
+            .from(this.TABLES.items).select('launchpad_id').not('launchpad_id', 'is', null);
+        if (linkedErr) {
+            console.error('Reconcile: fresh linked-id fetch failed — aborting rather than risk deleting against a stale list', linkedErr);
+            if (!silent) this.toast('Reconcile failed — see console.');
+            return 0;
+        }
+        const linkedIds = new Set((linkedRows || []).map(r => String(r.launchpad_id)));
         const isOccupied = row => !!(row.activity || row.asset || row.notes || row.status || row.trade_partners || row.time || row.place || row.result || row.loto);
         const orphans = (data || []).filter(row => isOccupied(row) && !linkedIds.has(String(row.id)));
 
