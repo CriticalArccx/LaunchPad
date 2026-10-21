@@ -1522,8 +1522,10 @@ body.help-docked #loading-overlay {
             <button onclick="resetAllFilters()" style="background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px; width: 100%; transition: background 0.2s;">
                 ✖ Reset All Filters
             </button>
-            <button class="tool-btn" onclick="orderChronologically()" style="background: #ffffff; color: #fe8c0a; border-color: #fe8c0a; margin-left: 5px; font-weight: bold;">Order</button>
-            <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: #1b5e20; border-color: #1b5e20; margin-left: 5px; font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
+                <button class="tool-btn" onclick="orderChronologically()" style="background: #ffffff; color: #fe8c0a; border-color: #fe8c0a; font-weight: bold;">Order</button>
+                <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: #1b5e20; border-color: #1b5e20; font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
+            </div>
             <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 18px; border: 1px solid #ddd;">
                     <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 14px; width: 100px; font-size: 13px;">
                     <span id="search-count" style="font-size: 11px; color: #666; margin: 0 1px; min-width: 24px;">0/0</span>
