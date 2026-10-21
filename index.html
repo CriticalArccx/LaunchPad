@@ -1523,6 +1523,7 @@ body.help-docked #loading-overlay {
                 ✖ Reset All Filters
             </button>
             <button class="tool-btn" onclick="orderChronologically()" style="background: #ffffff; color: #fe8c0a; border-color: #fe8c0a; margin-left: 5px; font-weight: bold;">Order</button>
+            <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: #1b5e20; border-color: #1b5e20; margin-left: 5px; font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
             <div class="search-container" style="display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 4px; padding: 2px 8px; margin-right: 18px; border: 1px solid #ddd;">
                     <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 14px; width: 100px; font-size: 13px;">
                     <span id="search-count" style="font-size: 11px; color: #666; margin: 0 1px; min-width: 24px;">0/0</span>
@@ -10064,6 +10065,63 @@ async function orderChronologically() {
             }
         }
     }
+}
+
+// Status (col 5) is the one column a user never directly types into — it's
+// populated by lookupColumn5Value() off whatever Activity/Asset (cols 3/4)
+// are currently set. Clearing Activity/Asset afterward doesn't clear
+// Status back out with it, so a row that briefly had real content and got
+// emptied back out is left showing a stray "NA"/lookup result with every
+// other column blank — exactly the kind of row isRowReallyBlank() (by
+// design) won't treat as empty, since Status genuinely does have content.
+// This sweeps every rendered day for rows in that exact state — every
+// column EXCEPT Status is blank — and wipes Status back to blank too, so
+// the row becomes genuinely empty and compacts away normally on the next
+// pass instead of sitting there as a ghost row forever.
+async function cleanStatusOnlyRows() {
+    const saveIndicator = document.getElementById('saveIndicator');
+    saveIndicator.innerText = "Cleaning...";
+    saveIndicator.style.display = 'inline-block';
+
+    const dayContainers = document.querySelectorAll('.rows-container');
+    const dayLabelsTouched = new Set();
+    let cleanedCount = 0;
+
+    for (const container of dayContainers) {
+        const dayLabel = container.id.replace('rows-', '');
+        for (const row of container.querySelectorAll('.cell-row')) {
+            const col5 = row.querySelector('[data-col-index="5"]');
+            if (!col5) continue;
+            const statusText = (col5.innerText || "").trim();
+            if (!statusText || statusText === "...") continue; // nothing to wipe
+
+            let onlyStatusHasData = true;
+            for (let col = 1; col <= 10; col++) {
+                if (col === 5) continue;
+                const el = row.querySelector(`[data-col-index="${col}"]`);
+                if (!el) continue;
+                const val = col === 6
+                    ? (el.getAttribute('data-selected') || el.value || "").trim()
+                    : (el.value || "").trim();
+                if (val !== "" && !val.toLowerCase().includes("select")) { onlyStatusHasData = false; break; }
+            }
+            if (!onlyStatusHasData) continue;
+
+            col5.innerText = "...";
+            applyCellColor(col5, "");
+            saveCell(col5, "", 5, true);
+            cleanedCount++;
+            dayLabelsTouched.add(dayLabel);
+        }
+    }
+
+    // Status is now blank on every row this touched, so each of those days
+    // may have newly-blank rows to compact away — same pass compactDayRows()
+    // already runs after every normal save.
+    dayLabelsTouched.forEach(dayLabel => compactDayRows(dayLabel));
+
+    saveIndicator.innerText = cleanedCount ? `Cleaned ${cleanedCount} row${cleanedCount === 1 ? '' : 's'}` : "Nothing to clean";
+    setTimeout(() => { saveIndicator.style.display = 'none'; }, 2500);
 }
 
 // --- BATCH ADD LOGIC ---
