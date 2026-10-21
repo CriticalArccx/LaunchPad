@@ -1,10 +1,9 @@
 name: Snapshot Schedule Data
 
-# Daily point-in-time backup of each listed project's BackEndData table
-# into launchpad_schedule_snapshots, so there's somewhere to recover real
-# data from if rows are ever lost again. See
-# sync/snapshot-schedule-data.mjs for the actual logic and the list of
-# which projects are currently covered (MSA3A only, for now).
+# Daily point-in-time backup of every project's BackEndData table into
+# launchpad_schedule_snapshots, so there's somewhere to recover real data
+# from if rows are ever lost again. See sync/snapshot-schedule-data.mjs
+# for the actual logic.
 on:
   schedule:
     - cron: '0 8 * * *'

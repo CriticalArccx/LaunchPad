@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Takes a full point-in-time snapshot of each listed project's BackEndData
+// Takes a full point-in-time snapshot of every project's BackEndData
 // table and stores it in launchpad_schedule_snapshots, so there's a backup
 // to recover real data from if rows are ever lost again — independent of
 // whatever the cause turns out to be each time.
@@ -10,10 +10,9 @@
 // needs to bypass RLS to write) set as a GitHub Actions secret, same as
 // sync-equipment-data.mjs.
 //
-// Deliberately an explicit list, not every project in launchpad_projects
-// (unlike the other sync/clean scripts) — scoped to MSA3A per request;
-// add a project_key here to cover it too, no schema change needed.
-const PROJECTS_TO_SNAPSHOT = ['MSA3A'];
+// Covers every project in launchpad_projects — no per-project list to
+// maintain here, same pattern as sync-equipment-data.mjs. Started on
+// MSA3A only; now runs for all of them.
 
 const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -40,15 +39,12 @@ async function supabaseRequest(path, options = {}) {
     return res;
 }
 
-async function getTablePrefix(projectKey) {
-    const res = await supabaseRequest(`launchpad_projects?project_key=eq.${encodeURIComponent(projectKey)}&select=table_prefix`);
-    const rows = await res.json();
-    if (!rows.length) throw new Error(`No launchpad_projects row found for project_key='${projectKey}'`);
-    return rows[0].table_prefix;
+async function getProjects() {
+    const res = await supabaseRequest('launchpad_projects?select=project_key,table_prefix');
+    return res.json();
 }
 
-async function snapshotProject(projectKey) {
-    const tablePrefix = await getTablePrefix(projectKey);
+async function snapshotProject(projectKey, tablePrefix) {
     const table = `${tablePrefix}BackEndData`;
 
     // PostgREST defaults to capping a plain select at 1000 rows — paginate
@@ -78,13 +74,16 @@ async function snapshotProject(projectKey) {
 }
 
 async function main() {
+    const projects = await getProjects();
+    console.log(`Found ${projects.length} project(s).`);
+
     let hadError = false;
-    for (const projectKey of PROJECTS_TO_SNAPSHOT) {
+    for (const project of projects) {
         try {
-            await snapshotProject(projectKey);
+            await snapshotProject(project.project_key, project.table_prefix);
         } catch (e) {
             hadError = true;
-            console.error(`[${projectKey}] snapshot failed:`, e.message);
+            console.error(`[${project.project_key}] snapshot failed:`, e.message);
         }
     }
     if (hadError) process.exit(1);

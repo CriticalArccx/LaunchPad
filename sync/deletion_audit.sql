@@ -1,14 +1,17 @@
 -- Run this once in the Supabase SQL editor. Records every row deleted from
--- a project's BackEndData table — "a table or column that denotes when
--- activity line items have been deleted," per request, scoped to MSA3A
--- first. Implemented as a database trigger (not app code) specifically so
--- it catches every deletion regardless of what triggers it — Bridge's
+-- every project's BackEndData table — "a table or column that denotes when
+-- activity line items have been deleted," per request. Started on MSA3A
+-- only; now covers every project in launchpad_projects. Implemented as a
+-- database trigger (not app code) specifically so it catches every
+-- deletion regardless of what triggers it — Bridge's
 -- clearOrphanedScheduleRows()/acceptPendingChanges(), a manual delete, a
 -- future code path nobody's written yet — rather than only the ones
 -- whichever JS function happens to call a logging helper.
 --
--- One shared log table (not a per-project one) so adding another project
--- later is just one more trigger statement at the bottom, not a new table.
+-- One shared log table (not a per-project one), and the trigger-creation
+-- loop at the bottom re-running this file is always safe (drop-if-exists
+-- per project) — including picking up any project added after the fact,
+-- just by running this file again.
 
 create table if not exists launchpad_deleted_activities (
     id bigserial primary key,
@@ -46,14 +49,21 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_log_deletion on "MSA3ABackEndData";
-create trigger trg_log_deletion
-after delete on "MSA3ABackEndData"
-for each row execute function log_backend_data_deletion('MSA3A');
-
--- To extend this to another project later, run just this (swap the table
--- name and project_key):
---   drop trigger if exists trg_log_deletion on "{PREFIX}BackEndData";
---   create trigger trg_log_deletion
---   after delete on "{PREFIX}BackEndData"
---   for each row execute function log_backend_data_deletion('{PROJECT_KEY}');
+-- One trigger per project's BackEndData table — skips any project that
+-- doesn't have one (nothing to attach to), and is safe to re-run any time
+-- (e.g. after a new project is added to launchpad_projects): drops and
+-- recreates each trigger rather than erroring on a second run.
+do $$
+declare
+    proj record;
+begin
+    for proj in select project_key, table_prefix from launchpad_projects loop
+        if to_regclass(format('public.%I', proj.table_prefix || 'BackEndData')) is not null then
+            execute format('drop trigger if exists trg_log_deletion on %I', proj.table_prefix || 'BackEndData');
+            execute format(
+                'create trigger trg_log_deletion after delete on %I for each row execute function log_backend_data_deletion(%L)',
+                proj.table_prefix || 'BackEndData', proj.project_key
+            );
+        end if;
+    end loop;
+end $$;
