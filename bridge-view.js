@@ -204,9 +204,6 @@ const LAUNCHPAD_SYNC_KEY = 'pullplan_launchpad_sync_enabled_v1';
 const LAUNCHPAD_STATUS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxkJfxdnt3j9l_8EH0ZUmAc48PSVP2W53t1ps-9LH_RlGGwO41Uq6jbnt78JMinDIDN/exec';
 
 const FILTER_DEFS = [
-    { key: 'type', label: 'Type', field: 'type' },
-    { key: 'zone', label: 'Zone', field: 'zone' },
-    { key: 'asset_type', label: 'Asset Type', field: 'asset_type' },
     { key: 'asset', label: 'Asset', field: 'asset_name' },
     { key: 'activity', label: 'Activity', field: 'activity_name' },
     { key: 'area', label: 'Area', field: 'area' }
@@ -803,7 +800,7 @@ const MARKUP = `
                 <label>Asset *</label>
                 <input type="text" id="itemAsset" placeholder="Type to search or add new asset..." autocomplete="off"
                     oninput="this.getRootNode().host.filterCombo('itemAsset','itemAssetList', this.getRootNode().host.DATA.assets)" onfocus="this.getRootNode().host.filterCombo('itemAsset','itemAssetList', this.getRootNode().host.DATA.assets)"
-                    onblur="this.getRootNode().host.applyAssetLookup(this.value, 'itemZone', 'itemArea')">
+                    onblur="this.getRootNode().host.applyAssetLookup(this.value, 'itemArea')">
                 <div class="combo-list" id="itemAssetList"></div>
             </div>
             <div class="form-row combo-wrap">
@@ -823,30 +820,13 @@ const MARKUP = `
                 </div>
             </div>
             <div class="form-row">
-                <label>Type *</label>
-                <select id="itemTypePicker"></select>
+                <label>Area <span class="hint">automatic, based on Asset</span></label>
+                <input type="text" id="itemArea" readonly disabled style="background:var(--grey-bg); cursor:not-allowed;">
             </div>
-            <div class="form-grid">
-                <div class="form-row">
-                    <label>Zone *</label>
-                    <select id="itemZone"></select>
-                </div>
-                <div class="form-row">
-                    <label>Area</label>
-                    <select id="itemArea"></select>
-                </div>
-            </div>
-            <div class="form-grid">
-                <div class="form-row">
-                    <label>Asset Type</label>
-                    <select id="itemAssetType"></select>
-                </div>
-                <div class="form-row combo-wrap">
-                    <label>Contractor <span class="hint">type to search or add new</span></label>
-                    <input type="text" id="itemContractor" placeholder="Type to search or add new contractor..." autocomplete="off"
-                        oninput="this.getRootNode().host.filterCombo('itemContractor','itemContractorList', this.getRootNode().host.DATA.contractors)" onfocus="this.getRootNode().host.filterCombo('itemContractor','itemContractorList', this.getRootNode().host.DATA.contractors)">
-                    <div class="combo-list" id="itemContractorList"></div>
-                </div>
+            <div class="form-row combo-wrap">
+                <label>Contractor(s) <span class="hint">select one or more</span></label>
+                <input type="text" class="search" placeholder="Filter contractors..." oninput="this.getRootNode().host.filterCheckList('itemContractorList', this.value)">
+                <div class="checkbox-scroll-list" id="itemContractorList"></div>
             </div>
             <div class="form-row combo-wrap">
                 <label>Predecessors <span class="hint">this item can't start before these finish</span></label>
@@ -878,7 +858,7 @@ const MARKUP = `
         </div>
         <div class="modal-body">
             <div id="bulkStep1">
-                <p style="color:#666; font-size:13px; margin-top:0;">Select multiple assets and activities to generate combinations, or paste rows from a spreadsheet (Asset, Activity, Duration in days, Type, Zone, Area, Start Date columns, tab or comma separated).</p>
+                <p style="color:#666; font-size:13px; margin-top:0;">Select multiple assets and activities to generate combinations, or paste rows from a spreadsheet (Asset, Activity, Duration in days, Start Date, Contractor(s), Notes columns, tab or comma separated). Area is filled in automatically from Asset.</p>
                 <div class="tabs">
                     <button class="tab-btn active" onclick="this.getRootNode().host.switchTab('bulkTab','combo',event)">Combination Builder</button>
                     <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','paste',event)">Paste / CSV</button>
@@ -902,17 +882,10 @@ const MARKUP = `
                         </div>
                     </div>
                     <div class="form-grid" style="margin-top:14px;">
-                        <div class="form-row">
-                            <label>Type *</label>
-                            <select id="bulkTypePicker"></select>
-                        </div>
-                        <select id="bulkZone" style="display:none;"></select>
-                        <select id="bulkArea" style="display:none;"></select>
-                        <div class="form-row combo-wrap">
-                            <label>Contractor <span class="hint">optional, type to add new</span></label>
-                            <input type="text" id="bulkContractor" placeholder="Type to search or add new contractor..." autocomplete="off"
-                                oninput="this.getRootNode().host.filterCombo('bulkContractor','bulkContractorList', this.getRootNode().host.DATA.contractors)" onfocus="this.getRootNode().host.filterCombo('bulkContractor','bulkContractorList', this.getRootNode().host.DATA.contractors)">
-                            <div class="combo-list" id="bulkContractorList"></div>
+                        <div>
+                            <label style="font-weight:700; font-size:12.5px; color:#555;">Contractor(s) <span class="hint">optional</span></label>
+                            <input type="text" class="search" placeholder="Filter contractors..." oninput="this.getRootNode().host.filterCheckList('bulkContractorList', this.value)">
+                            <div class="checkbox-scroll-list" id="bulkContractorList"></div>
                         </div>
                         <div class="form-row">
                             <label>Duration (days)</label>
@@ -930,8 +903,8 @@ const MARKUP = `
                     <button class="tool-btn primary" onclick="this.getRootNode().host.generateBulkPreview('combo')">Generate Preview →</button>
                 </div>
                 <div class="tab-panel" id="bulkTab-paste">
-                    <textarea id="bulkPasteArea" rows="10" placeholder="Asset, Activity, Duration (days), Type, Zone, Area, Start Date (YYYY-MM-DD), Contractor, Notes
-Pump-101, Install Piping, 1, Mech, Zone A, Level 1, 2026-08-03, Apex Mechanical, Confirm crane access" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
+                    <textarea id="bulkPasteArea" rows="10" placeholder="Asset, Activity, Duration (days), Start Date (YYYY-MM-DD), Contractor(s), Notes
+Pump-101, Install Piping, 1, 2026-08-03, Apex Mechanical | Acme Electric, Confirm crane access" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
                     <button class="tool-btn primary" style="margin-top:10px;" onclick="this.getRootNode().host.generateBulkPreview('paste')">Generate Preview →</button>
                 </div>
                 <div class="tab-panel" id="bulkTab-wbs">
@@ -946,7 +919,7 @@ Pump-101, Install Piping, 1, Mech, Zone A, Level 1, 2026-08-03, Apex Mechanical,
                 <p style="color:#666; font-size:13px; margin-top:0;"><strong id="bulkPreviewCount"></strong> — review before adding to the schedule. Every field is editable; remove any rows you don't want.</p>
                 <div style="max-height:340px; overflow:auto; border:1px solid #eee; border-radius:6px;">
                     <table class="preview-table">
-                        <thead id="bulkPreviewHead"><tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Type</th><th>Zone</th><th>Area</th><th>Start</th><th>Contractor</th><th>Notes</th><th>Linked after</th><th></th></tr></thead>
+                        <thead id="bulkPreviewHead"><tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Linked after</th><th></th></tr></thead>
                         <tbody id="bulkPreviewBody"></tbody>
                     </table>
                 </div>
@@ -1675,7 +1648,6 @@ export class BridgeView extends HTMLElement {
             duration_hours: parseFloat(source.duration_hours) || 24,
             start_ts: new Date(dayLabel + 'T07:00').toISOString(),
             type: source.bridge_type || (this.DATA.types[0]?.name || 'Other'),
-            zone: source.place || '',
             area: source.area || '',
             asset_type: source.asset_type || '',
             contractor_name: source.trade_partners || '',
@@ -1707,7 +1679,11 @@ export class BridgeView extends HTMLElement {
             day_label: dayLabel,
             activity: item.activity_name || '',
             asset: item.asset_name || '',
-            place: item.zone || '',
+            // Zone has been retired — place (shared with Schedule's own
+            // asset->place auto-fill map) is now fed by Area instead, so a
+            // save here doesn't blank out whatever Schedule itself expects
+            // to find in that column.
+            place: item.area || '',
             trade_partners: item.contractor_name || '',
             notes: item.notes || '',
             duration_hours: item.duration_hours || 24,
@@ -1818,13 +1794,10 @@ export class BridgeView extends HTMLElement {
             this.$('itemActivity').value = '';
             this.$('itemDuration').value = 1;
             this.$('itemStart').value = this.toLocalInputValue(new Date());
-            this.$('itemContractor').value = '';
+            this.$('itemArea').value = '';
+            this.renderContractorCheckboxList('itemContractorList', []);
             this.$('itemNotes').value = '';
             this.$('itemDeleteBtn').style.display = 'none';
-            this.populateSelect('itemZone', this.DATA.zones.map(z => z.name), true);
-            this.populateSelect('itemArea', this.DATA.areas.map(a => a.name), true);
-            this.populateSelect('itemAssetType', [...new Set(this.DATA.items.map(i => i.asset_type).filter(Boolean))], true);
-            if (this.DATA.types[0]) this.$('itemTypePicker').value = this.DATA.types[0].name;
             this.currentItemPredecessors = [];
             this.renderPredChips();
         });
@@ -2084,12 +2057,6 @@ export class BridgeView extends HTMLElement {
         this.updatePendingSyncUI();
         this.updateEditModeUI(); // sets the 🔒 Edit button's initial label and applies the locked cursor/handle CSS
         this.initTimelineRangeInputs();
-        this.buildTypePicker('itemTypePicker');
-        this.buildTypePicker('bulkTypePicker');
-        this.populateSelect('itemZone', this.DATA.zones.map(z => z.name), true);
-        this.populateSelect('itemArea', this.DATA.areas.map(a => a.name), true);
-        this.populateSelect('itemAssetType', [...new Set(this.DATA.items.map(i => i.asset_type).filter(Boolean))], true);
-        this.populateSelect('bulkZone', this.DATA.zones.map(z => z.name), false);
         this.renderFilterBar();
         this.renderLegend();
         this.renderGantt();
@@ -2368,7 +2335,7 @@ export class BridgeView extends HTMLElement {
     passesGlobalSearch(item) {
         const q = (this.$('globalSearch')?.value || '').trim().toLowerCase();
         if (!q) return true;
-        const hay = [item.asset_name, item.activity_name, item.contractor_name, item.zone, item.area, item.type, item.notes].join(' ').toLowerCase();
+        const hay = [item.asset_name, item.activity_name, item.contractor_name, item.area, item.notes].join(' ').toLowerCase();
         return hay.includes(q);
     }
 
@@ -4156,15 +4123,13 @@ export class BridgeView extends HTMLElement {
             </div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
                 <span class="legend-swatch" style="width:14px;height:14px;background:${this.activityColor(it.activity_name)};"></span>
-                <strong>${escHtml(it.activity_name)}</strong> <span style="color:#999; font-weight:500;">(${escHtml(it.type)})</span>
+                <strong>${escHtml(it.activity_name)}</strong>
             </div>
             <div style="font-size:13px; line-height:2;">
                 <div><strong>Asset:</strong> ${escHtml(it.asset_name)}</div>
                 <div><strong>Activity:</strong> ${escHtml(it.activity_name)}</div>
-                <div><strong>Zone:</strong> ${escHtml(it.zone || '—')}</div>
                 <div><strong>Area:</strong> ${escHtml(it.area || '—')}</div>
-                <div><strong>Asset Type:</strong> ${escHtml(it.asset_type || '—')}</div>
-                <div><strong>Contractor:</strong> ${escHtml(it.contractor_name || '—')}</div>
+                <div><strong>Contractor(s):</strong> ${escHtml((it.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean).join(', ') || '—')}</div>
                 <div><strong>Start:</strong> ${start.toLocaleString()}</div>
                 <div><strong>Duration:</strong> ${hoursToDays(it.duration_hours)} days</div>
                 <div><strong>Float:</strong> ${this.criticalPathFloatLabel(it.id)}</div>
@@ -4210,14 +4175,8 @@ export class BridgeView extends HTMLElement {
         this.$('itemActivity').value = it.activity_name;
         this.$('itemDuration').value = hoursToDays(it.duration_hours);
         this.$('itemStart').value = this.toLocalInputValue(new Date(it.start_ts));
-        this.$('itemTypePicker').value = it.type;
-        this.populateSelect('itemZone', this.DATA.zones.map(z => z.name), true);
-        this.populateSelect('itemArea', this.DATA.areas.map(a => a.name), true);
-        this.populateSelect('itemAssetType', [...new Set(this.DATA.items.map(i => i.asset_type).filter(Boolean))], true);
-        this.$('itemZone').value = it.zone || '';
         this.$('itemArea').value = it.area || '';
-        this.$('itemAssetType').value = it.asset_type || '';
-        this.$('itemContractor').value = it.contractor_name || '';
+        this.renderContractorCheckboxList('itemContractorList', (it.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean));
         this.$('itemNotes').value = it.notes || '';
         this.$('itemDeleteBtn').style.display = 'inline-flex';
         this.currentItemPredecessors = (it.predecessor_ids || []).slice();
@@ -4322,17 +4281,16 @@ export class BridgeView extends HTMLElement {
         const durationDays = parseFloat(this.$('itemDuration').value);
         const duration = daysToHours(durationDays);
         const startVal = this.$('itemStart').value;
-        const type = this.$('itemTypePicker').value;
-        const zone = this.$('itemZone').value;
 
-        if (!assetName || !activityName || !duration || !startVal || !type || !zone) {
-            this.toast('Please fill in Asset, Activity, Duration, Start, Type and Zone.');
+        if (!assetName || !activityName || !duration || !startVal) {
+            this.toast('Please fill in Asset, Activity, Duration and Start.');
             return;
         }
         await this.ensureListValue('assets', assetName);
         await this.ensureListValue('activities', activityName);
-        const contractorName = this.$('itemContractor').value.trim();
-        if (contractorName) await this.ensureListValue('contractors', contractorName);
+        const contractorNames = this.getCheckedContractors('itemContractorList');
+        for (const name of contractorNames) await this.ensureListValue('contractors', name);
+        const contractorName = contractorNames.join(' | ');
 
         // an item can't start before any of its chosen predecessors finish
         let startTs = new Date(startVal).toISOString();
@@ -4350,9 +4308,7 @@ export class BridgeView extends HTMLElement {
             activity_name: activityName,
             duration_hours: duration,
             start_ts: startTs,
-            type, zone,
             area: this.$('itemArea').value,
-            asset_type: this.$('itemAssetType').value,
             contractor_name: contractorName,
             notes: this.$('itemNotes').value,
             predecessor_ids: this.currentItemPredecessors.slice()
@@ -4403,22 +4359,19 @@ export class BridgeView extends HTMLElement {
     pickCombo(inputId, listId, value) {
         this.$(inputId).value = value;
         this.$(listId).classList.remove('open');
-        if (inputId === 'itemAsset') this.applyAssetLookup(value, 'itemZone', 'itemArea');
+        if (inputId === 'itemAsset') this.applyAssetLookup(value, 'itemArea');
     }
 
     // Mirrors LaunchPad's own asset->place linking: if this asset has a known
-    // Zone/Area from {PROJECT_KEY}dropdownoptions, fill those fields in automatically
-    // instead of making the person look them up and pick manually.
-    applyAssetLookup(assetName, zoneSelectId, areaSelectId) {
-        const zone = this.ASSET_TO_ZONE_MAP[assetName];
+    // Area from {PROJECT_KEY}dropdownoptions, fill that field in automatically
+    // instead of making the person look it up and pick manually. Area is a
+    // plain read-only display now (not a dropdown the user can override),
+    // so this is the only thing that ever sets it.
+    applyAssetLookup(assetName, areaFieldId) {
         const area = this.ASSET_TO_AREA_MAP[assetName];
-        if (zone && zoneSelectId) {
-            const sel = this.$(zoneSelectId);
-            if (sel && [...sel.options].some(o => o.value === zone)) sel.value = zone;
-        }
-        if (area && areaSelectId) {
-            const sel = this.$(areaSelectId);
-            if (sel && [...sel.options].some(o => o.value === area)) sel.value = area;
+        if (areaFieldId) {
+            const field = this.$(areaFieldId);
+            if (field) field.value = area || '';
         }
     }
 
@@ -4435,11 +4388,8 @@ export class BridgeView extends HTMLElement {
             `<label><input type="checkbox" value="${escAttr(a.name)}"> ${escHtml(a.name)}</label>`).join('');
         this.$('bulkActivityList').innerHTML = this.DATA.activities.map(a =>
             `<label><input type="checkbox" value="${escAttr(a.name)}"> ${escHtml(a.name)}</label>`).join('');
-        this.populateSelect('bulkZone', this.DATA.zones.map(z => z.name), false);
-        this.populateSelect('bulkArea', this.DATA.areas.map(a => a.name), true);
-        if (this.DATA.types[0]) this.$('bulkTypePicker').value = this.DATA.types[0].name;
+        this.renderContractorCheckboxList('bulkContractorList', []);
         this.$('bulkStartDate').value = new Date().toISOString().slice(0, 10);
-        this.$('bulkContractor').value = '';
         this.$('bulkNotes').value = '';
         this.$('bulkAutoLink').checked = false;
         this.openModal('bulkModal');
@@ -4448,6 +4398,20 @@ export class BridgeView extends HTMLElement {
         q = q.toLowerCase();
         this.$$(`#${listId} label`).forEach(l => l.style.display = l.textContent.toLowerCase().includes(q) ? 'flex' : 'none');
     }
+    // Shared by the single-item modal and the bulk Combination Builder —
+    // both let a user pick more than one contractor for an activity now,
+    // same checkbox-scroll-list idiom this file already uses for Assets/
+    // Activities in the bulk builder.
+    renderContractorCheckboxList(listId, selectedNames) {
+        const selected = new Set(selectedNames || []);
+        const el = this.$(listId);
+        if (!el) return;
+        el.innerHTML = this.DATA.contractors.map(c =>
+            `<label><input type="checkbox" value="${escAttr(c.name)}" ${selected.has(c.name) ? 'checked' : ''}> ${escHtml(c.name)}</label>`).join('');
+    }
+    getCheckedContractors(listId) {
+        return [...this.$$(`#${listId} input:checked`)].map(i => i.value);
+    }
 
     generateBulkPreview(mode) {
         this.bulkPreviewRows = [];
@@ -4455,8 +4419,7 @@ export class BridgeView extends HTMLElement {
         if (mode === 'combo') {
             const assets = [...this.$$('#bulkAssetList input:checked')].map(i => i.value);
             const activities = [...this.$$('#bulkActivityList input:checked')].map(i => i.value);
-            const type = this.$('bulkTypePicker').value;
-            const contractor = this.$('bulkContractor').value.trim();
+            const contractor = this.getCheckedContractors('bulkContractorList').join(' | ');
             const notes = this.$('bulkNotes').value.trim();
             const duration = parseFloat(this.$('bulkDuration').value) || 1;
             const startDate = this.$('bulkStartDate').value;
@@ -4467,16 +4430,15 @@ export class BridgeView extends HTMLElement {
             const start = new Date(startDate + 'T07:00');
             const autoLink = this.$('bulkAutoLink').checked;
             assets.forEach(asset => {
-                // same asset->zone/area linking LaunchPad itself uses — each
-                // asset can pull in its own zone/area rather than everything
-                // in this batch being forced to share one
-                const zone = this.ASSET_TO_ZONE_MAP[asset] || (this.DATA.zones[0]?.name || '');
+                // same asset->area linking LaunchPad itself uses — each
+                // asset can pull in its own area rather than everything in
+                // this batch being forced to share one
                 const area = this.ASSET_TO_AREA_MAP[asset] || '';
                 let prevRowIndex = null;
                 let cursor = new Date(start);
                 activities.forEach(activity => {
                     const rowStart = autoLink ? new Date(cursor) : new Date(start);
-                    const row = { asset, activity, duration, type, zone, area, contractor, notes, start: rowStart.toISOString() };
+                    const row = { asset, activity, duration, area, contractor, notes, start: rowStart.toISOString() };
                     if (autoLink && prevRowIndex !== null) row.predLinkIndex = prevRowIndex;
                     this.bulkPreviewRows.push(row);
                     prevRowIndex = this.bulkPreviewRows.length - 1;
@@ -4490,15 +4452,15 @@ export class BridgeView extends HTMLElement {
             lines.forEach((line, i) => {
                 if (i === 0 && /asset/i.test(line) && /activity/i.test(line)) return; // skip header row
                 const parts = line.split(/\t|,(?![^"]*")/).map(s => s.trim());
-                const [asset, activity, duration, type, zone, area, startDate, contractor, notes] = parts;
+                const [asset, activity, duration, startDate, contractor, notes] = parts;
                 if (!asset || !activity) return;
                 const start = startDate ? new Date(startDate + 'T07:00') : new Date();
                 this.bulkPreviewRows.push({
                     asset, activity,
                     duration: parseFloat(duration) || 1,
-                    type: type || (this.DATA.types[0]?.name || 'Other'),
-                    zone: zone || this.ASSET_TO_ZONE_MAP[asset] || (this.DATA.zones[0]?.name || ''),
-                    area: area || this.ASSET_TO_AREA_MAP[asset] || '',
+                    // Area is always automatic now, same as every other
+                    // entry path — no column for it here to override.
+                    area: this.ASSET_TO_AREA_MAP[asset] || '',
                     contractor: contractor || '',
                     notes: notes || '',
                     start: start.toISOString()
@@ -4544,8 +4506,6 @@ export class BridgeView extends HTMLElement {
                     // into Notes below rather than dropped.
                     activity: actType,
                     duration: durDays,
-                    type: this.DATA.types[0]?.name || 'Other',
-                    zone: this.ASSET_TO_ZONE_MAP[asset] || (this.DATA.zones[0]?.name || ''),
                     area: this.ASSET_TO_AREA_MAP[asset] || '',
                     contractor: contractor || '',
                     notes: [wbs ? `WBS ${wbs}` : '', activityDesc || '', notes || ''].filter(Boolean).join(' — '),
@@ -4588,14 +4548,11 @@ export class BridgeView extends HTMLElement {
         this.$('bulkPreviewCount').textContent = `${this.bulkPreviewRows.length} item(s) ready`;
         const assetOpts = this.DATA.assets.map(a => a.name);
         const activityOpts = this.DATA.activities.map(a => a.name);
-        const typeOpts = this.DATA.types.map(t => t.name);
-        const zoneOpts = this.DATA.zones.map(z => z.name);
-        const areaOpts = this.DATA.areas.map(a => a.name);
         const contractorOpts = this.DATA.contractors.map(c => c.name);
         const isWbs = this.bulkPreviewMode === 'wbs';
         this.$('bulkPreviewHead').innerHTML = isWbs
-            ? `<tr><th>Index</th><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Type</th><th>Start</th><th>Contractor</th><th>Notes</th><th>Predecessors</th><th></th></tr>`
-            : `<tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Type</th><th>Zone</th><th>Area</th><th>Start</th><th>Contractor</th><th>Notes</th><th>Linked after</th><th></th></tr>`;
+            ? `<tr><th>Index</th><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Predecessors</th><th></th></tr>`
+            : `<tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Linked after</th><th></th></tr>`;
         this.$('bulkPreviewBody').innerHTML = this.bulkPreviewRows.map((r, i) => {
             const dateVal = new Date(r.start).toISOString().slice(0, 10);
             const assetCell = `<td><select style="width:120px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select></td>`;
@@ -4604,9 +4561,13 @@ export class BridgeView extends HTMLElement {
                     <select style="width:118px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'activity',this.value)">${this.selectOptionsHtml(activityOpts, r.activity, false)}</select>
                 </td>`;
             const durationCell = `<td><input type="number" min="1" step="1" value="${r.duration}" style="width:56px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'duration',this.value)"></td>`;
-            const typeCell = `<td><select style="width:88px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'type',this.value)">${this.selectOptionsHtml(typeOpts, r.type, false)}</select></td>`;
+            // Area is automatic (derived from Asset) everywhere else, but
+            // shown read-only here rather than hidden entirely, so what got
+            // picked is still visible before committing.
+            const areaCell = `<td style="font-size:11.5px; color:#555;">${escHtml(r.area || '—')}</td>`;
             const startCell = `<td><input type="date" value="${dateVal}" style="width:130px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'start',this.value)"></td>`;
-            const contractorCell = `<td><select style="width:110px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'contractor',this.value)">${this.selectOptionsHtml(contractorOpts, r.contractor, true)}</select></td>`;
+            const selectedContractors = new Set((r.contractor || '').split('|').map(s => s.trim()).filter(Boolean));
+            const contractorCell = `<td><select multiple style="width:120px; height:54px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'contractor',[...this.selectedOptions].map(o=>o.value).join(' | '))">${contractorOpts.map(c => `<option value="${escAttr(c)}" ${selectedContractors.has(c) ? 'selected' : ''}>${escHtml(c)}</option>`).join('')}</select></td>`;
             const notesCell = `<td><input value="${escAttr(r.notes || '')}" placeholder="Notes" style="width:120px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'notes',this.value)"></td>`;
             const removeCell = `<td><button class="preview-remove" onclick="this.getRootNode().host.removeBulkRow(${i})" title="Remove row">✕</button></td>`;
 
@@ -4623,7 +4584,7 @@ export class BridgeView extends HTMLElement {
                 const predCell = `<td style="font-size:11.5px; color:#555;">${predLabels.length ? predLabels.join('<br>') : '—'}</td>`;
                 return `<tr>
                     <td style="text-align:center; color:#888;">${r.srcIndex}</td>
-                    ${assetCell}${activityCell}${durationCell}${typeCell}${startCell}${contractorCell}${notesCell}${predCell}${removeCell}
+                    ${assetCell}${activityCell}${durationCell}${areaCell}${startCell}${contractorCell}${notesCell}${predCell}${removeCell}
                 </tr>`;
             }
 
@@ -4631,11 +4592,9 @@ export class BridgeView extends HTMLElement {
                 if (j === i) return '';
                 return `<option value="${j}" ${r.predLinkIndex === j ? 'selected' : ''}>${escHtml(other.asset)} — ${escHtml(other.activity)}</option>`;
             }).join('');
-            const zoneCell = `<td><select style="width:88px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'zone',this.value)">${this.selectOptionsHtml(zoneOpts, r.zone, false)}</select></td>`;
-            const areaCell = `<td><select style="width:88px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'area',this.value)">${this.selectOptionsHtml(areaOpts, r.area, true)}</select></td>`;
             const linkCell = `<td><select style="width:130px;" title="Predecessor" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'predLinkIndex',this.value)"><option value="">— none —</option>${linkOptions}</select></td>`;
             return `<tr>
-                ${assetCell}${activityCell}${durationCell}${typeCell}${zoneCell}${areaCell}${startCell}${contractorCell}${notesCell}${linkCell}${removeCell}
+                ${assetCell}${activityCell}${durationCell}${areaCell}${startCell}${contractorCell}${notesCell}${linkCell}${removeCell}
             </tr>`;
         }).join('');
     }
@@ -4660,6 +4619,9 @@ export class BridgeView extends HTMLElement {
             else r.predLinkIndex = parseInt(value, 10);
         } else {
             r[field] = value;
+            // Area stays automatic even after a row's Asset is changed in
+            // the preview table, same as every other entry path.
+            if (field === 'asset') r.area = this.ASSET_TO_AREA_MAP[value] || '';
         }
         // re-render swatch/labels that depend on the edited field without losing focus on unrelated inputs
         this.renderBulkPreview();
@@ -4698,11 +4660,15 @@ export class BridgeView extends HTMLElement {
         for (const r of this.bulkPreviewRows) {
             await this.ensureListValue('assets', r.asset);
             await this.ensureListValue('activities', r.activity);
-            if (r.contractor) await this.ensureListValue('contractors', r.contractor);
+            // r.contractor can now hold several names joined with " | " (a
+            // multi-select, or free-typed paste/WBS text) — ensure each one
+            // individually, not the joined string as a single new entry.
+            const contractorNames = (r.contractor || '').split('|').map(s => s.trim()).filter(Boolean);
+            for (const name of contractorNames) await this.ensureListValue('contractors', name);
             const payload = {
                 asset_name: r.asset, activity_name: r.activity, duration_hours: daysToHours(r.duration),
-                type: r.type, zone: r.zone, area: r.area || '', start_ts: r.start,
-                asset_type: '', contractor_name: r.contractor || '', notes: r.notes || ''
+                area: r.area || '', start_ts: r.start,
+                contractor_name: contractorNames.join(' | '), notes: r.notes || ''
             };
             const saved = await this.ItemsDB.insert(payload);
             const newItem = saved ? { ...saved, duration_hours: payload.duration_hours } : { id: uid(), ...payload };
@@ -4991,8 +4957,6 @@ export class BridgeView extends HTMLElement {
             await this.ensureListValue(kind, name);
         }
         this.afterListChange();
-        this.populateSelect('itemZone', this.DATA.zones.map(z => z.name), true);
-        this.populateSelect('itemArea', this.DATA.areas.map(a => a.name), true);
         this.toast(`Added ${selected.length} ${kind === 'zones' ? 'zone(s)' : 'area(s)'}`);
     }
 
@@ -5388,10 +5352,9 @@ export class BridgeView extends HTMLElement {
                     </span>
                 </div>
                 <div style="font-size:12.5px; color:#666; margin-top:6px; line-height:1.8;">
-                    <strong>Zone:</strong> ${escHtml(it.zone || '—')} &nbsp;•&nbsp;
-                    <strong>Type:</strong> ${escHtml(it.type)} &nbsp;•&nbsp;
+                    <strong>Area:</strong> ${escHtml(it.area || '—')} &nbsp;•&nbsp;
                     <strong>Duration:</strong> ${hoursToDays(it.duration_hours)} day(s) &nbsp;•&nbsp;
-                    <strong>Contractor:</strong> ${escHtml(it.contractor_name || '—')}<br>
+                    <strong>Contractor(s):</strong> ${escHtml((it.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean).join(', ') || '—')}<br>
                     <strong>Status (LaunchPad):</strong> <span id="${statusElId}">Checking...</span>
                     ${this.isPastOrToday(it) ? ` &nbsp;•&nbsp; <strong>Result (Supabase):</strong> <span id="${resultElId}">Checking...</span>` : ''}<br>
                     <strong>Constraints (predecessors):</strong> <span id="${predsElId}">${(it.predecessor_ids||[]).length ? 'Checking...' : 'None'}</span><br>
@@ -5563,11 +5526,11 @@ export class BridgeView extends HTMLElement {
                     item.asset_name = data.asset || item.asset_name;
                     item.notes = data.notes || '';
                     item.contractor_name = data.trade_partners || '';
-                    item.zone = data.place || item.zone;
+                    item.area = data.place || item.area;
                     item.launchpad_day_label = data.day_label;
                     await this.ItemsDB.update(id, {
                         start_ts: item.start_ts, activity_name: item.activity_name, asset_name: item.asset_name,
-                        notes: item.notes, contractor_name: item.contractor_name, zone: item.zone,
+                        notes: item.notes, contractor_name: item.contractor_name, area: item.area,
                         launchpad_day_label: item.launchpad_day_label
                     });
                 }
@@ -5901,9 +5864,7 @@ export class BridgeView extends HTMLElement {
                     asset_name: bestRow.asset,
                     activity_name: bestRow.activity,
                     duration_hours: daysToHours(1),
-                    type: this.DATA.types[0]?.name || 'Other',
-                    zone: bestRow.place || (this.DATA.zones[0]?.name || 'Unzoned'),
-                    area: '', asset_type: '',
+                    area: bestRow.place || '',
                     contractor_name: bestRow.trade_partners || '',
                     notes: bestRow.notes || 'Imported from LaunchPad',
                     start_ts: startDate.toISOString(),
@@ -6070,7 +6031,7 @@ export class BridgeView extends HTMLElement {
 
     async writeScheduleToSheet(token, sheetId) {
         const rows = this.exportRowsForReport();
-        const header = rows.length ? Object.keys(rows[0]) : ['Date','Time','Asset','Activity','Duration (days)','Type','Zone','Area','Asset Type','Contractor','Notes'];
+        const header = rows.length ? Object.keys(rows[0]) : ['Date','Time','Asset','Activity','Duration (days)','Area','Contractor(s)','Notes'];
         const values = [header, ...rows.map(r => header.map(h => r[h] ?? ''))];
         const range = 'A1';
         const res = await fetch(
@@ -6126,11 +6087,8 @@ export class BridgeView extends HTMLElement {
                 Asset: it.asset_name,
                 Activity: it.activity_name,
                 'Duration (days)': hoursToDays(it.duration_hours),
-                Type: it.type,
-                Zone: it.zone,
                 Area: it.area || '',
-                'Asset Type': it.asset_type || '',
-                Contractor: it.contractor_name || '',
+                'Contractor(s)': it.contractor_name || '',
                 Notes: it.notes || ''
             }));
     }
@@ -6198,8 +6156,12 @@ export class BridgeView extends HTMLElement {
 
         const groups = {};
         items.forEach(it => {
-            const assignee = it.contractor_name || 'Unassigned';
-            (groups[assignee] = groups[assignee] || []).push(it);
+            // An item can now have more than one contractor — it belongs in
+            // EACH of their groups, not lumped under one combined
+            // "A | B" group of its own.
+            const assignees = (it.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean);
+            if (!assignees.length) assignees.push('Unassigned');
+            assignees.forEach(assignee => { (groups[assignee] = groups[assignee] || []).push(it); });
         });
         return { groups, rangeStart, rangeEnd, startVal, endVal };
     }
@@ -6236,7 +6198,7 @@ export class BridgeView extends HTMLElement {
                         Date: new Date(it.start_ts).toLocaleDateString(),
                         Asset: it.asset_name,
                         Activity: it.activity_name,
-                        Zone: it.zone,
+                        Area: it.area,
                         'Duration (days)': hoursToDays(it.duration_hours),
                         'Critical Path': this.isCriticalItem(it.id) ? 'Y' : 'N',
                         'Not Ready': this.isStatusNotReady(it.asset_name, it.activity_name) ? 'Y' : 'N',
@@ -6271,7 +6233,7 @@ export class BridgeView extends HTMLElement {
                     const status = statusFor(it);
                     statusUrls.push(status.url);
                     return [
-                        new Date(it.start_ts).toLocaleDateString(), it.asset_name, it.activity_name, it.zone,
+                        new Date(it.start_ts).toLocaleDateString(), it.asset_name, it.activity_name, it.area,
                         `${hoursToDays(it.duration_hours)}d`, this.isCriticalItem(it.id) ? 'Y' : 'N',
                         this.isStatusNotReady(it.asset_name, it.activity_name) ? 'Y' : 'N', status.text
                     ];
@@ -6280,7 +6242,7 @@ export class BridgeView extends HTMLElement {
                 doc.text(assignee, 14, y + 5);
                 doc.autoTable({
                     startY: y + 8,
-                    head: [['Date', 'Asset', 'Activity', 'Zone', 'Duration', 'Critical', 'Not Ready', 'Status']],
+                    head: [['Date', 'Asset', 'Activity', 'Area', 'Duration', 'Critical', 'Not Ready', 'Status']],
                     body: rows,
                     styles: { fontSize: 8, cellPadding: 2.5 },
                     headStyles: { fillColor: [46, 125, 46], textColor: 255 },
