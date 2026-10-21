@@ -1,0 +1,25 @@
+name: Clean Status-Only Schedule Rows
+
+# Twice a day, wipes the Status column on any Schedule row (every project)
+# where every other column is blank — a ghost row left over from an
+# Activity/Asset that got filled in (triggering a Status lookup) and later
+# cleared back out, without Status itself ever getting cleared. See
+# sync/clean-status-only-rows.mjs for the actual logic, and index.html's
+# "Clean" button for the same cleanup done on-demand from inside a project.
+on:
+  schedule:
+    - cron: '0 6,18 * * *'
+  workflow_dispatch:
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Clean status-only ghost rows
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node sync/clean-status-only-rows.mjs
