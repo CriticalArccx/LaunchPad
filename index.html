@@ -7884,6 +7884,19 @@ async function onRescheduleDateChanged() {
         return;
     }
 
+    // Projects that don't have The Bridge enabled as a module shouldn't
+    // have Schedule silently mount it just to run this analysis — no
+    // downstream-impact concept exists for them, so there's nothing
+    // meaningful to show. setRescheduleConfirmEnabled(true) lets the plain
+    // reschedule (new row on the picked date, original left as-is) proceed
+    // with no cascade/linking step at all (see linkRescheduledItemInBridge()'s
+    // matching guard).
+    if (!appConfig?.sidebar?.bridge) {
+        preview.style.display = 'none';
+        setRescheduleConfirmEnabled(true);
+        return;
+    }
+
     const myToken = ++__rescheduleCalcToken;
     preview.style.display = 'block';
     preview.innerHTML = 'Calculating impact on other activities…';
@@ -7951,6 +7964,10 @@ function escapeHtmlForReschedule(s) {
 // own duplicate-merge logic uses for an equivalent case, just run from the
 // Schedule side instead of from inside Bridge.
 async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel, activity, asset, tradePartners) {
+    // Matches the guard in onRescheduleDateChanged() — a project without
+    // The Bridge enabled as a module has no predecessor/successor graph to
+    // link into or cascade through, so there's nothing for this to do.
+    if (!appConfig?.sidebar?.bridge) return;
     try {
         await ensureViewMounted('bridge');
         const bridgeEl = document.querySelector('bridge-view');
