@@ -6665,6 +6665,19 @@ async function continueStartAppAfterProject(user) {
             // shell when a column has appeared or disappeared closes that
             // gap without anyone needing to know to hard-refresh.
             const colIdsBeforeBackgroundRefresh = new Set(scheduleColConfig.map(c => c.id));
+            // Same staleness problem LOTO's columnSetChanged check exists
+            // for, just for Included Days instead of the column list:
+            // createSections() above already ran with whatever
+            // includedDays was before this background refresh — the
+            // cached value, or (the very first time anyone uses this
+            // setting, before any browser has ever cached it) the
+            // all-days default — so a day section createSections() built
+            // using the WRONG set won't retroactively disappear just
+            // because loadScheduleConfig() fetches the real value a
+            // moment later. Comparing the day SET (order never matters
+            // here) and rebuilding when it changed closes that gap the
+            // same way the column-set check already does.
+            const includedDaysBeforeBackgroundRefresh = new Set(includedDays);
             Promise.all([
                 fetchDropdownOptions(),
                 loadEquivalentActivities(),
@@ -6674,7 +6687,10 @@ async function continueStartAppAfterProject(user) {
                 const colIdsAfterBackgroundRefresh = new Set(scheduleColConfig.map(c => c.id));
                 const columnSetChanged = colIdsBeforeBackgroundRefresh.size !== colIdsAfterBackgroundRefresh.size
                     || [...colIdsAfterBackgroundRefresh].some(id => !colIdsBeforeBackgroundRefresh.has(id));
-                if (columnSetChanged) {
+                const includedDaysAfterBackgroundRefresh = new Set(includedDays);
+                const includedDaysChanged = includedDaysBeforeBackgroundRefresh.size !== includedDaysAfterBackgroundRefresh.size
+                    || [...includedDaysAfterBackgroundRefresh].some(d => !includedDaysBeforeBackgroundRefresh.has(d));
+                if (columnSetChanged || includedDaysChanged) {
                     createSections();
                     applyScheduleDataToDom(__lastScheduleData || cachedSchedule);
                     compactAllRenderedDays();
@@ -8621,6 +8637,18 @@ function createWeekElement(baseDate, w) {
     for (let d = 0; d < 7; d++) {
         const sectionDate = new Date(weekStart);
         sectionDate.setDate(weekStart.getDate() + d);
+
+        // Included Days setting (Schedule config modal) — an excluded
+        // weekday gets no section at all in the Schedule grid, per
+        // request, rather than showing up like any other active day.
+        // ensureWeekRenderedForDayLabel() already treats a missing
+        // "rows-{dayLabel}" container as "that day isn't rendered" and
+        // returns false, and every move/reschedule entry point validates
+        // the target date with isDateIncluded() before ever reaching this
+        // far, so nothing downstream assumes every calendar day has a
+        // section.
+        if (!includedDays.includes(sectionDate.getDay())) continue;
+
         const dateId = sectionDate.toISOString().split('T')[0];
         const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
