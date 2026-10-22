@@ -521,6 +521,25 @@ input,select,textarea{font-family:inherit;}
 .combo-list .opt:hover{background:var(--grey-bg);}
 .combo-list .opt.add-new{color:var(--green-dark); font-weight:700; border-top:1px solid #eee;}
 
+/* Multi-select contractor picker — used in the bulk-add preview table,
+   where a cramped native <select multiple> is unusable (needs ctrl/cmd-
+   click, which most people don't know). position:fixed (not absolute)
+   since the preview table itself scrolls — an absolutely-positioned
+   popover would get clipped by that scroll container instead of
+   floating over the whole modal the way this needs to. */
+.contractor-popover{
+    display:none; position:fixed; background:#fff; width:230px; max-height:260px;
+    border:1px solid var(--grey-border); border-radius:6px; z-index:2000; padding:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.2); overflow-y:auto;
+}
+.contractor-popover.open{display:block;}
+.contractor-popover .search{width:100%; margin-bottom:6px; padding:6px 8px; border:1px solid var(--grey-border); border-radius:4px; font-size:12.5px; box-sizing:border-box;}
+.bulk-contractor-btn{
+    width:120px; text-align:left; background:#fff; border:1px solid var(--grey-border2); border-radius:4px;
+    padding:5px 8px; font-size:12px; font-weight:400; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.bulk-contractor-btn:hover{background:var(--grey-bg);}
+
 /* Tabs */
 .tabs{display:flex; gap:2px; border-bottom:2px solid var(--grey-border2); margin-bottom:14px;}
 .tab-btn{
@@ -932,6 +951,11 @@ Pump-101, Install Piping, 1, 2026-08-03, Apex Mechanical | Acme Electric, Confir
         </div>
     </div>
 </div>
+
+<!-- Shared multi-select popover for the bulk-preview table's per-row
+     Contractor(s) picker — one instance, repositioned/repopulated for
+     whichever row's button was clicked (see openBulkContractorPicker()). -->
+<div class="contractor-popover" id="bulkContractorPopover"></div>
 
 <!-- ===== LISTS MANAGER MODAL (Asset / Activity / Contractor) ===== -->
 <div class="modal-overlay" id="listsModal">
@@ -1389,7 +1413,17 @@ export class BridgeView extends HTMLElement {
         clearTimeout(this.__resizeRerenderTimer);
         clearTimeout(this.__ganttSearchDebounceTimer);
         clearTimeout(this._toastTimer);
+        clearTimeout(this._launchpadPullDebounce);
         this.stopAutoScroll();
+        // Without this, a remount (index.html tears this element down and
+        // creates a fresh one every time the user switches away from and
+        // back to the Bridge tab) leaves the old channel subscribed
+        // forever — see initLaunchPadRealtimeSync()'s comment for what
+        // that broke.
+        if (this._realtimeChannel && this._supabase) {
+            this._supabase.removeChannel(this._realtimeChannel);
+            this._realtimeChannel = null;
+        }
     }
 
     _resolveParams() {
@@ -1742,6 +1776,11 @@ export class BridgeView extends HTMLElement {
         this.$$('.menu-dropdown.open').forEach(md => {
             if (!path.includes(md) && !this._pathMatches(e, '.menu-btn-wrap')) md.classList.remove('open');
         });
+        const contractorPopover = this.$('bulkContractorPopover');
+        if (contractorPopover && contractorPopover.classList.contains('open') &&
+            !path.includes(contractorPopover) && !this._pathMatches(e, '.bulk-contractor-btn')) {
+            this.closeBulkContractorPicker();
+        }
         // clicking empty gantt background (not an item, not the detail panel)
         // clears the connection focus so lines don't stay "stuck" on
         if (this.connectionFocusId && this._pathMatches(e, '#ganttWrap') &&
@@ -2104,25 +2143,43 @@ export class BridgeView extends HTMLElement {
     // just written.
     initLaunchPadRealtimeSync() {
         if (!this._supabase || !this.LAUNCHPAD_TABLE) return;
-        this._supabase
-            .channel(`bridge-schedule-sync-${this.LAUNCHPAD_TABLE}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: this.LAUNCHPAD_TABLE }, () => {
-                clearTimeout(this._launchpadPullDebounce);
-                this._launchpadPullDebounce = setTimeout(() => {
-                    // Unified projects: BackEndData IS this.ItemsDB's own
-                    // table, so a change there (including one Scheduler
-                    // just typed directly) is a change to Bridge's own item
-                    // list — just reload it, no reconciliation heuristics
-                    // needed since there's exactly one row per activity by
-                    // construction. Legacy projects keep the existing
-                    // two-table reconciliation pull.
-                    const reload = this.UNIFIED_SCHEDULE
-                        ? this.reloadAllData().then(() => { this.renderFilterBar(); this.renderGantt(); })
-                        : this.pullFromLaunchPad();
-                    reload.catch(err => console.error('Realtime-triggered LaunchPad sync failed', err));
-                }, 1200);
-            })
-            .subscribe();
+        try {
+            // Stored so disconnectedCallback() can actually unsubscribe it —
+            // without that, tearing this element down and remounting a
+            // fresh one (switchMainView()'s teardownCustomElementView(),
+            // which this app calls on every tab switch away from Bridge)
+            // leaves this channel orphaned but still subscribed. The next
+            // mount's call to this same method then asks Supabase's client
+            // to add .on() callbacks to a channel of the same name that
+            // never went away, which throws synchronously — and since this
+            // runs unguarded partway through initApp(), that throw silently
+            // skipped every repair/pull sweep after it for that whole
+            // session. Confirmed in production.
+            this._realtimeChannel = this._supabase
+                .channel(`bridge-schedule-sync-${this.LAUNCHPAD_TABLE}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: this.LAUNCHPAD_TABLE }, () => {
+                    clearTimeout(this._launchpadPullDebounce);
+                    this._launchpadPullDebounce = setTimeout(() => {
+                        // Unified projects: BackEndData IS this.ItemsDB's own
+                        // table, so a change there (including one Scheduler
+                        // just typed directly) is a change to Bridge's own item
+                        // list — just reload it, no reconciliation heuristics
+                        // needed since there's exactly one row per activity by
+                        // construction. Legacy projects keep the existing
+                        // two-table reconciliation pull.
+                        const reload = this.UNIFIED_SCHEDULE
+                            ? this.reloadAllData().then(() => { this.renderFilterBar(); this.renderGantt(); })
+                            : this.pullFromLaunchPad();
+                        reload.catch(err => console.error('Realtime-triggered LaunchPad sync failed', err));
+                    }, 1200);
+                })
+                .subscribe();
+        } catch (e) {
+            // Must never take the rest of initApp() down with it — see the
+            // comment above for exactly what that cost before this guard
+            // existed.
+            console.error('Realtime sync setup failed (continuing without live updates)', e);
+        }
     }
 
     // Mirrors LaunchPad's own assetToPlaceMap approach exactly: fetch every
