@@ -1,0 +1,16 @@
+-- Run this once in the Supabase SQL editor. Adds a column so each
+-- project can mark certain weekdays as not active schedule days (per
+-- request) — read by index.html's Schedule config modal (Settings →
+-- Included Days) and by bridge-view.js's _resolveProjectFlags(), which
+-- greys those days out in The Bridge and skips them in the automatic
+-- downstream-move cascade (enforceDependencies()/simulateReschedulePreview()).
+--
+-- jsonb array of ints 0-6 (0=Sun..6=Sat, matching JS Date.getDay()), e.g.
+-- [0,1,2,3,4,5,6] for every day or [1,2,3,4,5] to exclude weekends.
+--
+-- No default value / backfill needed, same reasoning as
+-- status_color_rules.sql: index.html's loadScheduleConfig() and
+-- bridge-view.js's constructor both already default to every day
+-- included when this column is null, so every existing project starts
+-- with every day selected until an admin actually excludes one.
+alter table launchpad_schedule_config add column if not exists included_days jsonb;

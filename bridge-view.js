@@ -357,6 +357,11 @@ input,select,textarea{font-family:inherit;}
 }
 .gantt-day:hover{background:var(--green-light);}
 .gantt-day.weekend{background:#f7f7f7; color:#aaa;}
+/* Included Days setting — a stronger, more opaque grey than the plain
+   weekend tint above, and no hover highlight (it's not clickable — see
+   buildGanttHeaderHtml()) since nothing should ever land here. */
+.gantt-day.excluded-day{background:repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 6px, #ececec 6px, #ececec 12px); color:#999; cursor:default;}
+.gantt-day.excluded-day:hover{background:repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 6px, #ececec 6px, #ececec 12px);}
 .gantt-day .dow{font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase;}
 .gantt-day.today{background:var(--green-light); color:var(--green-dark);}
 /* Overview zoom's month-grouped header cell (see buildGanttHeaderHtml()) —
@@ -409,6 +414,7 @@ input,select,textarea{font-family:inherit;}
 .gantt-gridlines{position:absolute; top:0; left:0; bottom:0; display:flex; pointer-events:none;}
 .gantt-gridline{flex:0 0 var(--daywidth); border-right:1px solid #f0f0f0;}
 .gantt-gridline.weekend{background:rgba(0,0,0,0.02);}
+.gantt-gridline.excluded-day{background:repeating-linear-gradient(45deg, rgba(0,0,0,0.045), rgba(0,0,0,0.045) 6px, rgba(0,0,0,0.02) 6px, rgba(0,0,0,0.02) 12px);}
 .gantt-gridline.today{background:rgba(46,125,50,0.06);}
 .gantt-gridline.month{border-right:2px solid var(--grey-border2);}
 
@@ -658,6 +664,8 @@ input,select,textarea{font-family:inherit;}
 :host(.dark-mode) .gantt-row:nth-child(even) .gantt-row-bg{background:#1a1a1a !important;}
 :host(.dark-mode) .gantt-gridline{border-right-color:#2a2a2a !important;}
 :host(.dark-mode) .gantt-gridline.weekend{background:rgba(255,255,255,0.03) !important;}
+:host(.dark-mode) .gantt-gridline.excluded-day{background:repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 6px, rgba(255,255,255,0.02) 6px, rgba(255,255,255,0.02) 12px) !important;}
+:host(.dark-mode) .gantt-day.excluded-day{background:repeating-linear-gradient(45deg, #2a2a2a, #2a2a2a 6px, #242424 6px, #242424 12px) !important; color:#777 !important;}
 :host(.dark-mode) .gantt-gridline.today{background:rgba(76,175,80,0.12) !important;}
 
 /* Activity colors on gantt bars come from an inline style set by JS
@@ -1180,6 +1188,13 @@ export class BridgeView extends HTMLElement {
         this.DAY_WIDTH = 45;        // matches the "Zoom: Overview Extended" default in #dayWidthSelect
         this.TIMELINE_START = null; // Date, midnight
         this.TIMELINE_DAYS = 42;    // 6-week rolling window
+        // Schedule's "Included Days" setting (launchpad_schedule_config.
+        // included_days, see index.html's loadScheduleConfig()) — which
+        // weekdays (0=Sun..6=Sat) are active schedule days for this
+        // project. Defaults to every day until _resolveProjectFlags()
+        // fetches the real value, so nothing is greyed out / treated as
+        // excluded for a project that's never touched this setting.
+        this.includedDays = [0, 1, 2, 3, 4, 5, 6];
         this.dragCtx = null;
         this.bulkPreviewRows = [];
         this.baselineDetectedTokens = [];
@@ -1496,9 +1511,48 @@ export class BridgeView extends HTMLElement {
             } catch (e) {
                 console.error('Could not resolve this project\'s config (Apps Script URL / unified-schedule flag) — using fallbacks', e);
             }
+            // Same "Included Days" setting index.html's Schedule config
+            // modal writes (launchpad_schedule_config.included_days) —
+            // select('*') rather than naming the column so a project whose
+            // Supabase hasn't had sync/included_days.sql run yet still
+            // loads everything else here instead of 400ing the whole
+            // query. Null/empty/missing all mean "every day", matching
+            // index.html's own fallback — this feature is opt-out, not
+            // opt-in, for every existing project.
+            try {
+                const { data, error } = await this._supabase
+                    .from('launchpad_schedule_config')
+                    .select('*')
+                    .eq('project_key', this.PROJECT_KEY)
+                    .maybeSingle();
+                if (!error && data && Array.isArray(data.included_days) && data.included_days.length) {
+                    this.includedDays = data.included_days;
+                }
+            } catch (e) {
+                console.error('Could not resolve this project\'s Included Days setting — treating every day as included', e);
+            }
         }
         if (this.UNIFIED_SCHEDULE) this.TABLES.items = this.LAUNCHPAD_TABLE;
         this._setupItemsDB();
+    }
+
+    isDayIncluded(dayIdx) {
+        return this.includedDays.includes(new Date(this.dayIndexToMs(dayIdx)).getDay());
+    }
+
+    // Used wherever the dependency cascade (enforceDependencies()/
+    // simulateReschedulePreview()) would otherwise land a successor on
+    // "the day right after its predecessor finishes" — walks forward from
+    // that day until it finds one this project's Included Days setting
+    // actually allows, per request ("auto movement should move to the
+    // next available day that is selected, not days that are not
+    // selected"). Bounded loop: every project includes at least one
+    // weekday eventually, but this can't spin forever if includedDays
+    // somehow ends up empty.
+    nextIncludedDayIndex(dayIdx) {
+        let idx = dayIdx;
+        for (let i = 0; i < 3650 && !this.isDayIncluded(idx); i++) idx++;
+        return idx;
     }
 
     // Single indirection point for every item CRUD call site, so the rest
@@ -2816,9 +2870,15 @@ export class BridgeView extends HTMLElement {
         for (let i = 0; i < this.TIMELINE_DAYS; i++) {
             const d = new Date(this.TIMELINE_START); d.setDate(d.getDate() + i);
             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+            // Included Days setting (Schedule config modal) — a day this
+            // project has excluded gets a stronger grey treatment than the
+            // plain cosmetic weekend tint above, and loses its "click to
+            // see what's scheduled" affordance since it's not meant to
+            // have anything scheduled on it at all.
+            const isExcluded = !this.includedDays.includes(d.getDay());
             const isToday = d.toDateString() === todayStr;
             const isoDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            headerHtml += `<div class="gantt-day ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}" onclick="this.getRootNode().host.openDayDetail('${isoDate}')" title="Click to see everything scheduled this day">
+            headerHtml += `<div class="gantt-day ${isWeekend ? 'weekend' : ''} ${isExcluded ? 'excluded-day' : ''} ${isToday ? 'today' : ''}" ${isExcluded ? 'title="Not an active schedule day"' : `onclick="this.getRootNode().host.openDayDetail('${isoDate}')" title="Click to see everything scheduled this day"`}>
                 <div class="dow">${d.toLocaleDateString(undefined,{weekday:'short'})}</div>${d.getMonth()+1}/${d.getDate()}</div>`;
         }
         return headerHtml;
@@ -3192,8 +3252,9 @@ export class BridgeView extends HTMLElement {
         for (let i = 0; i < this.TIMELINE_DAYS; i++) {
             const d = new Date(this.TIMELINE_START); d.setDate(d.getDate() + i);
             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+            const isExcluded = !this.includedDays.includes(d.getDay());
             const isToday = d.toDateString() === todayStr;
-            html += `<div class="gantt-gridline ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}"></div>`;
+            html += `<div class="gantt-gridline ${isWeekend ? 'weekend' : ''} ${isExcluded ? 'excluded-day' : ''} ${isToday ? 'today' : ''}"></div>`;
         }
         return html;
     }
@@ -3766,7 +3827,11 @@ export class BridgeView extends HTMLElement {
         for (const succ of successors) {
             const succDay = Math.floor(this.dayIndexForDate(new Date(succ.start_ts)));
             if (predLastDay >= succDay) {
-                succ.start_ts = new Date(this.dayIndexToMs(predLastDay + 1)).toISOString();
+                // nextIncludedDayIndex() rather than a flat predLastDay+1 —
+                // the auto-cascade must land on the next day this
+                // project's Included Days setting actually allows, not
+                // just the next calendar day, per request.
+                succ.start_ts = new Date(this.dayIndexToMs(this.nextIncludedDayIndex(predLastDay + 1))).toISOString();
                 await this.ItemsDB.update(succ.id, { start_ts: succ.start_ts });
                 // this successor's date just changed as a side effect of the
                 // cascade, not from being dragged directly — still needs to
@@ -3823,7 +3888,10 @@ export class BridgeView extends HTMLElement {
             for (const succ of successors) {
                 const succDay = Math.floor(this.dayIndexForDate(new Date(currentStartTs(succ.id))));
                 if (predLastDay >= succDay) {
-                    const newStartTs = new Date(this.dayIndexToMs(predLastDay + 1)).toISOString();
+                    // Mirrors enforceDependencies()'s own nextIncludedDayIndex()
+                    // call — this preview must land on the same day the real
+                    // cascade actually will, Included Days skip included.
+                    const newStartTs = new Date(this.dayIndexToMs(this.nextIncludedDayIndex(predLastDay + 1))).toISOString();
                     working.set(succ.id, newStartTs);
                     changes.push({ item: succ, oldStartTs: succ.start_ts, newStartTs });
                     walk(succ.id);

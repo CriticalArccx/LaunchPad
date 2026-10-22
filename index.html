@@ -1626,6 +1626,12 @@ body.help-docked #loading-overlay {
         </div>
 
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
+            <h2 style="color: #333; margin: 0;">Included Days</h2>
+            <p style="font-size:12px; color:#666; margin-bottom: 15px;">Which days of the week are active schedule days for this project. Unchecked days are greyed out and unselectable in The Bridge, can't be picked when moving/rescheduling an activity in Schedule, and are skipped by Bridge's automatic downstream-move cascade.</p>
+            <div id="included-days-list" style="display: flex; gap: 14px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; flex-wrap: wrap;"></div>
+        </div>
+
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
             <h2 style="color: #333; margin: 0;">Status Colors</h2>
             <p style="font-size:12px; color:#666; margin-bottom: 15px;">Colors Status/Result cells use for matching keywords, checked top to bottom — the first rule whose keywords match wins. "Default" covers anything that doesn't match a rule above it.</p>
             <div id="status-color-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
@@ -2270,14 +2276,28 @@ const defaultStatusColorRules = [
 ];
 let statusColorRules = defaultStatusColorRules.map(r => ({ ...r, keywords: [...r.keywords] }));
 
+// Schedule's "Included Days" setting — which weekdays (0=Sun..6=Sat,
+// matching Date.getDay()) are active schedule days for this project.
+// Defaults to every day for every project until an admin explicitly
+// excludes one in Settings — per request, this is opt-out, not opt-in.
+// Also read by bridge-view.js (its own _resolveProjectFlags()) so Bridge
+// greys out the same excluded days and skips them in its auto-cascade.
+let includedDays = [0, 1, 2, 3, 4, 5, 6];
+
+function isDateIncluded(dateStr) {
+    if (!dateStr) return true;
+    const d = new Date(dateStr + 'T00:00:00');
+    return includedDays.includes(d.getDay());
+}
+
 async function loadScheduleConfig() {
     try {
-        // select('*') rather than naming status_color_rules explicitly —
-        // that column only exists once sync/status_color_rules.sql has
+        // select('*') rather than naming status_color_rules/included_days
+        // explicitly — those columns only exist once their sync/*.sql has
         // been run against this project's Supabase; naming a column that
         // doesn't exist yet would 400 the whole query (column_config and
         // reschedule_trigger_results included) instead of just leaving
-        // status_color_rules undefined below.
+        // the new field undefined below.
         const { data: row, error } = await _supabase
             .from('launchpad_schedule_config')
             .select('*')
@@ -2291,6 +2311,10 @@ async function loadScheduleConfig() {
         if (row && row.status_color_rules && row.status_color_rules.length) {
             statusColorRules = row.status_color_rules;
             LP_CACHE.set('statusColorRules', statusColorRules);
+        }
+        if (row && Array.isArray(row.included_days) && row.included_days.length) {
+            includedDays = row.included_days;
+            LP_CACHE.set('includedDays', includedDays);
         }
         if (row && row.column_config && row.column_config.length) {
             scheduleColConfig = row.column_config;
@@ -6590,10 +6614,12 @@ async function continueStartAppAfterProject(user) {
             const cachedDropdowns = LP_CACHE.get('dropdownData');
             const cachedRescheduleTriggers = LP_CACHE.get('rescheduleTriggerResults');
             const cachedStatusColorRules = LP_CACHE.get('statusColorRules');
+            const cachedIncludedDays = LP_CACHE.get('includedDays');
 
             if (cachedColConfig) { scheduleColConfig = cachedColConfig; renderDynamicHeaders(); }
             if (cachedRescheduleTriggers) { rescheduleTriggerResults = cachedRescheduleTriggers; }
             if (cachedStatusColorRules) { statusColorRules = cachedStatusColorRules; }
+            if (cachedIncludedDays) { includedDays = cachedIncludedDays; }
             if (cachedAppConfig) { appConfig = { ...appConfig, ...cachedAppConfig }; applySidebarConfig(); }
             if (cachedEqActivities) { equivalentActivitiesConfig = cachedEqActivities; renderEquivalentActivitiesUI(); }
             if (cachedDropdowns) {
@@ -6918,6 +6944,24 @@ function openScheduleConfigModal() {
 
     renderRescheduleTriggerList();
     renderStatusColorRulesUI();
+    renderIncludedDaysUI();
+}
+
+// Builds the Included Days checkboxes (Sun-Sat) from the current
+// includedDays array. saveAllSettings() reads the checked state back out;
+// a short-circuit there refuses to let every box end up unchecked (see
+// its own comment) since an empty includedDays would mean no day is ever
+// "the next available one" for Bridge's cascade.
+const INCLUDED_DAYS_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function renderIncludedDaysUI() {
+    const container = document.getElementById('included-days-list');
+    if (!container) return;
+    container.innerHTML = INCLUDED_DAYS_LABELS.map((label, dow) => `
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13.5px; color:#333;">
+            <input type="checkbox" class="included-day-cb" value="${dow}" ${includedDays.includes(dow) ? 'checked' : ''} style="transform:scale(1.15); cursor:pointer;">
+            ${label}
+        </label>
+    `).join('');
 }
 
 // Builds the Status Colors editor in the Schedule config modal — one row
@@ -7024,6 +7068,17 @@ async function saveAllSettings(btn) {
     // 3b. Gather Reschedule Trigger Results
     rescheduleTriggerResults = Array.from(document.querySelectorAll('.reschedule-trigger-cb:checked')).map(cb => cb.value);
 
+    // 3b2. Gather Included Days — refuses to save an empty selection
+    // (every day unchecked would mean Bridge's cascade/nextIncludedDayIndex()
+    // has nowhere to land, ever) and falls back to every day instead.
+    const checkedDays = Array.from(document.querySelectorAll('.included-day-cb:checked')).map(cb => parseInt(cb.value, 10));
+    if (checkedDays.length === 0) {
+        alert('At least one day must be included — defaulting to every day.');
+        includedDays = [0, 1, 2, 3, 4, 5, 6];
+    } else {
+        includedDays = checkedDays.sort((a, b) => a - b);
+    }
+
     // 3c. Gather Status Colors — reads the DOM rows back into
     // statusColorRules in whatever order they're in now (new rows always
     // insert above 'default' — see addStatusColorRule() — so order is
@@ -7042,23 +7097,25 @@ async function saveAllSettings(btn) {
     try {
         const savedBy = window.__currentUserEmail || null;
 
-        // launchpad_schedule_config's status_color_rules column only
-        // exists once sync/status_color_rules.sql has been run for this
-        // project — if it hasn't, retry once without that field rather
-        // than letting a 42703 ("column does not exist") take the
-        // column_config/reschedule_trigger_results save down with it too.
+        // launchpad_schedule_config's status_color_rules/included_days
+        // columns only exist once their sync/*.sql migrations have been
+        // run for this project — if either hasn't, retry once without
+        // both of those newer fields rather than letting a 42703
+        // ("column does not exist") take the column_config/
+        // reschedule_trigger_results save down with it too.
         const scheduleConfigPayload = {
             project_key: window.LP_CONFIG.projectKey,
             column_config: scheduleColConfig,
             reschedule_trigger_results: rescheduleTriggerResults,
             status_color_rules: statusColorRules,
+            included_days: includedDays,
             updated_by: savedBy
         };
         let scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(scheduleConfigPayload, { onConflict: 'project_key' });
         if (scheduleConfigSave.error && scheduleConfigSave.error.code === '42703') {
-            console.warn('status_color_rules column not found yet — saving the rest of Schedule Config without it. Run sync/status_color_rules.sql to enable saving custom Status Colors.', scheduleConfigSave.error);
-            const { status_color_rules, ...withoutColorRules } = scheduleConfigPayload;
-            scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(withoutColorRules, { onConflict: 'project_key' });
+            console.warn('status_color_rules and/or included_days column not found yet — saving the rest of Schedule Config without them. Run sync/status_color_rules.sql and sync/included_days.sql to enable saving those.', scheduleConfigSave.error);
+            const { status_color_rules, included_days, ...withoutNewerFields } = scheduleConfigPayload;
+            scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(withoutNewerFields, { onConflict: 'project_key' });
         }
         if (scheduleConfigSave.error) throw scheduleConfigSave.error;
 
@@ -7095,7 +7152,8 @@ async function saveAllSettings(btn) {
         LP_CACHE.set('equivalentActivitiesConfig', equivalentActivitiesConfig);
         LP_CACHE.set('rescheduleTriggerResults', rescheduleTriggerResults);
         LP_CACHE.set('statusColorRules', statusColorRules);
-        
+        LP_CACHE.set('includedDays', includedDays);
+
         // Phase Rules still writes to Google Sheets in the background, so we
         // still give that a moment to finish before reloading — the three
         // Supabase saves above are already confirmed by the time we get here.
@@ -8100,6 +8158,14 @@ async function onRescheduleDateChanged() {
         return;
     }
 
+    // Included Days setting (Schedule config modal) — a day this project
+    // has excluded can't be picked at all, per request.
+    if (!isDateIncluded(newDate)) {
+        preview.style.display = 'block';
+        preview.innerHTML = 'That day is not an active schedule day for this project — pick a different date.';
+        return;
+    }
+
     // Projects that don't have The Bridge enabled as a module shouldn't
     // have Schedule silently mount it just to run this analysis — no
     // downstream-impact concept exists for them, so there's nothing
@@ -8342,6 +8408,7 @@ async function confirmReschedule() {
     if (!newDate) { alert("Pick a date first."); return; }
     const todayStr = (() => { const n = new Date(); return [n.getFullYear(), String(n.getMonth() + 1).padStart(2, '0'), String(n.getDate()).padStart(2, '0')].join('-'); })();
     if (newDate < todayStr) { alert("Pick today or a future date."); return; }
+    if (!isDateIncluded(newDate)) { alert("That day is not an active schedule day for this project — pick a different date."); return; }
     if (!__pendingRescheduleSource) return;
     const { originalRowId, activity, asset, tradePartners } = __pendingRescheduleSource;
 
@@ -9150,6 +9217,16 @@ async function onBulkDateChanged() {
         return;
     }
 
+    // Included Days setting (Schedule config modal) — a day this project
+    // has excluded can't be picked at all, per request, for either Move
+    // or Duplicate.
+    if (!isDateIncluded(newDate)) {
+        preview.style.display = 'block';
+        preview.innerHTML = 'That day is not an active schedule day for this project — pick a different date.';
+        setBulkConfirmEnabled(false);
+        return;
+    }
+
     // Same guard as onRescheduleDateChanged() — nothing to preview for a
     // project without the Bridge module enabled. A "Duplicate" doesn't
     // move anything that already exists — the originals keep their own
@@ -9233,7 +9310,8 @@ async function onBulkDateChanged() {
 async function confirmBulkAction() {
     const targetDate = document.getElementById('bulk-date-input').value;
     if (!targetDate) { alert("Please select a date."); return; }
-    
+    if (!isDateIncluded(targetDate)) { alert("That day is not an active schedule day for this project — pick a different date."); return; }
+
     const targetRowsDiv = document.getElementById(`rows-${targetDate}`);
     if (!targetRowsDiv) {
         alert("The selected date is outside of the active schedule window.");
