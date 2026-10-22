@@ -7397,6 +7397,24 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
                 };
             }
 
+            // Critical-path fire icon, immediately to the left of the
+            // Activity cell — hidden by default, toggled visible by
+            // refreshCriticalPathIndicators() whenever Bridge is enabled
+            // as a module and this row's activity is on Bridge's critical
+            // path (zero float). Keyed only by rowNumericId (already
+            // globally unique — it's day-encoded) rather than the usual
+            // dayLabel+row compound id, so it can be looked up directly
+            // without needing dayLabel again at refresh time.
+            if (col === 3) {
+                const criticalIcon = document.createElement('span');
+                criticalIcon.className = 'critical-path-icon';
+                criticalIcon.id = `critical-icon-${rowNumericId}`;
+                criticalIcon.textContent = '🔥';
+                criticalIcon.title = 'On Critical Path';
+                criticalIcon.style.cssText = 'display:none; margin-right:3px; font-size:13px; cursor:default; flex:0 0 auto;';
+                rowDiv.appendChild(criticalIcon);
+            }
+
             // --- HISTORY: right-click a cell to see its edit history ---
             // (Actual history logging happens in saveCell() on every real
             // change, keyed by the same row_id/col_index this reads with —
@@ -9770,12 +9788,42 @@ async function loadData(isSilent = false, preFetchedPromise = null) {
             // exact same rows we just rendered, so filters always match live data.
             rebuildFilterOptionsFromBackendData(data);
             autoCleanUI();
+            // Fire-and-forget — mounts Bridge in the background (only if
+            // the module is enabled) to compute critical path and light up
+            // the fire icons; never something the main data load should
+            // wait on or fail because of.
+            refreshCriticalPathIndicators().catch(e => console.error('Critical path indicator refresh failed', e));
             return true;
         }
     } catch (err) {
         console.error("🔴 Load Error:", err.message);
         return false;
     }
+}
+
+// Lights up the 🔥 fire icon next to any Activity row currently on
+// Bridge's critical path (see addRowsToContainer()'s col===3 branch for
+// where that icon gets created, hidden by default). Only does anything
+// when The Bridge is enabled as a module for this project — Schedule
+// silently mounts Bridge in the background to borrow its own
+// computeCriticalPath() rather than duplicating that math here, since
+// Bridge's dependency graph (predecessor_ids, durations) is the one
+// source of truth for it.
+async function refreshCriticalPathIndicators() {
+    document.querySelectorAll('.critical-path-icon').forEach(el => el.style.display = 'none');
+    if (!appConfig?.sidebar?.bridge) return;
+    await ensureViewMounted('bridge');
+    const bridgeEl = document.querySelector('bridge-view');
+    if (!bridgeEl) return;
+    await waitForBridgeReady(bridgeEl);
+    const { floatById } = bridgeEl.computeCriticalPath();
+    (bridgeEl.DATA.items || []).forEach(it => {
+        if (it.launchpad_id == null) return;
+        const f = floatById[it.id];
+        if (f === null || f === undefined || f > 0.01) return; // not critical
+        const icon = document.getElementById(`critical-icon-${it.launchpad_id}`);
+        if (icon) icon.style.display = 'inline';
+    });
 }
 
 /**
