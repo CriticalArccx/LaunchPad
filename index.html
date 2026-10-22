@@ -1625,6 +1625,13 @@ body.help-docked #loading-overlay {
             <div id="reschedule-trigger-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; max-height: 150px; overflow-y: auto;"></div>
         </div>
 
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
+            <h2 style="color: #333; margin: 0;">Status Colors</h2>
+            <p style="font-size:12px; color:#666; margin-bottom: 15px;">Colors Status/Result cells use for matching keywords, checked top to bottom — the first rule whose keywords match wins. "Default" covers anything that doesn't match a rule above it.</p>
+            <div id="status-color-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
+            <button onclick="addStatusColorRule()" style="padding: 5px 10px; cursor: pointer; border: 1px dashed #2e7d32; background: white; color: #2e7d32;">+ Add Rule</button>
+        </div>
+
         <div style="border-top: 1px solid #ddd; padding-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
@@ -2248,17 +2255,42 @@ const defaultScheduleConfig = [
     { id: 10, name: 'LOTO', visible: true, width: 8 }
 ];
 
+// Backing data for applyCellColor()'s keyword-matching color buckets
+// below, now editable from the Schedule config modal (Settings → Status
+// Colors, next to Phase Rules) instead of being hardcoded — checked top
+// to bottom, first rule whose keywords substring-match the cell's text
+// wins. 'default' is always last and never deleted client-side (just
+// recolored) — it's what every cell that matches nothing above gets,
+// the same role the old hardcoded light-blue fallback played.
+const defaultStatusColorRules = [
+    { id: 'green', label: 'Green', keywords: ['high', 'pass', ' 4', 'ready', 'completed', 'closed', 'clear'], bg: '#c8e6c9', fg: '#1b5e20' },
+    { id: 'yellow', label: 'Yellow', keywords: ['med', 'hold', ' 2', 'progress', 'pending', 'checking'], bg: '#fff9c4', fg: '#f57f17' },
+    { id: 'red', label: 'Red', keywords: ['open', 'fail', 'incomplete', 'issue', 'rejected'], bg: '#ffcdd2', fg: '#b71c1c' },
+    { id: 'default', label: 'Default', keywords: [], bg: '#e1f5fe', fg: '#01579b' }
+];
+let statusColorRules = defaultStatusColorRules.map(r => ({ ...r, keywords: [...r.keywords] }));
+
 async function loadScheduleConfig() {
     try {
+        // select('*') rather than naming status_color_rules explicitly —
+        // that column only exists once sync/status_color_rules.sql has
+        // been run against this project's Supabase; naming a column that
+        // doesn't exist yet would 400 the whole query (column_config and
+        // reschedule_trigger_results included) instead of just leaving
+        // status_color_rules undefined below.
         const { data: row, error } = await _supabase
             .from('launchpad_schedule_config')
-            .select('column_config, reschedule_trigger_results')
+            .select('*')
             .eq('project_key', window.LP_CONFIG.projectKey)
             .maybeSingle();
         if (error) throw error;
         if (row) {
             rescheduleTriggerResults = row.reschedule_trigger_results || [];
             LP_CACHE.set('rescheduleTriggerResults', rescheduleTriggerResults);
+        }
+        if (row && row.status_color_rules && row.status_color_rules.length) {
+            statusColorRules = row.status_color_rules;
+            LP_CACHE.set('statusColorRules', statusColorRules);
         }
         if (row && row.column_config && row.column_config.length) {
             scheduleColConfig = row.column_config;
@@ -6557,9 +6589,11 @@ async function continueStartAppAfterProject(user) {
             const cachedEqActivities = LP_CACHE.get('equivalentActivitiesConfig');
             const cachedDropdowns = LP_CACHE.get('dropdownData');
             const cachedRescheduleTriggers = LP_CACHE.get('rescheduleTriggerResults');
+            const cachedStatusColorRules = LP_CACHE.get('statusColorRules');
 
             if (cachedColConfig) { scheduleColConfig = cachedColConfig; renderDynamicHeaders(); }
             if (cachedRescheduleTriggers) { rescheduleTriggerResults = cachedRescheduleTriggers; }
+            if (cachedStatusColorRules) { statusColorRules = cachedStatusColorRules; }
             if (cachedAppConfig) { appConfig = { ...appConfig, ...cachedAppConfig }; applySidebarConfig(); }
             if (cachedEqActivities) { equivalentActivitiesConfig = cachedEqActivities; renderEquivalentActivitiesUI(); }
             if (cachedDropdowns) {
@@ -6873,6 +6907,45 @@ function openScheduleConfigModal() {
     document.getElementById('cfg-nav-sealform').checked = appConfig.sidebar.sealForm;
 
     renderRescheduleTriggerList();
+    renderStatusColorRulesUI();
+}
+
+// Builds the Status Colors editor in the Schedule config modal — one row
+// per entry in statusColorRules, each with an editable label, a
+// comma-separated keyword list, a background/text color picker, and a
+// live preview swatch. 'default' always renders last with its keyword
+// field disabled (see applyCellColor() — it never matches on keywords,
+// it's just whatever every other row didn't catch) and no remove button.
+function renderStatusColorRulesUI() {
+    const container = document.getElementById('status-color-rules-list');
+    if (!container) return;
+    container.innerHTML = statusColorRules.map(rule => statusColorRuleRowHtml(rule)).join('');
+}
+
+function statusColorRuleRowHtml(rule) {
+    const isDefault = rule.id === 'default';
+    const keywordsStr = escapeHtmlForReschedule((rule.keywords || []).join(', '));
+    return `<div class="status-color-rule-row" data-rule-id="${escapeHtmlForReschedule(rule.id)}" style="display:flex; align-items:center; gap:8px; background:#f8f9fa; border:1px solid #ddd; border-radius:4px; padding:8px;">
+        <input type="text" class="sc-label" value="${escapeHtmlForReschedule(rule.label)}" placeholder="Label" style="flex:1; min-width:70px; border:1px solid #ccc; border-radius:3px; padding:4px 6px; font-size:12.5px;">
+        <input type="text" class="sc-keywords" value="${keywordsStr}" placeholder="${isDefault ? 'matches anything else' : 'comma-separated keywords'}" ${isDefault ? 'disabled' : ''} style="flex:2; min-width:160px; border:1px solid #ccc; border-radius:3px; padding:4px 6px; font-size:12.5px; ${isDefault ? 'background:#eee; color:#888;' : ''}">
+        <label style="font-size:11px; color:#666; display:flex; align-items:center; gap:4px;">BG <input type="color" class="sc-bg" value="${rule.bg}" oninput="this.closest('.status-color-rule-row').querySelector('.sc-preview').style.background=this.value"></label>
+        <label style="font-size:11px; color:#666; display:flex; align-items:center; gap:4px;">Text <input type="color" class="sc-fg" value="${rule.fg}" oninput="this.closest('.status-color-rule-row').querySelector('.sc-preview').style.color=this.value"></label>
+        <span class="sc-preview" style="padding:4px 10px; border-radius:3px; font-size:11.5px; font-weight:bold; background:${rule.bg}; color:${rule.fg};">Abc</span>
+        ${isDefault ? '<span style="width:14px; flex-shrink:0;"></span>' : `<span style="cursor:pointer; color:#d32f2f; font-weight:bold; padding:0 4px;" title="Remove rule" onclick="this.closest('.status-color-rule-row').remove()">✕</span>`}
+    </div>`;
+}
+
+// New rules always insert just above 'default', which must stay last —
+// see applyCellColor()'s keyword-match loop and the comment on
+// defaultStatusColorRules above for why.
+function addStatusColorRule() {
+    const container = document.getElementById('status-color-rules-list');
+    if (!container) return;
+    const defaultRow = container.querySelector('.status-color-rule-row[data-rule-id="default"]');
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = statusColorRuleRowHtml({ id: `rule_${Date.now()}`, label: 'New Rule', keywords: [], bg: '#e1f5fe', fg: '#01579b' });
+    const newEl = wrapper.firstElementChild;
+    if (defaultRow) container.insertBefore(newEl, defaultRow); else container.appendChild(newEl);
 }
 
 // Builds one checkbox per known Result value (same list the Result
@@ -6941,9 +7014,44 @@ async function saveAllSettings(btn) {
     // 3b. Gather Reschedule Trigger Results
     rescheduleTriggerResults = Array.from(document.querySelectorAll('.reschedule-trigger-cb:checked')).map(cb => cb.value);
 
+    // 3c. Gather Status Colors — reads the DOM rows back into
+    // statusColorRules in whatever order they're in now (new rows always
+    // insert above 'default' — see addStatusColorRule() — so order is
+    // preserved without doing anything special for it here).
+    statusColorRules = Array.from(document.querySelectorAll('#status-color-rules-list .status-color-rule-row')).map(rowEl => {
+        const id = rowEl.getAttribute('data-rule-id');
+        const label = rowEl.querySelector('.sc-label')?.value.trim() || id;
+        const keywordsInput = rowEl.querySelector('.sc-keywords');
+        const keywords = id === 'default' ? [] : (keywordsInput?.value || '').split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+        const bg = rowEl.querySelector('.sc-bg')?.value || '#e1f5fe';
+        const fg = rowEl.querySelector('.sc-fg')?.value || '#01579b';
+        return { id, label, keywords, bg, fg };
+    });
+
 // 4. SAVE THE THREE SUPABASE-BACKED SETTINGS, PLUS PHASE RULES (still sheet-backed)
     try {
         const savedBy = window.__currentUserEmail || null;
+
+        // launchpad_schedule_config's status_color_rules column only
+        // exists once sync/status_color_rules.sql has been run for this
+        // project — if it hasn't, retry once without that field rather
+        // than letting a 42703 ("column does not exist") take the
+        // column_config/reschedule_trigger_results save down with it too.
+        const scheduleConfigPayload = {
+            project_key: window.LP_CONFIG.projectKey,
+            column_config: scheduleColConfig,
+            reschedule_trigger_results: rescheduleTriggerResults,
+            status_color_rules: statusColorRules,
+            updated_by: savedBy
+        };
+        let scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(scheduleConfigPayload, { onConflict: 'project_key' });
+        if (scheduleConfigSave.error && scheduleConfigSave.error.code === '42703') {
+            console.warn('status_color_rules column not found yet — saving the rest of Schedule Config without it. Run sync/status_color_rules.sql to enable saving custom Status Colors.', scheduleConfigSave.error);
+            const { status_color_rules, ...withoutColorRules } = scheduleConfigPayload;
+            scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(withoutColorRules, { onConflict: 'project_key' });
+        }
+        if (scheduleConfigSave.error) throw scheduleConfigSave.error;
+
         await Promise.all([
             _supabase.from('launchpad_equivalent_activities').upsert({
                 project_key: window.LP_CONFIG.projectKey,
@@ -6951,12 +7059,6 @@ async function saveAllSettings(btn) {
                 updated_by: savedBy
             }, { onConflict: 'project_key' }),
             savePhaseRules(),
-            _supabase.from('launchpad_schedule_config').upsert({
-                project_key: window.LP_CONFIG.projectKey,
-                column_config: scheduleColConfig,
-                reschedule_trigger_results: rescheduleTriggerResults,
-                updated_by: savedBy
-            }, { onConflict: 'project_key' }),
             _supabase.from('launchpad_nav_config').upsert({
                 project_key: window.LP_CONFIG.projectKey,
                 sidebar_config: appConfig,
@@ -6982,6 +7084,7 @@ async function saveAllSettings(btn) {
         LP_CACHE.set('appConfig', appConfig);
         LP_CACHE.set('equivalentActivitiesConfig', equivalentActivitiesConfig);
         LP_CACHE.set('rescheduleTriggerResults', rescheduleTriggerResults);
+        LP_CACHE.set('statusColorRules', statusColorRules);
         
         // Phase Rules still writes to Google Sheets in the background, so we
         // still give that a moment to finish before reloading — the three
@@ -7047,25 +7150,15 @@ function applyCellColor(element, value) {
         return;
     }
 
-    // Default color (Light Blue)
-    let bg = "#e1f5fe";
-    let fg = "#01579b";
+    // First rule (in statusColorRules, admin-editable via Settings →
+    // Status Colors) whose keywords substring-match wins; 'default' has
+    // no keywords and never matches here, so it's really just whatever
+    // the loop falls through to below.
+    const matched = statusColorRules.find(r => r.id !== 'default' && (r.keywords || []).some(kw => kw && lowerVal.includes(kw.toLowerCase())));
+    const rule = matched || statusColorRules.find(r => r.id === 'default') || defaultStatusColorRules[defaultStatusColorRules.length - 1];
 
-    // Green: Pass, High, Ready, Completed, Closed, Clear, 4
-    if (lowerVal.includes("high") || lowerVal.includes("pass") || lowerVal.includes(" 4") || lowerVal.includes("ready") || lowerVal.includes("completed") || lowerVal.includes("closed") || lowerVal.includes("clear")) {
-        bg = "#c8e6c9"; fg = "#1b5e20";
-    } 
-    // Yellow: Med, Hold, In Progress, Pending, 2, Checking
-    else if (lowerVal.includes("med") || lowerVal.includes("hold") || lowerVal.includes(" 2") || lowerVal.includes("progress") || lowerVal.includes("pending") || lowerVal.includes("checking")) {
-        bg = "#fff9c4"; fg = "#f57f17";
-    } 
-    // Red: Open, Fail, Incomplete, Issue, Rejected
-    else if (lowerVal.includes("open") || lowerVal.includes("fail") || lowerVal.includes("incomplete") || lowerVal.includes("issue") || lowerVal.includes("rejected")) {
-        bg = "#ffcdd2"; fg = "#b71c1c";
-    }
-
-    element.style.setProperty('background-color', bg, 'important');
-    element.style.setProperty('color', fg, 'important');
+    element.style.setProperty('background-color', rule.bg, 'important');
+    element.style.setProperty('color', rule.fg, 'important');
 }
 
 async function syncAllAssetLookups() {

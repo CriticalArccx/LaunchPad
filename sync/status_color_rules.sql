@@ -1,0 +1,18 @@
+-- Run this once in the Supabase SQL editor. Adds a column so each
+-- project can customize the colors applyCellColor() (index.html) uses for
+-- Status/Result text, instead of that function's hardcoded green/yellow/
+-- red/blue keyword buckets being the only option — per request, surfaced
+-- in the Schedule module's settings modal next to Phase Rules.
+--
+-- jsonb, matching column_config on the same table: an ordered array of
+-- { id, label, keywords: string[], bg, fg }, checked top to bottom —
+-- first rule whose keywords substring-match the cell's text wins. The
+-- last entry is the fallback "default" rule (used when nothing above
+-- matches) and is never deleted client-side, only recolored.
+--
+-- No default value / backfill needed: index.html's loadScheduleConfig()
+-- already falls back to its own hardcoded defaultStatusColorRules array
+-- (mirroring applyCellColor()'s previous hardcoded scheme exactly) when
+-- this column is null, so every existing project keeps today's colors
+-- until an admin actually opens Settings and changes one.
+alter table launchpad_schedule_config add column if not exists status_color_rules jsonb;
