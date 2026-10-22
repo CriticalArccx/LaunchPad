@@ -4545,7 +4545,10 @@ export class BridgeView extends HTMLElement {
         this.$('bulkStep1').style.display = 'none';
         this.$('bulkStep2').style.display = 'block';
         this.$('bulkCommitBtn').style.display = 'inline-flex';
-        this.$('bulkPreviewCount').textContent = `${this.bulkPreviewRows.length} item(s) ready`;
+        const unmatchedCount = this.bulkPreviewRows.filter(r => !this.isKnownListValue('assets', r.asset) || !this.isKnownListValue('activities', r.activity)).length;
+        this.$('bulkPreviewCount').textContent = unmatchedCount
+            ? `${this.bulkPreviewRows.length} item(s) — ${unmatchedCount} need a matching Asset/Activity (highlighted) before they can be added`
+            : `${this.bulkPreviewRows.length} item(s) ready`;
         const assetOpts = this.DATA.assets.map(a => a.name);
         const activityOpts = this.DATA.activities.map(a => a.name);
         const contractorOpts = this.DATA.contractors.map(c => c.name);
@@ -4555,10 +4558,16 @@ export class BridgeView extends HTMLElement {
             : `<tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Linked after</th><th></th></tr>`;
         this.$('bulkPreviewBody').innerHTML = this.bulkPreviewRows.map((r, i) => {
             const dateVal = new Date(r.start).toISOString().slice(0, 10);
-            const assetCell = `<td><select style="width:120px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select></td>`;
+            // Red highlight = not in this project's dropdownoptions list —
+            // see commitBulkAdd(), which skips rows still in this state
+            // instead of silently adding a new list entry for them.
+            const assetUnmatched = !this.isKnownListValue('assets', r.asset);
+            const activityUnmatched = !this.isKnownListValue('activities', r.activity);
+            const unmatchedStyle = 'border:2px solid #d32f2f; background:#fdecea;';
+            const assetCell = `<td><select style="width:120px; ${assetUnmatched ? unmatchedStyle : ''}" title="${assetUnmatched ? "Not in this project's Asset list — pick an existing one" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select></td>`;
             const activityCell = `<td>
                     <span class="legend-swatch" style="background:${this.activityColor(r.activity)}; display:inline-block; width:9px;height:9px;border-radius:3px; margin-right:3px;"></span>
-                    <select style="width:118px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'activity',this.value)">${this.selectOptionsHtml(activityOpts, r.activity, false)}</select>
+                    <select style="width:118px; ${activityUnmatched ? unmatchedStyle : ''}" title="${activityUnmatched ? "Not in this project's Activity list — pick an existing one" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'activity',this.value)">${this.selectOptionsHtml(activityOpts, r.activity, false)}</select>
                 </td>`;
             const durationCell = `<td><input type="number" min="1" step="1" value="${r.duration}" style="width:56px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'duration',this.value)"></td>`;
             // Area is automatic (derived from Asset) everywhere else, but
@@ -4653,16 +4662,44 @@ export class BridgeView extends HTMLElement {
         this.$('bulkCommitBtn').style.display = 'none';
     }
 
+    // name exists (case-insensitively) in this project's dropdownoptions-
+    // backed master list for that field — used to keep bulk add from
+    // silently creating new Asset/Activity entries for a typo or a one-off
+    // paste; see commitBulkAdd()'s per-row check below.
+    isKnownListValue(table, name) {
+        const n = (name || '').trim().toLowerCase();
+        if (!n) return false;
+        return (this.DATA[table] || []).some(x => x.name.toLowerCase() === n);
+    }
+
     async commitBulkAdd() {
         if (!this.requireEditMode()) return;
+        // Per request: bulk add must line up with what's already in this
+        // project's dropdownoptions — Asset and Activity are never
+        // auto-created from here the way ensureListValue() used to do.
+        // A row whose Asset or Activity isn't an existing list entry is
+        // skipped (not silently created with an unlisted name) and left in
+        // the preview so it can be fixed and re-submitted; everything that
+        // DOES match commits normally. insertedIds keeps a null slot for
+        // each skipped row so predecessor-link positions (which reference
+        // rows by their original index in this batch) still line up in the
+        // second pass below.
+        const skipped = [];
         this.setSaveIndicator('dirty', 'Saving...');
         const insertedIds = [];
         for (const r of this.bulkPreviewRows) {
-            await this.ensureListValue('assets', r.asset);
-            await this.ensureListValue('activities', r.activity);
+            const assetOk = this.isKnownListValue('assets', r.asset);
+            const activityOk = this.isKnownListValue('activities', r.activity);
+            if (!assetOk || !activityOk) {
+                insertedIds.push(null);
+                skipped.push(r);
+                continue;
+            }
             // r.contractor can now hold several names joined with " | " (a
             // multi-select, or free-typed paste/WBS text) — ensure each one
             // individually, not the joined string as a single new entry.
+            // Contractors are still auto-added (only Asset/Activity/Place
+            // were asked to stop auto-creating).
             const contractorNames = (r.contractor || '').split('|').map(s => s.trim()).filter(Boolean);
             for (const name of contractorNames) await this.ensureListValue('contractors', name);
             const payload = {
@@ -4704,14 +4741,25 @@ export class BridgeView extends HTMLElement {
             // NOT recalculated from a predecessor's finish time, so skip
             // the auto-cascade every other mode relies on here.
             if (!isWbsImport) {
-                for (const pos of linkPositions) await this.enforceDependencies(insertedIds[pos]);
+                for (const pos of linkPositions) { if (insertedIds[pos]) await this.enforceDependencies(insertedIds[pos]); }
             }
         }
-        for (const id of insertedIds) this.markPendingSync(this.DATA.items.find(i => i.id === id));
+        for (const id of insertedIds) { if (id) this.markPendingSync(this.DATA.items.find(i => i.id === id)); }
         this.setSaveIndicator('ready', 'Saved');
-        this.toast(`${this.bulkPreviewRows.length} item(s) added${linkCount ? `, ${linkCount} linked as predecessor/successor` : ''}`);
-        this.bulkPreviewRows = [];
-        this.closeModal('bulkModal');
+        const addedCount = insertedIds.filter(Boolean).length;
+        if (skipped.length) {
+            this.toast(
+                `Added ${addedCount} item(s)${linkCount ? `, ${linkCount} linked as predecessor/successor` : ''}. ` +
+                `${skipped.length} row(s) skipped — their Asset or Activity isn't in this project's list yet; pick an existing value (highlighted in red) and click Add to Schedule again.`,
+                9000
+            );
+            this.bulkPreviewRows = skipped;
+            this.renderBulkPreview();
+        } else {
+            this.toast(`${addedCount} item(s) added${linkCount ? `, ${linkCount} linked as predecessor/successor` : ''}`);
+            this.bulkPreviewRows = [];
+            this.closeModal('bulkModal');
+        }
         this.renderFilterBar();
         this.renderGantt();
     }
