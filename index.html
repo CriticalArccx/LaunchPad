@@ -9236,7 +9236,14 @@ async function applyBulkActionToBridge(action, ops, origItemsByOldId) {
                         notes: origItem.notes || '',
                         predecessor_ids: [origItem.id],
                         launchpad_id: op.newRowId,
-                        launchpad_day_label: op.newDayLabel
+                        launchpad_day_label: op.newDayLabel,
+                        // Still never shown/collected anywhere, but
+                        // schedule_items.type is NOT NULL with no default
+                        // on non-unified projects — omitting it fails the
+                        // insert outright (same 23502 constraint violation
+                        // fixed earlier for saveItemModal()/commitBulkAdd()
+                        // in bridge-view.js; missed carrying it over here).
+                        type: '', zone: '', asset_type: ''
                     });
                     if (newItem) bridgeEl.DATA.items.push(newItem);
                 }
