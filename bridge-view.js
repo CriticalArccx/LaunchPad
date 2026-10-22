@@ -2336,7 +2336,10 @@ export class BridgeView extends HTMLElement {
         this._toastTimer = setTimeout(() => t.style.display = 'none', ms);
     }
     openModal(id) { this.$(id).classList.add('open'); }
-    closeModal(id) { this.$(id).classList.remove('open'); }
+    closeModal(id) {
+        this.$(id).classList.remove('open');
+        if (id === 'bulkModal') this.closeBulkContractorPicker();
+    }
     switchTab(group, name, evt) {
         // evt is passed explicitly from each button's onclick below rather
         // than relying on the bare global `event` this used to reference —
@@ -4470,6 +4473,46 @@ export class BridgeView extends HTMLElement {
         return [...this.$$(`#${listId} input:checked`)].map(i => i.value);
     }
 
+    // Multi-select popover for the bulk-preview table's Contractor(s)
+    // cell — a native <select multiple> needs ctrl/cmd-click to pick more
+    // than one, which isn't discoverable, so this gives it the same
+    // checkbox-list interaction the rest of the modal already uses.
+    // position:fixed, computed from the trigger button's own
+    // getBoundingClientRect(), since the preview table scrolls and an
+    // absolutely-positioned popover would get clipped by that instead of
+    // floating over it.
+    openBulkContractorPicker(i, btn) {
+        const panel = this.$('bulkContractorPopover');
+        if (!panel) return;
+        const r = this.bulkPreviewRows[i];
+        const selected = new Set((r.contractor || '').split('|').map(s => s.trim()).filter(Boolean));
+        panel.innerHTML = `
+            <input type="text" class="search" placeholder="Filter contractors..." oninput="this.getRootNode().host.filterCheckList('bulkContractorPopoverList', this.value)">
+            <div class="checkbox-scroll-list" id="bulkContractorPopoverList" style="border:none; background:none; padding:0; max-height:170px;">
+                ${this.DATA.contractors.map(c => `<label><input type="checkbox" value="${escAttr(c.name)}" ${selected.has(c.name) ? 'checked' : ''} onchange="this.getRootNode().host.toggleBulkContractorPick(${i}, this.value, this.checked)"> ${escHtml(c.name)}</label>`).join('') || '<div style="color:#999; font-size:12px; padding:4px;">No contractors in this project\'s list yet.</div>'}
+            </div>`;
+        const rect = btn.getBoundingClientRect();
+        panel.style.top = `${rect.bottom + 4}px`;
+        panel.style.left = `${Math.min(rect.left, window.innerWidth - 246)}px`;
+        panel.classList.add('open');
+    }
+    toggleBulkContractorPick(i, name, checked) {
+        const r = this.bulkPreviewRows[i];
+        if (!r) return;
+        const selected = new Set((r.contractor || '').split('|').map(s => s.trim()).filter(Boolean));
+        if (checked) selected.add(name); else selected.delete(name);
+        r.contractor = [...selected].join(' | ');
+        // Update just the trigger button's label in place — re-rendering
+        // the whole preview table here would wipe out (close) this very
+        // popover mid-click.
+        const btn = this.$(`bulkContractorBtn-${i}`);
+        if (btn) btn.textContent = selected.size ? [...selected].join(', ') : 'Select...';
+    }
+    closeBulkContractorPicker() {
+        const panel = this.$('bulkContractorPopover');
+        if (panel) panel.classList.remove('open');
+    }
+
     generateBulkPreview(mode) {
         this.bulkPreviewRows = [];
         this.bulkPreviewMode = mode;
@@ -4602,13 +4645,16 @@ export class BridgeView extends HTMLElement {
         this.$('bulkStep1').style.display = 'none';
         this.$('bulkStep2').style.display = 'block';
         this.$('bulkCommitBtn').style.display = 'inline-flex';
+        // Row indices are about to be rebuilt (and can shift if a row was
+        // removed) — an open picker's onchange handlers close over the OLD
+        // index, so it must close rather than risk editing the wrong row.
+        this.closeBulkContractorPicker();
         const unmatchedCount = this.bulkPreviewRows.filter(r => !this.isKnownListValue('assets', r.asset) || !this.isKnownListValue('activities', r.activity)).length;
         this.$('bulkPreviewCount').textContent = unmatchedCount
             ? `${this.bulkPreviewRows.length} item(s) — ${unmatchedCount} need a matching Asset/Activity (highlighted) before they can be added`
             : `${this.bulkPreviewRows.length} item(s) ready`;
         const assetOpts = this.DATA.assets.map(a => a.name);
         const activityOpts = this.DATA.activities.map(a => a.name);
-        const contractorOpts = this.DATA.contractors.map(c => c.name);
         const isWbs = this.bulkPreviewMode === 'wbs';
         this.$('bulkPreviewHead').innerHTML = isWbs
             ? `<tr><th>Index</th><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Predecessors</th><th></th></tr>`
@@ -4632,8 +4678,8 @@ export class BridgeView extends HTMLElement {
             // picked is still visible before committing.
             const areaCell = `<td style="font-size:11.5px; color:#555;">${escHtml(r.area || '—')}</td>`;
             const startCell = `<td><input type="date" value="${dateVal}" style="width:130px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'start',this.value)"></td>`;
-            const selectedContractors = new Set((r.contractor || '').split('|').map(s => s.trim()).filter(Boolean));
-            const contractorCell = `<td><select multiple style="width:120px; height:54px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'contractor',[...this.selectedOptions].map(o=>o.value).join(' | '))">${contractorOpts.map(c => `<option value="${escAttr(c)}" ${selectedContractors.has(c) ? 'selected' : ''}>${escHtml(c)}</option>`).join('')}</select></td>`;
+            const selectedContractors = (r.contractor || '').split('|').map(s => s.trim()).filter(Boolean);
+            const contractorCell = `<td><button type="button" class="bulk-contractor-btn" id="bulkContractorBtn-${i}" onclick="this.getRootNode().host.openBulkContractorPicker(${i}, this)">${selectedContractors.length ? escHtml(selectedContractors.join(', ')) : 'Select...'}</button></td>`;
             const notesCell = `<td><input value="${escAttr(r.notes || '')}" placeholder="Notes" style="width:120px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'notes',this.value)"></td>`;
             const removeCell = `<td><button class="preview-remove" onclick="this.getRootNode().host.removeBulkRow(${i})" title="Remove row">✕</button></td>`;
 
@@ -4717,6 +4763,7 @@ export class BridgeView extends HTMLElement {
         this.$('bulkStep1').style.display = 'block';
         this.$('bulkStep2').style.display = 'none';
         this.$('bulkCommitBtn').style.display = 'none';
+        this.closeBulkContractorPicker();
     }
 
     // name exists (case-insensitively) in this project's dropdownoptions-
