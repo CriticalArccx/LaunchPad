@@ -206,7 +206,14 @@ const LAUNCHPAD_STATUS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxk
 const FILTER_DEFS = [
     { key: 'asset', label: 'Asset', field: 'asset_name' },
     { key: 'activity', label: 'Activity', field: 'activity_name' },
-    { key: 'area', label: 'Area', field: 'area' }
+    { key: 'area', label: 'Area', field: 'area' },
+    // contractor_name holds '|'-delimited multiple assignees (see
+    // renderContractorCheckboxList()'s own split/join elsewhere) — a plain
+    // exact-match field like the three above would never match an item
+    // with more than one contractor, so this one is special-cased in
+    // itemMatchesFilters()/renderDropdownContent() below instead of going
+    // through the generic single-value path.
+    { key: 'contractor', label: 'Contractor', field: 'contractor_name' }
 ];
 
 const STYLE = `
@@ -1167,7 +1174,8 @@ export class BridgeView extends HTMLElement {
             asset_type: new Set(),
             asset: new Set(),
             activity: new Set(),
-            area: new Set()
+            area: new Set(),
+            contractor: new Set()
         };
         this.DAY_WIDTH = 45;        // matches the "Zoom: Overview Extended" default in #dayWidthSelect
         this.TIMELINE_START = null; // Date, midnight
@@ -2387,7 +2395,10 @@ export class BridgeView extends HTMLElement {
             if (def.key === exceptKey) continue;
             const set = this.FILTERS[def.key];
             if (set.size === 0) continue;
-            if (!set.has(item[def.field])) return false;
+            if (def.key === 'contractor') {
+                const names = (item.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean);
+                if (!names.some(n => set.has(n))) return false;
+            } else if (!set.has(item[def.field])) return false;
         }
         return true;
     }
@@ -2452,6 +2463,12 @@ export class BridgeView extends HTMLElement {
         const candidatePool = this.DATA.items.filter(it => this.itemMatchesFilters(it, key));
         const counts = {};
         candidatePool.forEach(it => {
+            if (key === 'contractor') {
+                (it.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean).forEach(name => {
+                    counts[name] = (counts[name] || 0) + 1;
+                });
+                return;
+            }
             const v = it[def.field];
             if (!v) return;
             counts[v] = (counts[v] || 0) + 1;
@@ -2464,6 +2481,7 @@ export class BridgeView extends HTMLElement {
         else if (key === 'activity') allValues = this.DATA.activities.map(a => a.name);
         else if (key === 'asset') allValues = this.DATA.assets.map(a => a.name);
         else if (key === 'asset_type') allValues = [...new Set(this.DATA.items.map(i => i.asset_type).filter(Boolean))];
+        else if (key === 'contractor') allValues = this.DATA.contractors.map(c => c.name);
         allValues = [...new Set([...allValues, ...Object.keys(counts)])].sort();
 
         const searchId = `ddsearch-${key}`;
