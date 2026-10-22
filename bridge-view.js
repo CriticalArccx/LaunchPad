@@ -4371,7 +4371,15 @@ export class BridgeView extends HTMLElement {
             area: this.$('itemArea').value,
             contractor_name: contractorName,
             notes: this.$('itemNotes').value,
-            predecessor_ids: this.currentItemPredecessors.slice()
+            predecessor_ids: this.currentItemPredecessors.slice(),
+            // type/zone/asset_type are no longer collected anywhere, but
+            // non-unified projects' schedule_items.type has a NOT NULL
+            // constraint with no default — omitting it entirely (rather
+            // than sending '') made every new item's INSERT fail outright
+            // (confirmed live: 23502 "null value in column type violates
+            // not-null constraint"). Still blank/never shown, just present
+            // so the row can actually be created.
+            type: '', zone: '', asset_type: ''
         };
 
         this.setSaveIndicator('dirty', 'Saving...');
@@ -4809,7 +4817,11 @@ export class BridgeView extends HTMLElement {
             const payload = {
                 asset_name: r.asset, activity_name: r.activity, duration_hours: daysToHours(r.duration),
                 area: r.area || '', start_ts: r.start,
-                contractor_name: contractorNames.join(' | '), notes: r.notes || ''
+                contractor_name: contractorNames.join(' | '), notes: r.notes || '',
+                // See saveItemModal()'s payload for why these are still
+                // sent blank — schedule_items.type is NOT NULL with no
+                // default, so omitting it entirely fails the insert.
+                type: '', zone: '', asset_type: ''
             };
             const saved = await this.ItemsDB.insert(payload);
             const newItem = saved ? { ...saved, duration_hours: payload.duration_hours } : { id: uid(), ...payload };
