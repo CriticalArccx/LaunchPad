@@ -2644,7 +2644,65 @@ export class TamperSealView extends HTMLElement {
         }
 
         this.createFilterButtons();
-        this.renderFilteredLog();
+
+        // Keep whichever Area/Asset accordions are already expanded open
+        // (filtered down to just their own matching rows) instead of
+        // collapsing every section back to closed on every filter click,
+        // the way renderFilteredLog()'s default (no openAreas/openAssets
+        // passed) always does — per request. Only when the new filter
+        // would leave every one of those already-open sections with
+        // nothing in it does this fall back to that plain default, so the
+        // user isn't left looking at a screen of empty, forced-open
+        // sections while the real matches sit collapsed elsewhere.
+        const container = this.$('main-content-area');
+        const scrollPos = container.scrollTop;
+        const openAreas = new Set();
+        const openAssets = new Set();
+        this.$$('.area-container').forEach(areaDiv => {
+            const content = areaDiv.querySelector('.area-content');
+            if (content && !content.classList.contains('hidden')) {
+                const name = areaDiv.querySelector('.area-header span').innerText.replace('Area: ', '').trim();
+                openAreas.add(name);
+            }
+        });
+        this.$$('.rows-container').forEach(rowsDiv => {
+            if (!rowsDiv.classList.contains('hidden')) {
+                openAssets.add(rowsDiv.getAttribute('data-asset-name'));
+            }
+        });
+
+        if (this.hasAnyMatchInOpenState(openAreas, openAssets)) {
+            this.renderFilteredLog(openAreas, openAssets, scrollPos);
+        } else {
+            this.renderFilteredLog();
+        }
+    }
+
+    // Read-only check for toggleFilter()'s fallback above — same
+    // location/status/search/duplicate matching renderFilteredLog() and
+    // fetchAndRender() apply for real, just answering "is there anything
+    // left to show" for the given already-open Area/Asset names rather
+    // than actually rendering.
+    hasAnyMatchInOpenState(openAreas, openAssets) {
+        if (openAreas.size === 0 && openAssets.size === 0) return false;
+        const targetLocs = this.activeFilters.locations;
+        const targetStats = [...this.activeFilters.statuses].map(s => s.toLowerCase());
+        const query = this.activeFilters.search;
+        return this.allHierarchyRecords.some(r => {
+            const areaName = (r.Location || r.location || 'Unassigned').trim();
+            if (!openAreas.has(areaName) && !openAssets.has(r.asset_name)) return false;
+            if (!targetLocs.has('All') && !targetLocs.has(areaName)) return false;
+            if (!this.activeFilters.statuses.has('All')) {
+                const s = (r.status || '').toLowerCase();
+                if (!targetStats.some(f => s.includes(f))) return false;
+            }
+            if (query) {
+                const searchStr = `${r.asset_name} ${r.Location || r.location} ${r.seal_number} ${r.sub_area} ${r.inspection_notes} ${r.signoff}`.toLowerCase();
+                if (!searchStr.includes(query)) return false;
+            }
+            if (this.duplicateSealList && !this.duplicateSealList.includes((r.seal_number || "").toString().trim())) return false;
+            return true;
+        });
     }
 
     /**
