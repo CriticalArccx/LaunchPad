@@ -1544,8 +1544,12 @@ body.help-docked #loading-overlay {
                     <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 1px;">▼</button>
                 </div>
 
-            <button id="my-activities-btn" class="place-filter-btn-vertical" onclick="toggleMyActivitiesFilter()" style="display: flex; align-items: center; gap: 8px; margin-bottom: 25px; padding: 10px;">
+            <button id="my-activities-btn" class="place-filter-btn-vertical" onclick="toggleMyActivitiesFilter()" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 10px;">
                 <span id="my-activities-check" style="font-size: 15px; line-height: 1;">☐</span> My Activities
+            </button>
+
+            <button id="critical-path-filter-btn" class="place-filter-btn-vertical" onclick="toggleCriticalPathFilter()" style="display: flex; align-items: center; gap: 8px; margin-bottom: 25px; padding: 10px;" title="Only show activities currently on Bridge's critical path">
+                <span id="critical-path-filter-check" style="font-size: 15px; line-height: 1;">☐</span> 🔥 Critical Path
             </button>
 
             <div id="vertical-places-filter-container"></div>
@@ -2474,7 +2478,14 @@ function resetAllFilters() {
     const myActCheck = document.getElementById('my-activities-check');
     if (myActBtn) myActBtn.classList.remove('active');
     if (myActCheck) myActCheck.innerText = "☐";
-    
+
+    // 2b. Reset "Critical Path" toggle
+    isCriticalPathFilterActive = false;
+    const critBtn = document.getElementById('critical-path-filter-btn');
+    const critCheck = document.getElementById('critical-path-filter-check');
+    if (critBtn) critBtn.classList.remove('active');
+    if (critCheck) critCheck.innerText = "☐";
+
     // 3. NEW: Clear search bar and clear text highlights
     const searchInput = document.getElementById('app-search-input');
     if (searchInput) {
@@ -5812,6 +5823,30 @@ function toggleMyActivitiesFilter() {
     
     if (isMyActivitiesActive) {
         btn.classList.add('active'); // Uses your existing green CSS class
+        check.innerText = "☑";
+    } else {
+        btn.classList.remove('active');
+        check.innerText = "☐";
+    }
+
+    autoCleanUI();
+}
+
+// Mirrors toggleMyActivitiesFilter() above, but keys off the same
+// .critical-path-row class refreshCriticalPathIndicators() already
+// stamps onto a row's wrapper (used for the fire icon / orange outline)
+// instead of a column value — so this stays in sync with whatever
+// Bridge's own computeCriticalPath() says, no separate computation here.
+let isCriticalPathFilterActive = false;
+
+function toggleCriticalPathFilter() {
+    isCriticalPathFilterActive = !isCriticalPathFilterActive;
+
+    const btn = document.getElementById('critical-path-filter-btn');
+    const check = document.getElementById('critical-path-filter-check');
+
+    if (isCriticalPathFilterActive) {
+        btn.classList.add('active');
         check.innerText = "☑";
     } else {
         btn.classList.remove('active');
@@ -9738,6 +9773,12 @@ function autoCleanUI() {
             if (!(col6?.getAttribute('data-selected') || col6?.value || "").toLowerCase().includes(company)) shouldShow = false;
         }
 
+        // Critical Path Filter — row.classList is kept current by
+        // refreshCriticalPathIndicators(), which re-runs autoCleanUI() of
+        // its own accord once it finishes (re)stamping every row, so this
+        // never has to compute critical-path status itself.
+        if (shouldShow && isCriticalPathFilterActive && !row.classList.contains('critical-path-row')) shouldShow = false;
+
         // Places Filter (Col 2)
         if (shouldShow && selectedPlaces.length > 0) {
             const placeEl = row.querySelector('[data-col-index="2"]');
@@ -10198,7 +10239,7 @@ function appendCriticalPathNote(notesEl) {
 async function refreshCriticalPathIndicators() {
     document.querySelectorAll('.critical-path-icon').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cell-row.critical-path-row').forEach(el => el.classList.remove('critical-path-row'));
-    if (!appConfig?.sidebar?.bridge) return;
+    if (!appConfig?.sidebar?.bridge) { if (isCriticalPathFilterActive) autoCleanUI(); return; }
     await ensureViewMounted('bridge');
     const bridgeEl = document.querySelector('bridge-view');
     if (!bridgeEl) return;
@@ -10216,6 +10257,12 @@ async function refreshCriticalPathIndicators() {
         const notesEl = rowWrapper.querySelector('[data-col-index="8"]');
         if (notesEl) appendCriticalPathNote(notesEl);
     });
+    // The Critical Path filter (autoCleanUI()) keys off the
+    // .critical-path-row class this function just (re)stamped — re-run it
+    // now so turning the filter on, or any realtime/compaction resync
+    // while it's already on, doesn't leave rows hidden/shown based on a
+    // stale class snapshot from before this refresh.
+    if (isCriticalPathFilterActive) autoCleanUI();
 }
 
 /**
