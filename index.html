@@ -5578,14 +5578,29 @@ function initRealtimeSync() {
     // 1. MASTER SCHEDULE SYNC
     _supabase
         .channel('schema-db-changes')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: T('BackEndData') 
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: T('BackEndData')
         }, payload => {
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                 const row = payload.new;
                 updateRowInUI(row);
+                // updateRowInUI() only patches this one row's cell values —
+                // it never goes through loadData(), which is the only
+                // place refreshCriticalPathIndicators() was hooked in.
+                // Confirmed causing a real gap: moving a critical-path item
+                // in Bridge updates its date/activity live here, but the
+                // fire icon/orange outline/note never follow since nothing
+                // re-checks critical path on this path at all. Debounced
+                // the same way Bridge's own realtime pull is (bridge-view.js
+                // initLaunchPadRealtimeSync()) — a cascade moving several
+                // items fires this per row, and should only trigger one
+                // critical-path recheck after things settle, not one per row.
+                clearTimeout(window.__criticalPathRealtimeDebounce);
+                window.__criticalPathRealtimeDebounce = setTimeout(() => {
+                    refreshCriticalPathIndicators().catch(e => console.error('Critical path indicator refresh failed', e));
+                }, 1200);
             } else if (payload.eventType === 'DELETE') {
                 // Handle real-time deletion
                 const rowId = payload.old.id;
