@@ -3482,28 +3482,30 @@ export class BridgeView extends HTMLElement {
             }
             if (topoOrder.length < comp.length) { comp.forEach(id => floatById[id] = null); return; } // shouldn't happen (cycles are blocked elsewhere), but bail out safely
 
-            // Early start is the item's own real scheduled start — NOT
-            // max(predecessor finishes), which is the textbook CPM formula
-            // but wrong here: real schedules in this app routinely have a
-            // gap between when a predecessor finishes and when its
-            // successor is actually scheduled to start (weekends, resource
-            // buffers, etc.). Using the theoretical earliest-possible start
-            // instead of the real one "optimistically" collapsed those gaps
-            // out of the forward pass, understating how late a chain with
-            // built-in buffers truly finishes — confirmed against live
-            // data: a chain with zero internal gaps (AC-D02: L2→L3→L4 back
-            // to back) was winning over chains that finish a full day LATER
-            // in reality (AC-F01/AC-F03/ACP-1/ACP-2, each with a 1-day real
-            // gap at every step) because the gapped chains' theoretical EF
-            // came out earlier than their actual EF. Anchoring to the real
-            // start means float now measures actual slack against the
-            // real schedule, and the chain that really finishes last is
-            // the one that ends up with zero float.
+            // Standard CPM forward pass: early start is max(predecessor
+            // finishes), falling back to the item's own real scheduled
+            // start only for a root (no predecessor in this component).
+            // A real-date-anchored version of this was tried instead (ES =
+            // item's own real start always, ignoring predecessor finish
+            // times) — that made a chain's calendar gaps look like "this
+            // chain finishes later, so it's more critical" instead of what
+            // float actually means: how much a chain COULD slip without
+            // pushing the project's real finish date later. Confirmed
+            // against live data that it breaks exactly backwards — a chain
+            // with a large real gap downstream (AC-F03 -> an activity
+            // scheduled 11 days later) still has zero float across its
+            // ENTIRE length under this formula, correctly identified as
+            // the longest dependency chain end to end, where the real-date
+            // version only ever flagged the one or two activities after
+            // the gap and left the chain feeding into it looking like it
+            // had slack it doesn't actually have.
             topoOrder.forEach(id => {
+                const preds = (byId[id].predecessor_ids || []).filter(p => compSet.has(p));
                 const durMs = (parseFloat(byId[id].duration_hours) || 0) * 3600000;
                 const ownStartMs = new Date(byId[id].start_ts).getTime();
-                esById[id] = ownStartMs;
-                efById[id] = ownStartMs + durMs;
+                const es = preds.length ? Math.max(...preds.map(p => efById[p])) : ownStartMs;
+                esById[id] = es;
+                efById[id] = es + durMs;
             });
             compInfos.push({ comp, compSet, topoOrder });
         });
@@ -3538,30 +3540,19 @@ export class BridgeView extends HTMLElement {
             comp.forEach(id => { floatById[id] = Math.round(((lsById[id] - esById[id]) / 3600000) * 100) / 100; });
         });
 
-        // ---- critical CHAIN, not just zero-float items ----
-        // Float alone only flags the exact items with no slack — which, once
-        // early start follows each item's own real date (see pass 1 above),
-        // is often just the last activity or two of a chain whenever a real
-        // gap sits upstream of it. On its own that reads as a few
-        // disconnected boxes instead of "the path", so this walks backward
-        // from every zero-float item through its real predecessor_ids,
-        // pulling in the whole lineage back to that chain's root — the
-        // actual path that produces the project's latest finish, not just
-        // its last zero-slack link.
-        const criticalChainIds = new Set();
-        const walkBack = id => {
-            if (criticalChainIds.has(id)) return;
-            criticalChainIds.add(id);
-            (byId[id]?.predecessor_ids || []).forEach(pid => { if (byId[pid]) walkBack(pid); });
-        };
-        Object.keys(floatById).forEach(id => {
-            if (floatById[id] !== null && floatById[id] !== undefined && floatById[id] <= 0.01) walkBack(id);
-        });
-
-        return { floatById, esById, efById, lsById, lfById, criticalChainIds };
+        return { floatById, esById, efById, lsById, lfById };
     }
+    // Zero float (within rounding) is the actual, complete definition of
+    // "on the critical path" under standard CPM — no separate chain
+    // walk-back needed on top of it. (One WAS tried: for every zero-float
+    // item, follow predecessor_ids back and mark the whole lineage
+    // critical too. That over-includes — when an item has two
+    // predecessors, the one that ISN'T the binding constraint on its
+    // early start can legitimately carry real float of its own even
+    // though it directly precedes a zero-float item, and the walk-back
+    // had no way to tell the two apart.)
     isCriticalItem(id) {
-        return !!(this.criticalPathData && this.criticalPathData.criticalChainIds && this.criticalPathData.criticalChainIds.has(id));
+        return !!(this.criticalPathData && this.criticalPathData.floatById[id] !== null && this.criticalPathData.floatById[id] !== undefined && this.criticalPathData.floatById[id] <= 0.01);
     }
     criticalPathFloatLabel(id) {
         if (!this.criticalPathData) return '—';
