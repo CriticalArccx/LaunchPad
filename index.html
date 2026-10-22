@@ -8973,11 +8973,123 @@ function openBulkDateModal(action) {
     currentBulkAction = action;
     document.getElementById('bulk-modal-title').innerText = action === 'move' ? "Move to Date" : "Duplicate to Date";
     document.getElementById('bulk-date-input').value = "";
+    const preview = document.getElementById('bulk-date-preview');
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    __pendingBulkCascade = [];
+    setBulkConfirmEnabled(true);
     document.getElementById('bulk-date-modal').style.display = 'flex';
 }
 
 function closeBulkDateModal() {
     document.getElementById('bulk-date-modal').style.display = 'none';
+}
+
+function setBulkConfirmEnabled(enabled) {
+    const btn = document.getElementById('bulk-confirm-btn');
+    btn.disabled = !enabled;
+    btn.style.opacity = enabled ? '1' : '0.5';
+    btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+}
+
+// Preview-only mirror of onRescheduleDateChanged(), extended to cover
+// every row selected for this bulk action at once (reschedule only ever
+// has one source item) — same simulateReschedulePreview() dry-run engine
+// per selected item, aggregated into one list. Nothing here writes
+// anything; the real cascade still happens inside applyBulkActionToBridge()
+// via enforceDependencies() after confirmBulkAction() does its own writes.
+let __pendingBulkCascade = [];
+let __bulkCalcToken = 0;
+
+async function onBulkDateChanged() {
+    const newDate = document.getElementById('bulk-date-input').value;
+    const preview = document.getElementById('bulk-date-preview');
+    __pendingBulkCascade = [];
+
+    if (!newDate || !selectedRowIds.size) {
+        preview.style.display = 'none';
+        setBulkConfirmEnabled(true);
+        return;
+    }
+
+    // Same guard as onRescheduleDateChanged() — nothing to preview for a
+    // project without the Bridge module enabled. A "Duplicate" doesn't
+    // move anything that already exists — the originals keep their own
+    // dates, only the new copies land on the picked date — so there's no
+    // downstream cascade to preview for that action, only for "move".
+    if (!appConfig?.sidebar?.bridge || currentBulkAction !== 'move') {
+        preview.style.display = 'none';
+        setBulkConfirmEnabled(true);
+        return;
+    }
+
+    const myToken = ++__bulkCalcToken;
+    preview.style.display = 'block';
+    preview.innerHTML = 'Calculating impact on other activities…';
+    setBulkConfirmEnabled(false);
+
+    try {
+        await ensureViewMounted('bridge');
+        const bridgeEl = document.querySelector('bridge-view');
+        if (!bridgeEl) throw new Error('Bridge view could not be loaded');
+        await waitForBridgeReady(bridgeEl);
+        await bridgeEl.reloadAllData();
+        if (myToken !== __bulkCalcToken) return; // a newer date change superseded this one
+
+        const selectedOldIds = Array.from(selectedRowIds).map(wrapperId => parseInt(wrapperId.replace('row-wrapper-', '')));
+        const origItems = selectedOldIds
+            .map(id => (bridgeEl.DATA.items || []).find(it => String(it.launchpad_id) === String(id)))
+            .filter(Boolean);
+
+        if (!origItems.length) {
+            preview.innerHTML = 'No linked Bridge item(s) found for the selected activities — nothing else will move.';
+            setBulkConfirmEnabled(true);
+            return;
+        }
+
+        // Run one dry-run per selected item (each scored independently
+        // against the same target date), then merge — a successor that
+        // shows up under more than one source item is only reported once,
+        // keeping whichever run proposed the later date. Anything that's
+        // itself one of the selected rows is excluded: that's a row the
+        // user is already explicitly moving, not a side effect to call out.
+        const selectedItemIds = new Set(origItems.map(it => it.id));
+        const merged = new Map(); // item.id -> { item, oldStartTs, newStartTs }
+        for (const origItem of origItems) {
+            const hypotheticalItem = {
+                id: `__bulk_preview_${Date.now()}`,
+                start_ts: new Date(newDate + 'T07:00').toISOString(),
+                duration_hours: origItem.duration_hours || 24
+            };
+            const cascade = bridgeEl.simulateReschedulePreview(hypotheticalItem, origItem.id);
+            for (const c of cascade) {
+                if (selectedItemIds.has(c.item.id)) continue;
+                const existing = merged.get(c.item.id);
+                if (!existing || new Date(c.newStartTs) > new Date(existing.newStartTs)) {
+                    merged.set(c.item.id, c);
+                }
+            }
+        }
+        if (myToken !== __bulkCalcToken) return;
+
+        __pendingBulkCascade = Array.from(merged.values());
+        if (!__pendingBulkCascade.length) {
+            preview.innerHTML = 'No other activities will need to move.';
+        } else {
+            const rows = __pendingBulkCascade.map(c => {
+                const oldD = new Date(c.oldStartTs).toISOString().slice(0, 10);
+                const newD = new Date(c.newStartTs).toISOString().slice(0, 10);
+                return `<div>• <strong>${escapeHtmlForReschedule(c.item.asset_name)} — ${escapeHtmlForReschedule(c.item.activity_name)}</strong>: ${oldD} → ${newD}</div>`;
+            }).join('');
+            preview.innerHTML = `<div style="margin-bottom:6px; font-weight:bold;">This will also move ${__pendingBulkCascade.length} other activit${__pendingBulkCascade.length === 1 ? 'y' : 'ies'}:</div>${rows}`;
+        }
+        setBulkConfirmEnabled(true);
+    } catch (e) {
+        console.error('Bulk move impact calculation failed', e);
+        if (myToken !== __bulkCalcToken) return;
+        preview.innerHTML = 'Could not calculate impact on other activities — check the console. You can still proceed; only the selected activities will be affected.';
+        setBulkConfirmEnabled(true);
+    }
 }
 
 async function confirmBulkAction() {
@@ -9251,16 +9363,22 @@ async function applyBulkActionToBridge(action, ops, origItemsByOldId) {
             }
         }
 
+        // Same before/after pendingSyncIds diff confirmReschedule() uses —
+        // only publish what THIS action's cascade actually marked pending,
+        // not every other unrelated pending change already sitting in
+        // Bridge (that's what the manual Accept & Publish button is for).
+        const pendingBefore = new Set(bridgeEl.pendingSyncIds);
         for (const id of cascadeIds) await bridgeEl.enforceDependencies(id);
+        const newlyPending = Array.from(bridgeEl.pendingSyncIds).filter(id => !pendingBefore.has(id));
 
         if (bridgeEl.UNIFIED_SCHEDULE) {
             await bridgeEl.acceptPendingChanges();
         } else {
             // Publish every item this action directly touched, plus
-            // anything else enforceDependencies() cascaded onto pending —
-            // same "publish right now, don't leave it sitting as a pending
-            // change" principle the reschedule flow follows.
-            const toPublish = new Set([...cascadeIds, ...bridgeEl.pendingSyncIds]);
+            // everything enforceDependencies() cascaded onto pending as a
+            // result — same "publish right now, don't leave it sitting as
+            // a pending change" principle the reschedule flow follows.
+            const toPublish = new Set([...cascadeIds, ...newlyPending]);
             for (const id of toPublish) {
                 const it = bridgeEl.DATA.items.find(x => x.id === id);
                 if (!it) continue;
@@ -10745,11 +10863,13 @@ function filterBatchList(listId, query) {
         <h2 id="bulk-modal-title" style="margin-top:0; color:#2e7d32;">Select Date</h2>
         <p style="color:#666; font-size:14px; margin-bottom:20px;">Choose the destination date for the selected items.</p>
         
-        <input type="date" id="bulk-date-input" style="padding:12px; width:100%; box-sizing:border-box; border:2px solid #eee; border-radius:6px; margin-bottom:25px; font-size:16px;">
-        
+        <input type="date" id="bulk-date-input" oninput="onBulkDateChanged()" style="padding:12px; width:100%; box-sizing:border-box; border:2px solid #eee; border-radius:6px; margin-bottom:15px; font-size:16px;">
+
+        <div id="bulk-date-preview" style="font-size: 12.5px; color: #555; background: #fffde7; border: 1px solid #fff59d; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto; text-align:left;"></div>
+
         <div style="display:flex; justify-content:space-between; gap:10px;">
             <button onclick="closeBulkDateModal()" style="flex:1; padding:12px; border:1px solid #ddd; background:#f5f5f5; border-radius:4px; cursor:pointer; font-weight:bold;">Cancel</button>
-            <button onclick="confirmBulkAction()" style="flex:1; padding:12px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Confirm</button>
+            <button id="bulk-confirm-btn" onclick="confirmBulkAction()" style="flex:1; padding:12px; background:#2e7d32; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Confirm</button>
         </div>
     </div>
 </div>
