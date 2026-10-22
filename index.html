@@ -5592,15 +5592,12 @@ function initRealtimeSync() {
                 // Confirmed causing a real gap: moving a critical-path item
                 // in Bridge updates its date/activity live here, but the
                 // fire icon/orange outline/note never follow since nothing
-                // re-checks critical path on this path at all. Debounced
-                // the same way Bridge's own realtime pull is (bridge-view.js
-                // initLaunchPadRealtimeSync()) — a cascade moving several
+                // re-checks critical path on this path at all. Shares
+                // compactDayRows()'s own debounced resync (see
+                // scheduleCriticalPathResync()) — a cascade moving several
                 // items fires this per row, and should only trigger one
                 // critical-path recheck after things settle, not one per row.
-                clearTimeout(window.__criticalPathRealtimeDebounce);
-                window.__criticalPathRealtimeDebounce = setTimeout(() => {
-                    refreshCriticalPathIndicators().catch(e => console.error('Critical path indicator refresh failed', e));
-                }, 1200);
+                scheduleCriticalPathResync();
             } else if (payload.eventType === 'DELETE') {
                 // Handle real-time deletion
                 const rowId = payload.old.id;
@@ -8349,6 +8346,25 @@ function compactDayRows(dayLabel) {
         if (sourceCols) targetRow.setAttribute('data-occupied', 'true');
         else targetRow.removeAttribute('data-occupied');
     }
+    scheduleCriticalPathResync();
+}
+
+// compactDayRows()/orderChronologically() both move ACTIVITY CONTENT
+// between fixed row-wrapper DOM slots by copying cell values — the
+// row-wrapper nodes themselves never move (see compactDayRows()'s own
+// comment history). The critical-path fire icon/orange outline/note live
+// on those same fixed slots (keyed by rowNumericId, via
+// refreshCriticalPathIndicators()), so if content moves out from under
+// them without this, the indicators stay pinned to whichever slot they
+// were last set on — now showing on a blank row the real activity just
+// vacated, while the row it actually moved to shows nothing. Debounced
+// (shares Schedule's realtime-refresh timer) so a burst of saves
+// triggering several compactions only re-syncs once after things settle.
+function scheduleCriticalPathResync() {
+    clearTimeout(window.__criticalPathRealtimeDebounce);
+    window.__criticalPathRealtimeDebounce = setTimeout(() => {
+        refreshCriticalPathIndicators().catch(e => console.error('Critical path indicator refresh failed', e));
+    }, 1200);
 }
 
 // One-time pass over every currently-rendered day, run right after initial
@@ -10200,6 +10216,7 @@ async function orderChronologically() {
             }
         }
     }
+    if (hasChanges) scheduleCriticalPathResync();
 }
 
 // Status (col 5) is the one column a user never directly types into — it's
