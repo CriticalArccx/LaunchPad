@@ -628,6 +628,17 @@
 .day-section .cell-row:first-of-type {
     border-top: 1px solid #ccc;
 }
+
+/* Whole line wrapped in orange — the critical-path row-level indicator
+   (see refreshCriticalPathIndicators()), on top of the 🔥 icon, not
+   instead of it. outline (not border) so it doesn't disturb this row's
+   own layout/width or its neighbors' shared borders above. */
+.cell-row.critical-path-row {
+    outline: 2px solid #fe8c0a;
+    outline-offset: -1px;
+    position: relative;
+    z-index: 1;
+}
 .logout-btn {
     margin-left: 25px; /* Added space between "Saved" and Button */
     padding: 6px 14px;
@@ -7274,6 +7285,22 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
         cb.onchange = (e) => handleRowSelection(e, rowDiv.id);
         rowDiv.appendChild(cb);
 
+        // Critical-path fire icon, at the very start of the line item —
+        // hidden by default, toggled visible (and rowDiv given the
+        // critical-path-row class for the full orange outline) by
+        // refreshCriticalPathIndicators() whenever Bridge is enabled as a
+        // module and this row's activity is on Bridge's critical path
+        // (zero float). Keyed only by rowNumericId (already globally
+        // unique — it's day-encoded) so it can be found directly at
+        // refresh time without needing dayLabel again.
+        const criticalIcon = document.createElement('span');
+        criticalIcon.className = 'critical-path-icon';
+        criticalIcon.id = `critical-icon-${rowNumericId}`;
+        criticalIcon.textContent = '🔥';
+        criticalIcon.title = 'On Critical Path';
+        criticalIcon.style.cssText = 'display:none; margin-right:3px; font-size:15px; cursor:default; flex:0 0 auto;';
+        rowDiv.appendChild(criticalIcon);
+
       // Loop through the dynamic configuration instead of a hardcoded 1-8
         for (let i = 0; i < scheduleColConfig.length; i++) {
             const colConfig = scheduleColConfig[i];
@@ -7395,24 +7422,6 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
                     applyCellColor(element, element.value); 
                     saveCell(element, element.value, col, true);
                 };
-            }
-
-            // Critical-path fire icon, immediately to the left of the
-            // Activity cell — hidden by default, toggled visible by
-            // refreshCriticalPathIndicators() whenever Bridge is enabled
-            // as a module and this row's activity is on Bridge's critical
-            // path (zero float). Keyed only by rowNumericId (already
-            // globally unique — it's day-encoded) rather than the usual
-            // dayLabel+row compound id, so it can be looked up directly
-            // without needing dayLabel again at refresh time.
-            if (col === 3) {
-                const criticalIcon = document.createElement('span');
-                criticalIcon.className = 'critical-path-icon';
-                criticalIcon.id = `critical-icon-${rowNumericId}`;
-                criticalIcon.textContent = '🔥';
-                criticalIcon.title = 'On Critical Path';
-                criticalIcon.style.cssText = 'display:none; margin-right:3px; font-size:13px; cursor:default; flex:0 0 auto;';
-                rowDiv.appendChild(criticalIcon);
             }
 
             // --- HISTORY: right-click a cell to see its edit history ---
@@ -9801,16 +9810,32 @@ async function loadData(isSilent = false, preFetchedPromise = null) {
     }
 }
 
-// Lights up the 🔥 fire icon next to any Activity row currently on
-// Bridge's critical path (see addRowsToContainer()'s col===3 branch for
-// where that icon gets created, hidden by default). Only does anything
-// when The Bridge is enabled as a module for this project — Schedule
-// silently mounts Bridge in the background to borrow its own
+// Appends "Critical Path" onto whatever Notes already has for this row
+// (never replacing it), unless it's already there — case-insensitive, so
+// re-running this on every load never piles up duplicates. Does nothing
+// to rows that FALL OFF the critical path later (per request — only
+// adding was asked for, not removing).
+function appendCriticalPathNote(notesEl) {
+    const current = notesEl.value || '';
+    if (current.toLowerCase().includes('critical path')) return;
+    const updated = current.trim() ? `${current.trim()} — Critical Path` : 'Critical Path';
+    notesEl.value = updated;
+    applyCellColor(notesEl, updated);
+    saveCell(notesEl, updated, 8, true);
+}
+
+// Marks every Schedule row currently on Bridge's critical path: lights up
+// its 🔥 icon, outlines the whole line in orange (see addRowsToContainer()
+// for where both get created, hidden/unstyled by default), and appends a
+// "Critical Path" note (see appendCriticalPathNote() above). Only does
+// anything when The Bridge is enabled as a module for this project —
+// Schedule silently mounts Bridge in the background to borrow its own
 // computeCriticalPath() rather than duplicating that math here, since
 // Bridge's dependency graph (predecessor_ids, durations) is the one
 // source of truth for it.
 async function refreshCriticalPathIndicators() {
     document.querySelectorAll('.critical-path-icon').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.cell-row.critical-path-row').forEach(el => el.classList.remove('critical-path-row'));
     if (!appConfig?.sidebar?.bridge) return;
     await ensureViewMounted('bridge');
     const bridgeEl = document.querySelector('bridge-view');
@@ -9821,8 +9846,13 @@ async function refreshCriticalPathIndicators() {
         if (it.launchpad_id == null) return;
         const f = floatById[it.id];
         if (f === null || f === undefined || f > 0.01) return; // not critical
+        const rowWrapper = document.getElementById(`row-wrapper-${it.launchpad_id}`);
+        if (!rowWrapper) return;
+        rowWrapper.classList.add('critical-path-row');
         const icon = document.getElementById(`critical-icon-${it.launchpad_id}`);
         if (icon) icon.style.display = 'inline';
+        const notesEl = rowWrapper.querySelector('[data-col-index="8"]');
+        if (notesEl) appendCriticalPathNote(notesEl);
     });
 }
 
