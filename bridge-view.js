@@ -5939,6 +5939,20 @@ export class BridgeView extends HTMLElement {
         for (const key of Object.keys(ourGroups)) {
             const group = ourGroups[key];
             if (group.length < 2) continue;
+            // A rescheduled activity deliberately creates a NEW item with
+            // the exact same asset+activity as the one it superseded (see
+            // index.html's linkRescheduledItemInBridge()) — that's not an
+            // accidental duplicate, it's the whole point of the feature.
+            // Confirmed causing real data loss in production: this step
+            // was blind to superseded_by and merged a reschedule's
+            // original/replacement pair like any other same-name
+            // "duplicate," deleting one of them (and its predecessor/
+            // successor links) on the very next pull. Skip the entire
+            // group whenever a superseded_by relationship links two of its
+            // own members — genuine accidental duplicates (no such
+            // relationship) are still consolidated exactly as before.
+            const groupIds = new Set(group.map(it => it.id));
+            if (group.some(it => it.superseded_by && groupIds.has(it.superseded_by))) continue;
             group.sort((a, b) => {
                 const aLinked = a.launchpad_id ? 1 : 0, bLinked = b.launchpad_id ? 1 : 0;
                 if (aLinked !== bLinked) return bLinked - aLinked; // linked item wins first
