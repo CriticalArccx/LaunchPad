@@ -2171,21 +2171,41 @@ export class BridgeView extends HTMLElement {
             // while this project still has two separate tables. Once
             // UNIFIED_SCHEDULE is on, ItemsDB already reads/writes
             // BackEndData directly — there's nothing left to pull or repair.
+            //
+            // pullFromLaunchPad()/repairLaunchPadLinks()/
+            // repairPredecessorOrdering()/repairStaleScheduleLinks() were
+            // each individually "chained, not parallel, with itself" (see
+            // the old comment on the ordering-violation pair below), but
+            // ran in parallel WITH EACH OTHER — all fired un-awaited in
+            // the same initApp(). Confirmed causing real damage in
+            // production on MSA3A: pullFromLaunchPad() pulls Schedule's
+            // day_label back into Bridge and resets start_ts if they
+            // disagree; repairPredecessorOrdering() pushes a successor
+            // forward and publishes that same change to Schedule. Two
+            // of these running concurrently on the same items raced —
+            // one re-reading Schedule before the other's write had
+            // landed, "fixing" what wasn't actually broken, each
+            // publish re-triggering the realtime listener below into
+            // yet another pull — compounding into real activities
+            // drifting weeks to months forward and their Schedule rows
+            // being deleted/recreated over a dozen times in minutes.
+            // runBackgroundSweep() now serializes every one of these
+            // (this call, and the realtime-triggered pulls in
+            // initLaunchPadRealtimeSync() below) onto one shared queue
+            // so only ever one is touching this project's schedule data
+            // at a time.
             if (!this.UNIFIED_SCHEDULE) {
-                this.pullFromLaunchPad().catch(err => console.error('Background LaunchPad pull failed', err));
+                this.runBackgroundSweep(() => this.pullFromLaunchPad()).catch(err => console.error('Background LaunchPad pull failed', err));
                 // Repair Links no longer has a menu button to trigger it
                 // manually — running it once on load keeps that self-healing
                 // happening automatically instead of only on request.
-                this.repairLaunchPadLinks().catch(err => console.error('Background LaunchPad link repair failed', err));
+                this.runBackgroundSweep(() => this.repairLaunchPadLinks()).catch(err => console.error('Background LaunchPad link repair failed', err));
             }
             // Ordering-violation sweep applies either way — it's about the
             // predecessor_ids graph itself, not how it syncs to Schedule.
-            // Chained (not run in parallel with itself across loads) so a
-            // slow repairPredecessorOrdering() pass can't overlap with
-            // repairStaleScheduleLinks() both touching the same items.
-            this.repairPredecessorOrdering()
+            this.runBackgroundSweep(() => this.repairPredecessorOrdering())
                 .catch(err => { console.error('Background predecessor ordering repair failed', err); return 0; })
-                .then(() => this.repairStaleScheduleLinks())
+                .then(() => this.runBackgroundSweep(() => this.repairStaleScheduleLinks()))
                 .catch(err => console.error('Background stale-schedule-link repair failed', err));
         }
     }
@@ -2203,6 +2223,22 @@ export class BridgeView extends HTMLElement {
     // the table broadcasts back to every subscriber, itself included), but
     // that's a harmless no-op pull since bestRow already matches what was
     // just written.
+    // Shared serialization point for every background reconciliation sweep
+    // that reads and/or rewrites this project's schedule data —
+    // pullFromLaunchPad(), repairLaunchPadLinks(), repairPredecessorOrdering(),
+    // repairStaleScheduleLinks(), and the realtime-triggered pull in
+    // initLaunchPadRealtimeSync() below. Each call to fn is chained onto
+    // whatever's already queued, same pattern as syncItemToLaunchPad()'s
+    // own per-item queue, so two of these can never run concurrently and
+    // race each other over the same items — see the comment on initApp()'s
+    // own calls for the production incident this closes.
+    runBackgroundSweep(fn) {
+        this._bgSweepQueue = this._bgSweepQueue || Promise.resolve();
+        const run = this._bgSweepQueue.then(fn, fn);
+        this._bgSweepQueue = run.catch(() => {});
+        return run;
+    }
+
     initLaunchPadRealtimeSync() {
         if (!this._supabase || !this.LAUNCHPAD_TABLE) return;
         try {
@@ -2229,9 +2265,14 @@ export class BridgeView extends HTMLElement {
                         // needed since there's exactly one row per activity by
                         // construction. Legacy projects keep the existing
                         // two-table reconciliation pull.
+                        // Routed through the same runBackgroundSweep() queue
+                        // as initApp()'s own sweeps — a change event firing
+                        // while one of those is still mid-cascade must wait
+                        // its turn rather than pulling a still-in-progress
+                        // snapshot and "fixing" it right out from under them.
                         const reload = this.UNIFIED_SCHEDULE
-                            ? this.reloadAllData().then(() => { this.renderFilterBar(); this.renderGantt(); })
-                            : this.pullFromLaunchPad();
+                            ? this.runBackgroundSweep(() => this.reloadAllData().then(() => { this.renderFilterBar(); this.renderGantt(); }))
+                            : this.runBackgroundSweep(() => this.pullFromLaunchPad());
                         reload.catch(err => console.error('Realtime-triggered LaunchPad sync failed', err));
                     }, 1200);
                 })
@@ -5798,7 +5839,7 @@ export class BridgeView extends HTMLElement {
             // existing "no local match found → import as a new item"
             // branch, which is exactly a restore in this situation.
             this.pendingDeleteLaunchPadIds.clear();
-            await this.pullFromLaunchPad();
+            await this.runBackgroundSweep(() => this.pullFromLaunchPad());
         }
 
         this.savePendingSyncState();
@@ -6174,7 +6215,7 @@ export class BridgeView extends HTMLElement {
         if (!this._supabase) { this.toast('Connect to Supabase first.'); return; }
         if (this.UNIFIED_SCHEDULE) { this.toast('This project already reads/writes BackEndData directly — nothing to reconcile.'); return; }
         this.setSaveIndicator('dirty', 'Reconciling with Bridge...');
-        await this.pullFromLaunchPad();
+        await this.runBackgroundSweep(() => this.pullFromLaunchPad());
         await this.clearOrphanedScheduleRows();
         this.setSaveIndicator('ready', 'Ready');
     }
