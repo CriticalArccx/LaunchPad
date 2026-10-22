@@ -9099,8 +9099,8 @@ async function confirmBulkAction() {
     // logic" means for a bulk action covering several activities at once.
     await applyBulkActionToBridge(currentBulkAction, bridgeOps, bridgeOrigItems);
     scheduleCriticalPathResync();
-
-    alert(`Successfully ${currentBulkAction === 'move' ? 'moved' : 'duplicated'} ${rowsToProcess.length} item(s) to ${targetDate}.`);
+    // No completion popup, per request — same as the single-item
+    // reschedule flow, the saveIndicator text above is enough.
 }
 
 // Mounts Bridge (only if the module is enabled — otherwise a no-op, same
@@ -9190,7 +9190,18 @@ async function applyBulkActionToBridge(action, ops, origItemsByOldId) {
                     origItem.start_ts = new Date(op.newDayLabel + 'T07:00').toISOString();
                     origItem.launchpad_id = op.newRowId;
                     origItem.launchpad_day_label = op.newDayLabel;
-                    await bridgeEl.ItemsDB.update(origItem.id, { start_ts: origItem.start_ts });
+                    // Must persist launchpad_id/launchpad_day_label too, not
+                    // just start_ts — confirmed causing exactly "doesn't
+                    // hold through": leaving them DB-side unchanged meant
+                    // the in-memory item looked relinked for the rest of
+                    // this session, but a reload re-fetched the OLD,
+                    // now-stale link (pointing at the row Schedule just
+                    // deleted) straight from schedule_items.
+                    await bridgeEl.ItemsDB.update(origItem.id, {
+                        start_ts: origItem.start_ts,
+                        launchpad_id: origItem.launchpad_id,
+                        launchpad_day_label: origItem.launchpad_day_label
+                    });
                     cascadeIds.push(origItem.id);
                 }
             } else {
