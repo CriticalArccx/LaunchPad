@@ -7285,20 +7285,32 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
         cb.onchange = (e) => handleRowSelection(e, rowDiv.id);
         rowDiv.appendChild(cb);
 
-        // Critical-path fire icon, at the very start of the line item —
-        // hidden by default, toggled visible (and rowDiv given the
+        // Critical-path fire icon, overlaid on the left edge of the line
+        // item — hidden by default, toggled visible (and rowDiv given the
         // critical-path-row class for the full orange outline) by
         // refreshCriticalPathIndicators() whenever Bridge is enabled as a
         // module and this row's activity is on Bridge's critical path
         // (zero float). Keyed only by rowNumericId (already globally
         // unique — it's day-encoded) so it can be found directly at
         // refresh time without needing dayLabel again.
+        //
+        // position:absolute (not a flex child) specifically so it never
+        // changes any cell's width/spacing — it floats on top of the drag
+        // handle's own glyph instead of taking its own slot in the row.
+        // pointer-events:none keeps it from ever intercepting a click the
+        // drag handle or checkbox underneath it would otherwise get.
+        // rowDiv itself needs position:relative for that overlay to anchor
+        // to THIS row instead of the nearest other positioned ancestor —
+        // set inline rather than relying on the .cell-row CSS rule, since
+        // this file has more than one (sometimes conflicting) definition
+        // of that class already.
+        rowDiv.style.position = 'relative';
         const criticalIcon = document.createElement('span');
         criticalIcon.className = 'critical-path-icon';
         criticalIcon.id = `critical-icon-${rowNumericId}`;
         criticalIcon.textContent = '🔥';
         criticalIcon.title = 'On Critical Path';
-        criticalIcon.style.cssText = 'display:none; margin-right:3px; font-size:15px; cursor:default; flex:0 0 auto;';
+        criticalIcon.style.cssText = 'display:none; position:absolute; left:1px; top:50%; transform:translateY(-50%); font-size:14px; line-height:1; cursor:default; pointer-events:none; z-index:2;';
         rowDiv.appendChild(criticalIcon);
 
       // Loop through the dynamic configuration instead of a hardcoded 1-8
@@ -9810,15 +9822,19 @@ async function loadData(isSilent = false, preFetchedPromise = null) {
     }
 }
 
-// Appends "Critical Path" onto whatever Notes already has for this row
-// (never replacing it), unless it's already there — case-insensitive, so
-// re-running this on every load never piles up duplicates. Does nothing
-// to rows that FALL OFF the critical path later (per request — only
-// adding was asked for, not removing).
+// Appends "🔥 Critical Path" onto whatever Notes already has for this row
+// (never replacing it), unless it's already there — case-insensitive (and
+// ignoring the emoji) so re-running this on every load never piles up
+// duplicates, including against a note that already said "Critical Path"
+// before the 🔥 was added here. Does nothing to rows that FALL OFF the
+// critical path later (per request — only adding was asked for, not
+// removing). The emoji doubles as a second place the critical-path marker
+// shows up (per request) that isn't affected by the row-icon's own
+// layout — Notes is just text, no positioning to get right.
 function appendCriticalPathNote(notesEl) {
     const current = notesEl.value || '';
     if (current.toLowerCase().includes('critical path')) return;
-    const updated = current.trim() ? `${current.trim()} — Critical Path` : 'Critical Path';
+    const updated = current.trim() ? `${current.trim()} — 🔥 Critical Path` : '🔥 Critical Path';
     notesEl.value = updated;
     applyCellColor(notesEl, updated);
     saveCell(notesEl, updated, 8, true);
