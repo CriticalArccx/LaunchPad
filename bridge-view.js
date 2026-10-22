@@ -5167,17 +5167,24 @@ export class BridgeView extends HTMLElement {
         return null; // that day's 0-98 block is completely full
     }
 
-    // Mirrors LaunchPad's own addSelectedReadyItems() — its native mechanism
-    // for injecting an external item into the grid — which only ever sets
-    // Activity and Asset, leaving every other column alone for LaunchPad's
-    // own automation/manual entry to fill in later.
+    // Originally mirrored LaunchPad's own addSelectedReadyItems() exactly
+    // (Activity/Asset/Notes only, leaving Place/Trade Partners alone for
+    // Schedule's own entry) — Place and Trade Partners are included now,
+    // per request: Bridge collects both directly (Area auto-derived from
+    // Asset, Contractor(s) picked explicitly) and they weren't carrying
+    // through to Schedule at all. This does mean every sync from Bridge —
+    // not just an item's first creation — now overwrites Schedule's own
+    // Place/Trade Partners columns with whatever Bridge currently has for
+    // that item, rather than leaving them for Schedule-side editing.
     itemToLaunchPadRow(item, numericId, dayLabel) {
         return {
             id: numericId,
             day_label: dayLabel,
             activity: item.activity_name || '',
             asset: item.asset_name || '',
-            notes: item.notes || ''
+            notes: item.notes || '',
+            place: item.area || '',
+            trade_partners: item.contractor_name || ''
         };
     }
 
@@ -5262,7 +5269,9 @@ export class BridgeView extends HTMLElement {
                 p_day_label: dayLabel,
                 p_activity: row.activity,
                 p_asset: row.asset,
-                p_notes: row.notes
+                p_notes: row.notes,
+                p_place: row.place,
+                p_trade_partners: row.trade_partners
             });
             if (moveError) {
                 // Falls back to the old two-step approach so this still
