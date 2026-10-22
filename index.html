@@ -9003,7 +9003,7 @@ async function confirmBulkAction() {
     for (const wrapperId of selectedRowIds) {
         const rowDiv = document.getElementById(wrapperId);
         if (!rowDiv) continue;
-        
+
         const rowData = {
             col1: rowDiv.querySelector(`[data-col-index="1"]`)?.value || "",
             col2: rowDiv.querySelector(`[data-col-index="2"]`)?.value || "",
@@ -9015,7 +9015,8 @@ async function confirmBulkAction() {
             col8: rowDiv.querySelector(`[data-col-index="8"]`)?.value || "",
             col9: rowDiv.querySelector(`[data-col-index="9"]`)?.value || ""
         };
-        rowsToProcess.push({ data: rowData, rowDiv });
+        const oldRowId = parseInt(wrapperId.replace('row-wrapper-', ''));
+        rowsToProcess.push({ data: rowData, rowDiv, oldRowId });
     }
 
     // Ensure target date has enough blank rows
@@ -9029,23 +9030,31 @@ async function confirmBulkAction() {
     document.getElementById('saveIndicator').innerText = "Processing...";
     document.getElementById('saveIndicator').style.display = 'inline-block';
 
+    // Look up each selected row's linked Bridge item BEFORE any of this
+    // bulk action's own writes/deletes happen below — see
+    // captureBridgeOrigItemsForBulkAction()'s own comment for why that
+    // order matters (a "move" deletes the old BackEndData row outright,
+    // and a unified project's Bridge item IS that row).
+    const bridgeOrigItems = await captureBridgeOrigItemsForBulkAction(rowsToProcess.map(r => r.oldRowId));
+
     // Process and push the data
+    const bridgeOps = [];
     for (let i = 0; i < rowsToProcess.length; i++) {
         const item = rowsToProcess[i];
         const emptyRow = targetEmptyRows[i];
-        
+
         emptyRow.setAttribute('data-occupied', 'true');
-        emptyRow.style.display = 'flex'; 
-        
+        emptyRow.style.display = 'flex';
+
         // Grab the ID of this specific row to trigger the lookup
         const rowNum = parseInt(emptyRow.id.replace('row-wrapper-', ''));
 
         for (let col = 1; col <= 9; col++) {
             const el = emptyRow.querySelector(`[data-col-index="${col}"]`);
             if (!el) continue;
-            
+
             let content = item.data[`col${col}`];
-            
+
             if (col === 5) {
                 // Initialize as checking so it doesn't show old/stale data while loading
                 el.innerText = "⏳ Checking...";
@@ -9063,22 +9072,192 @@ async function confirmBulkAction() {
                 el.value = content;
                 applyCellColor(el, content);
             }
-            
+
             saveCell(el, content, col, true); // Save to Supabase
         }
 
+        bridgeOps.push({
+            oldRowId: item.oldRowId, newRowId: rowNum, newDayLabel: targetDate,
+            activity: item.data.col3, asset: item.data.col4, tradePartners: item.data.col6
+        });
+
         // Wipe the old row if we are Moving
         if (currentBulkAction === 'move') {
-            await deleteFullRow(item.rowDiv.id, true); 
+            await deleteFullRow(item.rowDiv.id, true);
         }
-        
+
         // INSTANT LOOKUP: Force the row to fetch its status immediately
         lookupColumn5Value(rowNum, targetDate, false);
     }
-    
+
     uncheckAll();
     document.getElementById('saveIndicator').innerText = "Saved";
+
+    // Keep Bridge in sync with whatever just moved/duplicated here, the
+    // same way the single-item reschedule flow does — see
+    // applyBulkActionToBridge()'s own comment for exactly what "the same
+    // logic" means for a bulk action covering several activities at once.
+    await applyBulkActionToBridge(currentBulkAction, bridgeOps, bridgeOrigItems);
+    scheduleCriticalPathResync();
+
     alert(`Successfully ${currentBulkAction === 'move' ? 'moved' : 'duplicated'} ${rowsToProcess.length} item(s) to ${targetDate}.`);
+}
+
+// Mounts Bridge (only if the module is enabled — otherwise a no-op, same
+// guard the reschedule flow uses) once and returns a map of
+// oldRowId -> that row's linked Bridge item (undefined if it was never
+// linked to one), captured BEFORE confirmBulkAction() makes any of its own
+// writes/deletes. Timing matters here specifically for unified projects:
+// a "move" deletes the old BackEndData row outright, and in unified mode
+// Bridge's item IS that row — looking this up only after the delete would
+// never find it again.
+async function captureBridgeOrigItemsForBulkAction(oldRowIds) {
+    const map = {};
+    if (!appConfig?.sidebar?.bridge || !oldRowIds.length) return map;
+    try {
+        await ensureViewMounted('bridge');
+        const bridgeEl = document.querySelector('bridge-view');
+        if (!bridgeEl) return map;
+        await waitForBridgeReady(bridgeEl);
+        await bridgeEl.reloadAllData();
+        oldRowIds.forEach(id => {
+            // launchpad_id is a string for unified-mode items, a number
+            // for non-unified schedule_items — compare as strings either way.
+            map[id] = (bridgeEl.DATA.items || []).find(it => String(it.launchpad_id) === String(id));
+        });
+    } catch (e) {
+        console.error('Could not look up Bridge items before bulk move/duplicate', e);
+    }
+    return map;
+}
+
+// Mirrors the single-item reschedule flow's Bridge linking
+// (linkRescheduledItemInBridge()) for the Schedule module's bulk Move/
+// Duplicate tool, so moving or duplicating several activities at once
+// stays in sync with Bridge the same way rescheduling one does:
+//   - Move: the SAME activity relocated — its existing Bridge item's
+//     start_ts (and, for non-unified projects, launchpad_id/day_label)
+//     updates in place. Its own predecessor/successor graph is untouched
+//     (it's still the same item), except in unified mode, where the
+//     item's own id IS the day-encoded row id — Schedule already created
+//     that new row directly above, so this finds it and carries over the
+//     ORIGINAL's predecessor_ids (this is a continuation, not a new
+//     dependency) plus redirects anything that pointed at the now-deleted
+//     old id onto the new one, the same "id churn" remap
+//     _acceptPendingChangesUnified() already does for an ordinary in-Bridge
+//     move.
+//   - Duplicate: a brand-new, independent Bridge item for the copy,
+//     linked as a successor of the original (same "fresh instance of the
+//     same work" pattern reschedule uses) — but unlike reschedule, the
+//     original ISN'T being retired, so nothing that already depends on it
+//     gets redirected.
+// Either way, every affected item's downstream cascade
+// (enforceDependencies) runs and gets published at the end, exactly like
+// the reschedule flow's own final step.
+async function applyBulkActionToBridge(action, ops, origItemsByOldId) {
+    if (!ops.length || !appConfig?.sidebar?.bridge) return;
+    try {
+        await ensureViewMounted('bridge');
+        const bridgeEl = document.querySelector('bridge-view');
+        if (!bridgeEl) return;
+        await waitForBridgeReady(bridgeEl);
+        // One reload up front covers every op below — Schedule already
+        // wrote every new/moved row directly before this function ever
+        // runs, so a single fresh fetch here sees all of them; no need to
+        // re-fetch per item even when several activities moved at once.
+        if (bridgeEl.UNIFIED_SCHEDULE) await bridgeEl.reloadAllData();
+
+        const cascadeIds = [];
+        for (const op of ops) {
+            const origItem = origItemsByOldId[op.oldRowId];
+            if (!origItem) continue; // this row was never linked to a Bridge item — nothing to sync
+
+            if (action === 'move') {
+                if (bridgeEl.UNIFIED_SCHEDULE) {
+                    const newItem = bridgeEl.DATA.items.find(it => String(it.launchpad_id) === String(op.newRowId));
+                    if (newItem) {
+                        newItem.predecessor_ids = (origItem.predecessor_ids || []).slice();
+                        await bridgeEl.ItemsDB.update(newItem.id, { predecessor_ids: newItem.predecessor_ids });
+                        for (const x of bridgeEl.DATA.items) {
+                            if (x.id !== newItem.id && (x.predecessor_ids || []).includes(origItem.id)) {
+                                x.predecessor_ids = x.predecessor_ids.filter(pid => pid !== origItem.id).concat(newItem.id);
+                                await bridgeEl.ItemsDB.update(x.id, { predecessor_ids: x.predecessor_ids });
+                            }
+                        }
+                        cascadeIds.push(newItem.id);
+                    }
+                } else {
+                    origItem.start_ts = new Date(op.newDayLabel + 'T07:00').toISOString();
+                    origItem.launchpad_id = op.newRowId;
+                    origItem.launchpad_day_label = op.newDayLabel;
+                    await bridgeEl.ItemsDB.update(origItem.id, { start_ts: origItem.start_ts });
+                    cascadeIds.push(origItem.id);
+                }
+            } else {
+                let newItem;
+                if (bridgeEl.UNIFIED_SCHEDULE) {
+                    // Schedule already wrote the duplicate straight into
+                    // BackEndData above — that row IS this project's
+                    // Bridge item too in unified mode, so find it (in the
+                    // single reload done up front, before this loop) instead
+                    // of inserting a second, disconnected one (matches
+                    // linkRescheduledItemInBridge()'s own unified branch).
+                    newItem = bridgeEl.DATA.items.find(it => String(it.launchpad_id) === String(op.newRowId));
+                    if (newItem) {
+                        const carryOver = {
+                            area: origItem.area || '', duration_hours: origItem.duration_hours || 24,
+                            notes: origItem.notes || ''
+                        };
+                        Object.assign(newItem, carryOver);
+                        await bridgeEl.ItemsDB.update(newItem.id, carryOver);
+                        bridgeEl.markPendingSync(newItem);
+                        newItem.predecessor_ids = [origItem.id];
+                        await bridgeEl.ItemsDB.update(newItem.id, { predecessor_ids: [origItem.id] });
+                    }
+                } else {
+                    newItem = await bridgeEl.ItemsDB.insert({
+                        asset_name: op.asset || origItem.asset_name,
+                        activity_name: op.activity || origItem.activity_name,
+                        contractor_name: op.tradePartners || origItem.contractor_name || '',
+                        area: origItem.area || '',
+                        start_ts: new Date(op.newDayLabel + 'T07:00').toISOString(),
+                        duration_hours: origItem.duration_hours || 24,
+                        notes: origItem.notes || '',
+                        predecessor_ids: [origItem.id],
+                        launchpad_id: op.newRowId,
+                        launchpad_day_label: op.newDayLabel
+                    });
+                    if (newItem) bridgeEl.DATA.items.push(newItem);
+                }
+                if (newItem) cascadeIds.push(newItem.id);
+            }
+        }
+
+        for (const id of cascadeIds) await bridgeEl.enforceDependencies(id);
+
+        if (bridgeEl.UNIFIED_SCHEDULE) {
+            await bridgeEl.acceptPendingChanges();
+        } else {
+            // Publish every item this action directly touched, plus
+            // anything else enforceDependencies() cascaded onto pending —
+            // same "publish right now, don't leave it sitting as a pending
+            // change" principle the reschedule flow follows.
+            const toPublish = new Set([...cascadeIds, ...bridgeEl.pendingSyncIds]);
+            for (const id of toPublish) {
+                const it = bridgeEl.DATA.items.find(x => x.id === id);
+                if (!it) continue;
+                const ok = await bridgeEl.syncItemToLaunchPad(it);
+                if (ok) bridgeEl.pendingSyncIds.delete(id);
+            }
+            bridgeEl.savePendingSyncState();
+            bridgeEl.updatePendingSyncUI();
+        }
+        bridgeEl.renderGantt();
+    } catch (e) {
+        // Non-fatal — the Schedule-side move/duplicate already succeeded;
+        // worst case Bridge's dependency graph needs a manual fix-up.
+        console.error('Failed to sync bulk move/duplicate to Bridge', e);
+    }
 }
 
 async function deleteFullRow(wrapperId, bypassConfirm = false) {
