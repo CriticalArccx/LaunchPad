@@ -6532,12 +6532,36 @@ async function continueStartAppAfterProject(user) {
             // exact same calls as the no-cache path below — each one already
             // re-renders and re-caches its own result when it resolves —
             // just no longer something the person has to sit and wait for.
+            // loadScheduleConfig() only re-renders the HEADER row on
+            // completion — it can't retroactively add a column's cell to
+            // rows createSections()/applyScheduleDataToDom() already built
+            // above from whatever column set the (possibly stale) cached
+            // config had. Confirmed causing a real bug: a column added to
+            // this app after a browser's cache was last written (e.g.
+            // LOTO) would silently never appear in that browser's Schedule
+            // grid, on any day, until something else happened to clear the
+            // cache — the background refresh "fixed" the header and the
+            // next page load, but never the rows already on screen.
+            // Comparing the column ID set (not the whole config — width/
+            // order-only changes don't need this) and rebuilding the whole
+            // shell when a column has appeared or disappeared closes that
+            // gap without anyone needing to know to hard-refresh.
+            const colIdsBeforeBackgroundRefresh = new Set(scheduleColConfig.map(c => c.id));
             Promise.all([
                 fetchDropdownOptions(),
                 loadEquivalentActivities(),
                 loadScheduleConfig(),
                 loadAppConfig()
-            ]).catch(e => console.error('Background config refresh failed:', e));
+            ]).then(() => {
+                const colIdsAfterBackgroundRefresh = new Set(scheduleColConfig.map(c => c.id));
+                const columnSetChanged = colIdsBeforeBackgroundRefresh.size !== colIdsAfterBackgroundRefresh.size
+                    || [...colIdsAfterBackgroundRefresh].some(id => !colIdsBeforeBackgroundRefresh.has(id));
+                if (columnSetChanged) {
+                    createSections();
+                    applyScheduleDataToDom(__lastScheduleData || cachedSchedule);
+                    compactAllRenderedDays();
+                }
+            }).catch(e => console.error('Background config refresh failed:', e));
             loadData(false, scheduleDataPromise).catch(e => console.error('Background schedule refresh failed:', e));
 
             return;
