@@ -6749,6 +6749,16 @@ function refreshDropdowns() {
         const parts = cellId.split('-c');
         if (parts.length < 2) return;
         const colNum = parseInt(parts[1]);
+
+        // LOTO (col 10) is a fixed Yes/No select built directly in
+        // addRowsToContainer() — it has no corresponding dropdownData
+        // entry (it's not backed by the dropdownoptions table at all).
+        // Wiping and rebuilding its <option> list from
+        // window.dropdownData.col10 (always undefined/empty) left it with
+        // nothing but the blank "Select..." entry — the exact "LOTO has
+        // no Yes/No options" bug. Just recolor it and move on.
+        if (colNum === 10) { applyCellColor(select, select.value); return; }
+
         const options = window.dropdownData[`col${colNum}`] || [];
         
         // --- THE FIX: Save the current value before wiping ---
