@@ -10514,15 +10514,36 @@ function appendCriticalPathNote(notesEl) {
     saveCell(notesEl, updated, 8, true);
 }
 
+// Counterpart to appendCriticalPathNote() — strips the exact "🔥 Critical
+// Path" tag (and, if it was appended onto existing text, the " — "
+// separator in front of it) once an item drops off the critical path, per
+// request ("take the critical path comment out of the notes once critical
+// path shifts"). Only ever touches that specific tag, not a plain mention
+// of the words "critical path" a user might have typed themselves without
+// the fire emoji — matches the narrower thing this function actually
+// added, so it can't eat unrelated notes text.
+function removeCriticalPathNote(notesEl) {
+    const current = notesEl.value || '';
+    if (!current.toLowerCase().includes('critical path')) return;
+    const updated = current.replace(/(\s*—\s*)?🔥\s*Critical Path/gi, '').trim();
+    if (updated === current) return; // the "critical path" text present wasn't this exact tag — leave it alone
+    notesEl.value = updated;
+    applyCellColor(notesEl, updated);
+    saveCell(notesEl, updated, 8, true);
+}
+
 // Marks every Schedule row currently on Bridge's critical path: lights up
 // its 🔥 icon, outlines the whole line in orange (see addRowsToContainer()
 // for where both get created, hidden/unstyled by default), and appends a
-// "Critical Path" note (see appendCriticalPathNote() above). Only does
-// anything when The Bridge is enabled as a module for this project —
-// Schedule silently mounts Bridge in the background to borrow its own
-// computeCriticalPath() rather than duplicating that math here, since
-// Bridge's dependency graph (predecessor_ids, durations) is the one
-// source of truth for it.
+// "Critical Path" note (see appendCriticalPathNote() above) — and, per
+// request, removes that same note from any Bridge-linked row that was
+// previously critical but has since shifted off the critical path (a new
+// item added, an activity moved, a dependency changed, etc.), rather than
+// leaving a stale tag behind forever. Only does anything when The Bridge
+// is enabled as a module for this project — Schedule silently mounts
+// Bridge in the background to borrow its own computeCriticalPath() rather
+// than duplicating that math here, since Bridge's dependency graph
+// (predecessor_ids, durations) is the one source of truth for it.
 async function refreshCriticalPathIndicators() {
     document.querySelectorAll('.critical-path-icon').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cell-row.critical-path-row').forEach(el => el.classList.remove('critical-path-row'));
@@ -10535,14 +10556,18 @@ async function refreshCriticalPathIndicators() {
     (bridgeEl.DATA.items || []).forEach(it => {
         if (it.launchpad_id == null) return;
         const f = floatById[it.id];
-        if (f === null || f === undefined || f > 0.01) return; // not critical
+        const isCritical = f !== null && f !== undefined && f <= 0.01;
         const rowWrapper = document.getElementById(`row-wrapper-${it.launchpad_id}`);
         if (!rowWrapper) return;
-        rowWrapper.classList.add('critical-path-row');
-        const icon = document.getElementById(`critical-icon-${it.launchpad_id}`);
-        if (icon) icon.style.display = 'inline';
         const notesEl = rowWrapper.querySelector('[data-col-index="8"]');
-        if (notesEl) appendCriticalPathNote(notesEl);
+        if (isCritical) {
+            rowWrapper.classList.add('critical-path-row');
+            const icon = document.getElementById(`critical-icon-${it.launchpad_id}`);
+            if (icon) icon.style.display = 'inline';
+            if (notesEl) appendCriticalPathNote(notesEl);
+        } else if (notesEl) {
+            removeCriticalPathNote(notesEl);
+        }
     });
     // The Critical Path filter (autoCleanUI()) keys off the
     // .critical-path-row class this function just (re)stamped — re-run it
