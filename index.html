@@ -1632,6 +1632,16 @@ body.help-docked #loading-overlay {
         </div>
 
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
+            <h2 style="color: #333; margin: 0;">Blackout Dates</h2>
+            <p style="font-size:12px; color:#666; margin-bottom: 15px;">Specific one-off dates that aren't active schedule days — holidays, planned shutdowns, etc. — on top of the recurring Included Days pattern above.</p>
+            <div style="display:flex; gap:10px; margin-bottom:12px;">
+                <input type="date" id="blackout-date-input" style="padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                <button onclick="addBlackoutDate()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed #2e7d32; background: white; color: #2e7d32; border-radius:4px;">+ Add Date</button>
+            </div>
+            <div id="blackout-dates-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; min-height: 20px;"></div>
+        </div>
+
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
             <h2 style="color: #333; margin: 0;">Status Colors</h2>
             <p style="font-size:12px; color:#666; margin-bottom: 15px;">Colors Status/Result cells use for matching keywords, checked top to bottom — the first rule whose keywords match wins. "Default" covers anything that doesn't match a rule above it.</p>
             <div id="status-color-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
@@ -2284,10 +2294,17 @@ let statusColorRules = defaultStatusColorRules.map(r => ({ ...r, keywords: [...r
 // greys out the same excluded days and skips them in its auto-cascade.
 let includedDays = [0, 1, 2, 3, 4, 5, 6];
 
+// Blackout Dates — one-off excluded 'YYYY-MM-DD' dates (holidays, planned
+// shutdowns, etc.) layered on top of Included Days' recurring weekly
+// pattern, per request. Same opt-out-not-opt-in default (empty = none
+// blacked out) until an admin adds one in Settings.
+let blackoutDates = [];
+
 function isDateIncluded(dateStr) {
     if (!dateStr) return true;
     const d = new Date(dateStr + 'T00:00:00');
-    return includedDays.includes(d.getDay());
+    if (!includedDays.includes(d.getDay())) return false;
+    return !blackoutDates.includes(dateStr);
 }
 
 async function loadScheduleConfig() {
@@ -2315,6 +2332,10 @@ async function loadScheduleConfig() {
         if (row && Array.isArray(row.included_days) && row.included_days.length) {
             includedDays = row.included_days;
             LP_CACHE.set('includedDays', includedDays);
+        }
+        if (row && Array.isArray(row.blackout_dates)) {
+            blackoutDates = row.blackout_dates;
+            LP_CACHE.set('blackoutDates', blackoutDates);
         }
         if (row && row.column_config && row.column_config.length) {
             scheduleColConfig = row.column_config;
@@ -6615,11 +6636,13 @@ async function continueStartAppAfterProject(user) {
             const cachedRescheduleTriggers = LP_CACHE.get('rescheduleTriggerResults');
             const cachedStatusColorRules = LP_CACHE.get('statusColorRules');
             const cachedIncludedDays = LP_CACHE.get('includedDays');
+            const cachedBlackoutDates = LP_CACHE.get('blackoutDates');
 
             if (cachedColConfig) { scheduleColConfig = cachedColConfig; renderDynamicHeaders(); }
             if (cachedRescheduleTriggers) { rescheduleTriggerResults = cachedRescheduleTriggers; }
             if (cachedStatusColorRules) { statusColorRules = cachedStatusColorRules; }
             if (cachedIncludedDays) { includedDays = cachedIncludedDays; }
+            if (cachedBlackoutDates) { blackoutDates = cachedBlackoutDates; }
             if (cachedAppConfig) { appConfig = { ...appConfig, ...cachedAppConfig }; applySidebarConfig(); }
             if (cachedEqActivities) { equivalentActivitiesConfig = cachedEqActivities; renderEquivalentActivitiesUI(); }
             if (cachedDropdowns) {
@@ -6678,6 +6701,10 @@ async function continueStartAppAfterProject(user) {
             // here) and rebuilding when it changed closes that gap the
             // same way the column-set check already does.
             const includedDaysBeforeBackgroundRefresh = new Set(includedDays);
+            // Same reasoning, same fix, for Blackout Dates — a brand new
+            // blackout added today wouldn't un-render its day section
+            // without this either.
+            const blackoutDatesBeforeBackgroundRefresh = new Set(blackoutDates);
             Promise.all([
                 fetchDropdownOptions(),
                 loadEquivalentActivities(),
@@ -6690,7 +6717,10 @@ async function continueStartAppAfterProject(user) {
                 const includedDaysAfterBackgroundRefresh = new Set(includedDays);
                 const includedDaysChanged = includedDaysBeforeBackgroundRefresh.size !== includedDaysAfterBackgroundRefresh.size
                     || [...includedDaysAfterBackgroundRefresh].some(d => !includedDaysBeforeBackgroundRefresh.has(d));
-                if (columnSetChanged || includedDaysChanged) {
+                const blackoutDatesAfterBackgroundRefresh = new Set(blackoutDates);
+                const blackoutDatesChanged = blackoutDatesBeforeBackgroundRefresh.size !== blackoutDatesAfterBackgroundRefresh.size
+                    || [...blackoutDatesAfterBackgroundRefresh].some(d => !blackoutDatesBeforeBackgroundRefresh.has(d));
+                if (columnSetChanged || includedDaysChanged || blackoutDatesChanged) {
                     createSections();
                     applyScheduleDataToDom(__lastScheduleData || cachedSchedule);
                     compactAllRenderedDays();
@@ -6961,6 +6991,8 @@ function openScheduleConfigModal() {
     renderRescheduleTriggerList();
     renderStatusColorRulesUI();
     renderIncludedDaysUI();
+    __blackoutDatesDraft = blackoutDates.slice();
+    renderBlackoutDatesUI();
 }
 
 // Builds the Included Days checkboxes (Sun-Sat) from the current
@@ -6978,6 +7010,46 @@ function renderIncludedDaysUI() {
             ${label}
         </label>
     `).join('');
+}
+
+// Staged copy of blackoutDates for this modal session — same "edit in
+// the modal, only commit on Save, Cancel just closes without touching
+// the real array" pattern every other section here already follows
+// (scheduleColConfig's column names, reschedule trigger checkboxes,
+// status color rule rows). Reset to a fresh copy of the real
+// blackoutDates each time the modal opens (see openScheduleConfigModal()).
+let __blackoutDatesDraft = [];
+
+// Builds the Blackout Dates chip list from __blackoutDatesDraft.
+// addBlackoutDate()/removeBlackoutDate() mutate that draft and re-render;
+// saveAllSettings() commits it to the real blackoutDates array.
+function renderBlackoutDatesUI() {
+    const container = document.getElementById('blackout-dates-list');
+    if (!container) return;
+    if (!__blackoutDatesDraft.length) {
+        container.innerHTML = '<span style="font-size:12.5px; color:#999;">No blackout dates yet.</span>';
+        return;
+    }
+    container.innerHTML = __blackoutDatesDraft.slice().sort().map(d => `
+        <span style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #ccc; border-radius:14px; padding:5px 10px 5px 12px; font-size:13px; color:#333;">
+            ${d}
+            <span onclick="removeBlackoutDate('${d}')" title="Remove" style="cursor:pointer; color:#d32f2f; font-weight:bold;">✕</span>
+        </span>
+    `).join('');
+}
+
+function addBlackoutDate() {
+    const input = document.getElementById('blackout-date-input');
+    const val = input.value;
+    if (!val) return;
+    if (!__blackoutDatesDraft.includes(val)) __blackoutDatesDraft.push(val);
+    input.value = '';
+    renderBlackoutDatesUI();
+}
+
+function removeBlackoutDate(dateStr) {
+    __blackoutDatesDraft = __blackoutDatesDraft.filter(d => d !== dateStr);
+    renderBlackoutDatesUI();
 }
 
 // Builds the Status Colors editor in the Schedule config modal — one row
@@ -7095,6 +7167,10 @@ async function saveAllSettings(btn) {
         includedDays = checkedDays.sort((a, b) => a - b);
     }
 
+    // 3b3. Commit the Blackout Dates draft (see __blackoutDatesDraft's own
+    // comment for why this is staged separately until now).
+    blackoutDates = __blackoutDatesDraft.slice();
+
     // 3c. Gather Status Colors — reads the DOM rows back into
     // statusColorRules in whatever order they're in now (new rows always
     // insert above 'default' — see addStatusColorRule() — so order is
@@ -7113,24 +7189,25 @@ async function saveAllSettings(btn) {
     try {
         const savedBy = window.__currentUserEmail || null;
 
-        // launchpad_schedule_config's status_color_rules/included_days
-        // columns only exist once their sync/*.sql migrations have been
-        // run for this project — if either hasn't, retry once without
-        // both of those newer fields rather than letting a 42703
-        // ("column does not exist") take the column_config/
-        // reschedule_trigger_results save down with it too.
+        // launchpad_schedule_config's status_color_rules/included_days/
+        // blackout_dates columns only exist once their sync/*.sql
+        // migrations have been run for this project — if any hasn't,
+        // retry once without all three of those newer fields rather than
+        // letting a 42703 ("column does not exist") take the
+        // column_config/reschedule_trigger_results save down with it too.
         const scheduleConfigPayload = {
             project_key: window.LP_CONFIG.projectKey,
             column_config: scheduleColConfig,
             reschedule_trigger_results: rescheduleTriggerResults,
             status_color_rules: statusColorRules,
             included_days: includedDays,
+            blackout_dates: blackoutDates,
             updated_by: savedBy
         };
         let scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(scheduleConfigPayload, { onConflict: 'project_key' });
         if (scheduleConfigSave.error && scheduleConfigSave.error.code === '42703') {
-            console.warn('status_color_rules and/or included_days column not found yet — saving the rest of Schedule Config without them. Run sync/status_color_rules.sql and sync/included_days.sql to enable saving those.', scheduleConfigSave.error);
-            const { status_color_rules, included_days, ...withoutNewerFields } = scheduleConfigPayload;
+            console.warn('status_color_rules/included_days/blackout_dates column not found yet — saving the rest of Schedule Config without them. Run sync/status_color_rules.sql, sync/included_days.sql, and sync/blackout_dates.sql to enable saving those.', scheduleConfigSave.error);
+            const { status_color_rules, included_days, blackout_dates, ...withoutNewerFields } = scheduleConfigPayload;
             scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(withoutNewerFields, { onConflict: 'project_key' });
         }
         if (scheduleConfigSave.error) throw scheduleConfigSave.error;
@@ -7169,6 +7246,7 @@ async function saveAllSettings(btn) {
         LP_CACHE.set('rescheduleTriggerResults', rescheduleTriggerResults);
         LP_CACHE.set('statusColorRules', statusColorRules);
         LP_CACHE.set('includedDays', includedDays);
+        LP_CACHE.set('blackoutDates', blackoutDates);
 
         // Phase Rules still writes to Google Sheets in the background, so we
         // still give that a moment to finish before reloading — the three
@@ -8637,19 +8715,19 @@ function createWeekElement(baseDate, w) {
     for (let d = 0; d < 7; d++) {
         const sectionDate = new Date(weekStart);
         sectionDate.setDate(weekStart.getDate() + d);
-
-        // Included Days setting (Schedule config modal) — an excluded
-        // weekday gets no section at all in the Schedule grid, per
-        // request, rather than showing up like any other active day.
-        // ensureWeekRenderedForDayLabel() already treats a missing
-        // "rows-{dayLabel}" container as "that day isn't rendered" and
-        // returns false, and every move/reschedule entry point validates
-        // the target date with isDateIncluded() before ever reaching this
-        // far, so nothing downstream assumes every calendar day has a
-        // section.
-        if (!includedDays.includes(sectionDate.getDay())) continue;
-
         const dateId = sectionDate.toISOString().split('T')[0];
+
+        // Included Days + Blackout Dates settings (Schedule config modal)
+        // — an excluded weekday or a specific blacked-out date gets no
+        // section at all in the Schedule grid, per request, rather than
+        // showing up like any other active day. ensureWeekRenderedForDayLabel()
+        // already treats a missing "rows-{dayLabel}" container as "that
+        // day isn't rendered" and returns false, and every move/reschedule
+        // entry point validates the target date with isDateIncluded()
+        // before ever reaching this far, so nothing downstream assumes
+        // every calendar day has a section.
+        if (!isDateIncluded(dateId)) continue;
+
         const dateString = sectionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
         const section = document.createElement('div');

@@ -1195,6 +1195,11 @@ export class BridgeView extends HTMLElement {
         // fetches the real value, so nothing is greyed out / treated as
         // excluded for a project that's never touched this setting.
         this.includedDays = [0, 1, 2, 3, 4, 5, 6];
+        // Blackout Dates setting (launchpad_schedule_config.blackout_dates)
+        // — one-off excluded 'YYYY-MM-DD' dates, layered on top of
+        // includedDays by isDayIncluded(). Defaults to none until
+        // _resolveProjectFlags() fetches the real value.
+        this.blackoutDates = [];
         this.dragCtx = null;
         this.bulkPreviewRows = [];
         this.baselineDetectedTokens = [];
@@ -1528,16 +1533,30 @@ export class BridgeView extends HTMLElement {
                 if (!error && data && Array.isArray(data.included_days) && data.included_days.length) {
                     this.includedDays = data.included_days;
                 }
+                // Blackout Dates — specific one-off excluded dates (holidays,
+                // shutdowns, etc.) layered on top of Included Days' recurring
+                // weekday pattern. Same select('*')-tolerant-of-a-missing-
+                // column reasoning, and same "null/missing means none" default.
+                if (!error && data && Array.isArray(data.blackout_dates)) {
+                    this.blackoutDates = data.blackout_dates;
+                }
             } catch (e) {
-                console.error('Could not resolve this project\'s Included Days setting — treating every day as included', e);
+                console.error('Could not resolve this project\'s Included Days/Blackout Dates settings — treating every day as included', e);
             }
         }
         if (this.UNIFIED_SCHEDULE) this.TABLES.items = this.LAUNCHPAD_TABLE;
         this._setupItemsDB();
     }
 
+    // A day is an active schedule day only if its weekday is in
+    // includedDays AND it isn't individually blacked out — the one-off
+    // Blackout Dates list (holidays, shutdowns) layers on top of the
+    // recurring weekly pattern rather than replacing it.
     isDayIncluded(dayIdx) {
-        return this.includedDays.includes(new Date(this.dayIndexToMs(dayIdx)).getDay());
+        const d = new Date(this.dayIndexToMs(dayIdx));
+        if (!this.includedDays.includes(d.getDay())) return false;
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return !(this.blackoutDates || []).includes(iso);
     }
 
     // Used wherever the dependency cascade (enforceDependencies()/
@@ -1552,6 +1571,16 @@ export class BridgeView extends HTMLElement {
     nextIncludedDayIndex(dayIdx) {
         let idx = dayIdx;
         for (let i = 0; i < 3650 && !this.isDayIncluded(idx); i++) idx++;
+        return idx;
+    }
+
+    // Mirror of nextIncludedDayIndex() walking backward — used by
+    // computeCriticalPath()'s backward pass, where a late-start/late-finish
+    // date landing on an excluded day needs the nearest EARLIER active day
+    // instead of a later one.
+    prevIncludedDayIndex(dayIdx) {
+        let idx = dayIdx;
+        for (let i = 0; i < 3650 && !this.isDayIncluded(idx); i++) idx--;
         return idx;
     }
 
@@ -2911,12 +2940,15 @@ export class BridgeView extends HTMLElement {
         for (let i = 0; i < this.TIMELINE_DAYS; i++) {
             const d = new Date(this.TIMELINE_START); d.setDate(d.getDate() + i);
             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-            // Included Days setting (Schedule config modal) — a day this
-            // project has excluded gets a stronger grey treatment than the
-            // plain cosmetic weekend tint above, and loses its "click to
-            // see what's scheduled" affordance since it's not meant to
-            // have anything scheduled on it at all.
-            const isExcluded = !this.includedDays.includes(d.getDay());
+            // Included Days + Blackout Dates settings (Schedule config
+            // modal) — a day this project has excluded gets a stronger
+            // grey treatment than the plain cosmetic weekend tint above,
+            // and loses its "click to see what's scheduled" affordance
+            // since it's not meant to have anything scheduled on it at
+            // all. i is already this exact day's own integer day-index
+            // (TIMELINE_START + i whole days), so isDayIncluded() doesn't
+            // need to re-derive it from d.
+            const isExcluded = !this.isDayIncluded(i);
             const isToday = d.toDateString() === todayStr;
             const isoDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             headerHtml += `<div class="gantt-day ${isWeekend ? 'weekend' : ''} ${isExcluded ? 'excluded-day' : ''} ${isToday ? 'today' : ''}" ${isExcluded ? 'title="Not an active schedule day"' : `onclick="this.getRootNode().host.openDayDetail('${isoDate}')" title="Click to see everything scheduled this day"`}>
@@ -3293,7 +3325,7 @@ export class BridgeView extends HTMLElement {
         for (let i = 0; i < this.TIMELINE_DAYS; i++) {
             const d = new Date(this.TIMELINE_START); d.setDate(d.getDate() + i);
             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-            const isExcluded = !this.includedDays.includes(d.getDay());
+            const isExcluded = !this.isDayIncluded(i);
             const isToday = d.toDateString() === todayStr;
             html += `<div class="gantt-gridline ${isWeekend ? 'weekend' : ''} ${isExcluded ? 'excluded-day' : ''} ${isToday ? 'today' : ''}"></div>`;
         }
@@ -3546,12 +3578,20 @@ export class BridgeView extends HTMLElement {
     computeCriticalPath() {
         const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
         const todayStartMs = todayStart.getTime();
-        // past activities are excluded from the analysis entirely (as if they
-        // don't exist) — a chain that passes through a completed activity
-        // just resumes fresh from its first current/future step, using that
-        // step's own scheduled start rather than inheriting timing from work
-        // that's already done and can't change.
-        const items = this.DATA.items.filter(i => new Date(i.start_ts).getTime() >= todayStartMs);
+        // Fully-completed activities are excluded from the analysis
+        // entirely (as if they don't exist) — a chain that passes through
+        // one just resumes fresh from its first current/future step, using
+        // that step's own scheduled start rather than inheriting timing
+        // from work that's already done and can't change. "Completed"
+        // means its own span has actually finished (itemEndMs <= today),
+        // not just that it started before today — an activity that
+        // started yesterday but is still running today (or longer) is
+        // still a current activity and must stay in the analysis, per
+        // request ("taking into account the current day's activities").
+        // The old `start_ts >= todayStartMs` check dropped any such
+        // in-progress item (and every link to/from it) the moment it
+        // crossed midnight, well before it was actually done.
+        const items = this.DATA.items.filter(i => this.itemEndMs(i) > todayStartMs);
         const byId = {};
         items.forEach(i => byId[i.id] = i);
         const successorsOf = {};
@@ -3623,7 +3663,25 @@ export class BridgeView extends HTMLElement {
                 const preds = (byId[id].predecessor_ids || []).filter(p => compSet.has(p));
                 const durMs = (parseFloat(byId[id].duration_hours) || 0) * 3600000;
                 const ownStartMs = new Date(byId[id].start_ts).getTime();
-                const es = preds.length ? Math.max(...preds.map(p => efById[p])) : ownStartMs;
+                let es;
+                if (preds.length) {
+                    // Same day-skip the real dependency cascade
+                    // (enforceDependencies()/nextIncludedDayIndex()) would
+                    // apply if this successor were actually being pushed —
+                    // per request, an excluded weekday or Blackout Date
+                    // can't be this item's earliest possible start even in
+                    // the analysis, or float would be measured against a
+                    // day the schedule could never actually land on. Only
+                    // applies to a dependency-DERIVED ES — a root item's
+                    // own real scheduled start (the `else` below) is left
+                    // exactly as scheduled, even if that date happens to
+                    // fall on a day this project has since excluded.
+                    const maxPredEf = Math.max(...preds.map(p => efById[p]));
+                    const maxPredEfDayIdx = Math.floor(this.dayIndexForDate(new Date(maxPredEf)));
+                    es = Math.max(maxPredEf, this.dayIndexToMs(this.nextIncludedDayIndex(maxPredEfDayIdx)));
+                } else {
+                    es = ownStartMs;
+                }
                 esById[id] = es;
                 efById[id] = es + durMs;
             });
@@ -3653,7 +3711,15 @@ export class BridgeView extends HTMLElement {
                 const succs = (successorsOf[id] || []).filter(sid => compSet.has(sid));
                 const lf = succs.length ? Math.min(...succs.map(sid => lsById[sid])) : projectEnd;
                 lfById[id] = lf;
-                lsById[id] = lf - durMs;
+                let ls = lf - durMs;
+                // Mirrors the forward pass's day-skip in the other
+                // direction — the latest this item could start without
+                // delaying anything downstream can't land on an excluded
+                // day either; if it does, the real latest start is the
+                // nearest active day before it.
+                const lsDayIdx = Math.floor(this.dayIndexForDate(new Date(ls)));
+                if (!this.isDayIncluded(lsDayIdx)) ls = this.dayIndexToMs(this.prevIncludedDayIndex(lsDayIdx));
+                lsById[id] = ls;
             });
             // float is a duration (late-start minus early-start), so convert
             // back out of milliseconds into hours for display/storage.
@@ -3680,7 +3746,13 @@ export class BridgeView extends HTMLElement {
         if (f === null || f === undefined) {
             const it = this.DATA.items.find(i => i.id === id);
             const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-            if (it && new Date(it.start_ts).getTime() < todayStart.getTime()) return 'In the past — not included in critical path analysis';
+            // Matches computeCriticalPath()'s own cutoff — "in the past"
+            // means fully finished (itemEndMs), not merely started before
+            // today. An activity that started yesterday but is still
+            // running IS included in the analysis; null here for one of
+            // those just means it's isolated (no links), same as any
+            // other unlinked current/future item.
+            if (it && this.itemEndMs(it) <= todayStart.getTime()) return 'In the past — not included in critical path analysis';
             return 'Not linked to other activities';
         }
         if (f <= 0.01) return '0 days — on the critical path 🔥';

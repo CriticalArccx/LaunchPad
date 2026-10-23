@@ -1,0 +1,15 @@
+-- Run this once in the Supabase SQL editor. Adds a column for the
+-- "Blackout Dates" setting (holidays, planned shutdowns, etc.) — specific
+-- one-off dates that aren't active schedule days, layered on top of the
+-- recurring weekly pattern in included_days (see sync/included_days.sql).
+-- Read by index.html's Schedule config modal (Settings → Blackout Dates)
+-- and by bridge-view.js's _resolveProjectFlags()/isDayIncluded(), same as
+-- included_days.
+--
+-- jsonb array of 'YYYY-MM-DD' strings, e.g. ["2026-12-25","2026-01-01"].
+--
+-- No default value / backfill needed, same reasoning as included_days.sql
+-- and status_color_rules.sql: both index.html and bridge-view.js already
+-- default to an empty list (no blackout dates) when this column is null,
+-- so every existing project is unaffected until an admin actually adds one.
+alter table launchpad_schedule_config add column if not exists blackout_dates jsonb;
