@@ -1,6 +1,6 @@
 // <bridge-view> — the Pull Plan Scheduler ("Bridge") drag/resize Gantt
 // tool, with dependency links, critical-path analysis, bulk add, baseline
-// PDF import, LaunchPad two-way sync, Google Sheets export, and PDF/XLSX
+// sheet import, LaunchPad two-way sync, Google Sheets export, and PDF/XLSX
 // reports.
 //
 // Used two ways, same as the other three views:
@@ -90,12 +90,11 @@ const GOOGLE_DRIVE_FOLDER_ID = ""; // optional
 const GOOGLE_CONFIGURED = !GOOGLE_CLIENT_ID.includes("YOUR-GOOGLE-OAUTH");
 
 // ---- Google Sheets sync + lazy-loaded feature libraries ----
-// Each of pdf.js / tesseract.js / jsPDF+autotable / xlsx is only fetched the
-// first time the feature that needs it is actually used, and cached so
-// repeat uses don't re-fetch. These stay plain module-scope functions (no
-// instance-state dependency) — call them as bare ensurePdfJs() etc. from
-// within instance methods, same pattern as equipment-tracker-view.js's
-// getContrastYIQ().
+// Each of jsPDF+autotable / xlsx is only fetched the first time the
+// feature that needs it is actually used, and cached so repeat uses don't
+// re-fetch. These stay plain module-scope functions (no instance-state
+// dependency) — call them as bare ensureJsPdf() etc. from within instance
+// methods, same pattern as equipment-tracker-view.js's getContrastYIQ().
 function loadScriptOnce(src) {
     window.__loadedScripts = window.__loadedScripts || {};
     if (!window.__loadedScripts[src]) {
@@ -108,22 +107,6 @@ function loadScriptOnce(src) {
         });
     }
     return window.__loadedScripts[src];
-}
-
-let _pdfjsReady = null;
-function ensurePdfJs() {
-    if (!_pdfjsReady) {
-        _pdfjsReady = loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js').then(() => {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        });
-    }
-    return _pdfjsReady;
-}
-
-let _tesseractReady = null;
-function ensureTesseract() {
-    if (!_tesseractReady) _tesseractReady = loadScriptOnce('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-    return _tesseractReady;
 }
 
 let _jsPdfReady = null;
@@ -582,14 +565,6 @@ input,select,textarea{font-family:inherit;}
 .checkbox-scroll-list label{display:flex; align-items:center; gap:6px; padding:4px 4px; font-size:12.5px; cursor:pointer;}
 .checkbox-scroll-list label:hover{background:#eee;}
 
-/* Baseline import panel */
-.baseline-canvas-wrap{border:1px solid var(--grey-border2); border-radius:6px; overflow:auto; max-height:360px; background:#f4f4f4; text-align:center;}
-.baseline-canvas-wrap canvas{max-width:100%;}
-.token-chip{
-    display:inline-flex; align-items:center; gap:6px; background:var(--grey-bg); border:1px solid var(--grey-border2);
-    border-radius:14px; padding:4px 10px; font-size:12px; margin:3px; cursor:pointer;
-}
-.token-chip.selected{background:var(--green-light); border-color:var(--green); color:var(--green-dark); font-weight:700;}
 
 /* Item detail panel (click item) */
 .detail-panel{
@@ -654,8 +629,7 @@ input,select,textarea{font-family:inherit;}
 :host(.dark-mode) .modal-box,
 :host(.dark-mode) .detail-panel,
 :host(.dark-mode) .timeline-range-bar,
-:host(.dark-mode) .checkbox-scroll-list,
-:host(.dark-mode) .baseline-canvas-wrap{
+:host(.dark-mode) .checkbox-scroll-list{
     background-color:#1e1e1e !important;
     color:#e0e0e0 !important;
 }
@@ -699,8 +673,6 @@ input,select,textarea{font-family:inherit;}
 :host(.dark-mode) .filter-option:hover,
 :host(.dark-mode) .menu-item:hover,
 :host(.dark-mode) .combo-list .opt:hover{background-color:#2c2c2c !important;}
-:host(.dark-mode) .token-chip{background-color:#2c2c2c !important; border-color:#444 !important;}
-:host(.dark-mode) .token-chip.selected{background-color:#1b3d1e !important; border-color:var(--green) !important; color:#81c784 !important;}
 
 :host(.dark-mode) .modal-head,
 :host(.dark-mode) .modal-foot{border-color:#333 !important;}
@@ -785,7 +757,7 @@ const MARKUP = `
         <div class="menu-dropdown right" id="addMenu">
             <div class="menu-item" id="newItemMenuBtn" onclick="this.getRootNode().host.closeAllMenus(); this.getRootNode().host.openModal('itemModal')">➕ New Item</div>
             <div class="menu-item" onclick="this.getRootNode().host.closeAllMenus(); this.getRootNode().host.openBulkAddModal()">📋 Bulk Add</div>
-            <div class="menu-item" onclick="this.getRootNode().host.closeAllMenus(); if(this.getRootNode().host.requireEditMode()) this.getRootNode().host.openModal('baselineModal')">📐 Import Baseline</div>
+            <div class="menu-item" onclick="this.getRootNode().host.closeAllMenus(); this.getRootNode().host.openImportBaselineModal()">📐 Import Baseline</div>
         </div>
     </div>
     <span id="saveIndicator">Ready</span>
@@ -883,23 +855,24 @@ const MARKUP = `
     </div>
 </div>
 
-<!-- ===== BULK ADD MODAL ===== -->
+<!-- ===== BULK ADD / IMPORT BASELINE MODAL ===== -->
+<!-- Shared by two entry points (openBulkAddModal()/openImportBaselineModal()),
+     which each show exactly one of bulkPanel-combo / bulkPanel-sheet and set
+     the title below — not a tab switcher the user picks between mid-session,
+     since Bulk Add and Import Baseline are two distinct actions now, not
+     facets of one "bulk add" tool. Everything past Step 1 (the preview
+     table, commit, contractor picker, etc.) is identical either way, so it
+     stays one shared modal/pipeline rather than duplicating all of that. -->
 <div class="modal-overlay" id="bulkModal">
     <div class="modal-box xwide">
         <div class="modal-head">
-            <h2>Bulk Add Schedule Items</h2>
+            <h2 id="bulkModalTitle">Bulk Add Schedule Items</h2>
             <button class="modal-close" onclick="this.getRootNode().host.closeModal('bulkModal')">×</button>
         </div>
         <div class="modal-body">
             <div id="bulkStep1">
-                <p style="color:#666; font-size:13px; margin-top:0;">Select multiple assets and activities to generate combinations, or paste rows from a spreadsheet (Asset, Activity, Duration in days, Start Date, Contractor(s), Notes columns, tab or comma separated). Area is filled in automatically from Asset.</p>
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="this.getRootNode().host.switchTab('bulkTab','combo',event)">Combination Builder</button>
-                    <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','paste',event)">Paste / CSV</button>
-                    <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','wbs',event)">Import Schedule (WBS)</button>
-                    <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','sheet',event)">Import Sheet</button>
-                </div>
-                <div class="tab-panel active" id="bulkTab-combo">
+                <div id="bulkPanel-combo">
+                    <p style="color:#666; font-size:13px; margin-top:0;">Select multiple assets and activities to generate combinations. Area is filled in automatically from Asset.</p>
                     <div class="form-grid">
                         <div>
                             <label style="font-weight:700; font-size:12.5px; color:#555;">Assets</label>
@@ -937,19 +910,7 @@ const MARKUP = `
                     </div>
                     <button class="tool-btn primary" onclick="this.getRootNode().host.generateBulkPreview('combo')">Generate Preview →</button>
                 </div>
-                <div class="tab-panel" id="bulkTab-paste">
-                    <textarea id="bulkPasteArea" rows="10" placeholder="Asset, Activity, Duration (days), Start Date (YYYY-MM-DD), Contractor(s), Notes
-Pump-101, Install Piping, 1, 2026-08-03, Apex Mechanical | Acme Electric, Confirm crane access" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
-                    <button class="tool-btn primary" style="margin-top:10px;" onclick="this.getRootNode().host.generateBulkPreview('paste')">Generate Preview →</button>
-                </div>
-                <div class="tab-panel" id="bulkTab-wbs">
-                    <p style="color:#666; font-size:13px; margin-top:0;">Paste rows exported from a WBS schedule (e.g. copied straight from Excel) with columns, in this exact order: <strong>Index, WBS, Activity, Activity Type, Asset, Status, Predecessors, Notes, Start Date, Duration, Trade Partners</strong>. Tab-separated (a normal Excel paste) is safest — commas inside Notes won't get misread. <strong>Index</strong> is required on every row (it's how the Predecessors column links rows to each other); <strong>Duration</strong> can be like "0.5d" or "2d" and is always rounded up to whole days; each row's own Start Date is used as-is, not recalculated from its predecessors.</p>
-                    <textarea id="bulkWbsPasteArea" rows="10" placeholder="Index	WBS	Activity	Activity Type	Asset	Status	Predecessors	Notes	Start Date	Duration	Trade Partners
-3	EYD.Z1.FBAT.04	L2D for Temp power SSS1-A BDC	Temp Power	SSS-1A	Not Started	2		10/26/2026	0.5d	Tune
-4	EYD.Z1.FBAT.05	Temp Power to SSS1-A BDC	Temp Power	SSS-1A	Not Started	3		10/26/2026	1d	" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
-                    <button class="tool-btn primary" style="margin-top:10px;" onclick="this.getRootNode().host.generateBulkPreview('wbs')">Generate Preview →</button>
-                </div>
-                <div class="tab-panel" id="bulkTab-sheet">
+                <div id="bulkPanel-sheet">
                     <p style="color:#666; font-size:13px; margin-top:0;">Paste rows copied straight from a live bulk-entry sheet, with columns in this exact order: <strong>ID, Activity, Asset, Predecessors, Duration, Start Date, Assigned To, Notes</strong>. Tab-separated (a normal spreadsheet paste) is safest. <strong>ID</strong> is required on every row — it's how Predecessors links rows to each other by row number. An <strong>Asset</strong> cell holding more than one asset (a multi-select cell, comma-separated) creates one line item per asset, all sharing this row's Activity/Duration/Start Date/Assigned To/Notes/Predecessors — a Predecessor reference to a row that itself expanded into several assets links to all of them.</p>
                     <textarea id="bulkSheetPasteArea" rows="10" placeholder="ID	Activity	Asset	Predecessors	Duration	Start Date	Assigned To	Notes
 1	Temp Power	SSS-1A-BDC			1	2026-11-02		Temp Power to SSS1-A BDC
@@ -1056,39 +1017,6 @@ Pump-101, Install Piping, 1, 2026-08-03, Apex Mechanical | Acme Electric, Confir
         </div>
         <div class="modal-foot">
             <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('listsModal')">Done</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== BASELINE PDF IMPORT MODAL ===== -->
-<div class="modal-overlay" id="baselineModal">
-    <div class="modal-box wide">
-        <div class="modal-head">
-            <h2>Import Baseline PDF</h2>
-            <button class="modal-close" onclick="this.getRootNode().host.closeModal('baselineModal')">×</button>
-        </div>
-        <div class="modal-body">
-            <p style="color:#666; font-size:13px; margin-top:0;">Upload a baseline site plan or schedule PDF. Text (zone/area/asset labels) will be extracted automatically — if the PDF is a scanned image, OCR will run instead. Review the detected labels below and add the ones you want as Zones or Areas.</p>
-            <input type="file" id="baselineFileInput" accept="application/pdf" onchange="this.getRootNode().host.handleBaselineFile(this.files[0])">
-            <div style="margin-top:14px; display:flex; gap:16px;">
-                <div style="flex:1;">
-                    <div class="baseline-canvas-wrap" id="baselineCanvasWrap">
-                        <div style="padding:40px; color:#999;">No file loaded yet.</div>
-                    </div>
-                </div>
-                <div style="flex:1;">
-                    <div id="baselineStatus" style="font-size:12.5px; color:#666; margin-bottom:8px;"></div>
-                    <div style="font-weight:700; font-size:12.5px; color:#555; margin-bottom:6px;">Detected labels <span class="hint" style="font-weight:400;">(click to select)</span></div>
-                    <div id="baselineTokens" style="max-height:220px; overflow-y:auto; border:1px solid #eee; border-radius:6px; padding:8px;"></div>
-                    <div style="margin-top:12px; display:flex; gap:8px;">
-                        <button class="tool-btn small" onclick="this.getRootNode().host.commitBaselineTokens('zones')">Add Selected as Zones</button>
-                        <button class="tool-btn small" onclick="this.getRootNode().host.commitBaselineTokens('areas')">Add Selected as Areas</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="modal-foot">
-            <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('baselineModal')">Done</button>
         </div>
     </div>
 </div>
@@ -1210,7 +1138,6 @@ export class BridgeView extends HTMLElement {
         this.blackoutDates = [];
         this.dragCtx = null;
         this.bulkPreviewRows = [];
-        this.baselineDetectedTokens = [];
         this.ACTIVITY_COLORS = this.loadActivityColors();
         this.ASSET_TO_ZONE_MAP = {};
         this.ASSET_TO_AREA_MAP = {};
@@ -4639,6 +4566,9 @@ export class BridgeView extends HTMLElement {
 
     openBulkAddModal() {
         if (!this.requireEditMode()) return;
+        this.$('bulkModalTitle').textContent = 'Bulk Add Schedule Items';
+        this.$('bulkPanel-combo').style.display = 'block';
+        this.$('bulkPanel-sheet').style.display = 'none';
         this.$('bulkStep1').style.display = 'block';
         this.$('bulkStep2').style.display = 'none';
         this.$('bulkCommitBtn').style.display = 'none';
@@ -4650,6 +4580,22 @@ export class BridgeView extends HTMLElement {
         this.$('bulkStartDate').value = new Date().toISOString().slice(0, 10);
         this.$('bulkNotes').value = '';
         this.$('bulkAutoLink').checked = false;
+        this.openModal('bulkModal');
+    }
+    // Second entry point into the same bulkModal/preview pipeline as
+    // openBulkAddModal() above — shows the sheet-paste panel instead of
+    // Combination Builder, and a matching title, per request ("Import
+    // Baseline" is now this feature, replacing the old baseline-PDF-OCR
+    // tool that used to live under this name/button).
+    openImportBaselineModal() {
+        if (!this.requireEditMode()) return;
+        this.$('bulkModalTitle').textContent = 'Import Baseline';
+        this.$('bulkPanel-combo').style.display = 'none';
+        this.$('bulkPanel-sheet').style.display = 'block';
+        this.$('bulkStep1').style.display = 'block';
+        this.$('bulkStep2').style.display = 'none';
+        this.$('bulkCommitBtn').style.display = 'none';
+        this.$('bulkSheetPasteArea').value = '';
         this.openModal('bulkModal');
     }
     filterCheckList(listId, q) {
@@ -4743,100 +4689,21 @@ export class BridgeView extends HTMLElement {
                     if (autoLink) cursor = new Date(cursor.getTime() + daysToHours(duration) * 3600000);
                 });
             });
-        } else if (mode === 'paste') {
-            const raw = this.$('bulkPasteArea').value.trim();
-            if (!raw) { this.toast('Paste some rows first.'); return; }
-            const lines = raw.split('\n').filter(l => l.trim());
-            lines.forEach((line, i) => {
-                if (i === 0 && /asset/i.test(line) && /activity/i.test(line)) return; // skip header row
-                const parts = line.split(/\t|,(?![^"]*")/).map(s => s.trim());
-                const [asset, activity, duration, startDate, contractor, notes] = parts;
-                if (!asset || !activity) return;
-                const start = startDate ? new Date(startDate + 'T07:00') : new Date();
-                this.bulkPreviewRows.push({
-                    asset, activity,
-                    duration: parseFloat(duration) || 1,
-                    // Area is always automatic now, same as every other
-                    // entry path — no column for it here to override.
-                    area: this.ASSET_TO_AREA_MAP[asset] || '',
-                    contractor: contractor || '',
-                    notes: notes || '',
-                    start: start.toISOString()
-                });
-            });
-        } else if (mode === 'wbs') {
-            // Index, WBS, Activity, Activity Type, Asset, Status, Predecessors,
-            // Notes, Start Date, Duration, Trade Partners — a fixed column
-            // order matching a WBS schedule exported from Excel (e.g. a Cx
-            // schedule PDF that was itself converted from a spreadsheet).
-            const raw = this.$('bulkWbsPasteArea').value.trim();
-            if (!raw) { this.toast('Paste the schedule rows first.'); return; }
-            const lines = raw.split('\n').filter(l => l.trim());
-            const rows = [];
-            lines.forEach((line, i) => {
-                if (i === 0 && /index/i.test(line) && /predecessors/i.test(line)) return; // skip header row
-                // Prefer a literal tab as the delimiter whenever the line has
-                // one (a real Excel paste) — free text columns like Notes
-                // routinely contain commas ("...yet, 125V will require..."),
-                // which would otherwise get misread as extra column breaks.
-                const parts = line.includes('\t')
-                    ? line.split('\t').map(s => s.trim())
-                    : line.split(/,(?![^"]*")/).map(s => s.trim());
-                const [idxStr, wbs, activityDesc, actType, asset, , predsRaw, notes, startDate, durationRaw, contractor] = parts;
-                const srcIndex = parseInt(idxStr, 10);
-                // Index is required — it's the only thing Predecessors on
-                // OTHER rows can reference to link back to this one.
-                if (!Number.isFinite(srcIndex) || !asset || !actType) return;
-                const parsedStart = parseFlexibleDate(startDate);
-                const start = (parsedStart && !isNaN(parsedStart)) ? parsedStart : new Date();
-                // Duration arrives as "0.5d" / "1d" / "2d" etc. — always
-                // round UP to a whole day (per request), and a multi-day
-                // duration just spans that many calendar days starting on
-                // this row's own Start Date (set below, never recalculated
-                // from a predecessor's finish time).
-                const durDays = Math.max(1, Math.ceil(parseFloat(durationRaw) || 1));
-                rows.push({
-                    srcIndex, wbs: wbs || '', asset,
-                    // Per request: for this import, the WBS "Activity Type"
-                    // column (e.g. "Temp Power", "Energize", "L2D") is used
-                    // as Bridge's Activity — the long free-text "Activity"
-                    // column becomes descriptive detail instead, folded
-                    // into Notes below rather than dropped.
-                    activity: actType,
-                    duration: durDays,
-                    area: this.ASSET_TO_AREA_MAP[asset] || '',
-                    contractor: contractor || '',
-                    notes: [wbs ? `WBS ${wbs}` : '', activityDesc || '', notes || ''].filter(Boolean).join(' — '),
-                    start: start.toISOString(),
-                    predSrcIndices: (predsRaw || '').split(',').map(s => parseInt(s.trim(), 10)).filter(Number.isFinite)
-                });
-            });
-            if (!rows.length) { this.toast('No valid rows found — every row needs at least an Index, Asset, and Activity.'); return; }
-            // Resolve each row's Predecessors (source Index references) into
-            // positions within THIS batch — same idea as predLinkIndex below
-            // for the simpler paste format, just supporting more than one
-            // predecessor per row since a real WBS row can depend on several.
-            const indexToPosition = {};
-            rows.forEach((r, i) => { indexToPosition[r.srcIndex] = i; });
-            rows.forEach(r => {
-                r.predLinkIndices = r.predSrcIndices.map(si => indexToPosition[si]).filter(pos => pos !== undefined);
-            });
-            this.bulkPreviewRows = rows;
         } else if (mode === 'sheet') {
             // ID, Activity, Asset, Predecessors, Duration, Start Date,
             // Assigned To, Notes — matches a live bulk-entry sheet's own
-            // column layout. Two things this format needs that the plain
-            // paste/WBS formats above don't:
+            // column layout. Two things this format needs that Combination
+            // Builder above doesn't:
             //  - an Asset cell can hold MORE than one asset (a multi-select
             //    cell copies out as a comma/pipe-separated list) — each one
             //    becomes its own line item, all sharing this row's other
             //    fields, per request ("line items may have multiple assets,
             //    it should make multiple instances").
             //  - Predecessors references other rows by their own ID column
-            //    (not asset+activity text), same idea as WBS's Index
-            //    column, reused below (srcIndex/predLinkIndices) so
-            //    renderBulkPreview()'s existing read-only multi-predecessor
-            //    display just works unchanged for this mode too.
+            //    (not asset+activity text) — resolved below into
+            //    srcIndex/predLinkIndices, which renderBulkPreview()'s
+            //    read-only multi-predecessor display already knows how to
+            //    show.
             const raw = this.$('bulkSheetPasteArea').value.trim();
             if (!raw) { this.toast('Paste the sheet rows first.'); return; }
             const lines = raw.split('\n').filter(l => l.trim());
@@ -4920,12 +4787,13 @@ export class BridgeView extends HTMLElement {
             : `${this.bulkPreviewRows.length} item(s) ready`;
         const assetOpts = this.DATA.assets.map(a => a.name);
         const activityOpts = this.DATA.activities.map(a => a.name);
-        // WBS and Sheet imports both resolve Predecessors from a row-ID
-        // column into predLinkIndices (possibly several per row) up front
-        // in generateBulkPreview() — shown read-only below, with a row-ID
-        // column of their own, rather than the single re-editable
-        // "Linked after" dropdown the simpler combo/paste formats use.
-        const hasMultiPred = this.bulkPreviewMode === 'wbs' || this.bulkPreviewMode === 'sheet';
+        // Sheet import resolves Predecessors from a row-ID column into
+        // predLinkIndices (possibly several per row) up front in
+        // generateBulkPreview() — shown read-only below, with a row-ID
+        // column of its own, rather than the single re-editable "Linked
+        // after" dropdown Combination Builder uses (always at most one
+        // predecessor there, auto-link chains them in generation order).
+        const hasMultiPred = this.bulkPreviewMode === 'sheet';
         this.$('bulkPreviewHead').innerHTML = hasMultiPred
             ? `<tr><th>ID</th><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Predecessors</th><th></th></tr>`
             : `<tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Linked after</th><th></th></tr>`;
@@ -4994,12 +4862,7 @@ export class BridgeView extends HTMLElement {
         const r = this.bulkPreviewRows[i];
         if (!r) return;
         if (field === 'duration') {
-            // WBS-imported rows stay whole-day (always rounded up), same
-            // rule as the initial import — every other mode keeps allowing
-            // fractional days.
-            r.duration = this.bulkPreviewMode === 'wbs'
-                ? Math.max(1, Math.ceil(parseFloat(value) || 1))
-                : Math.max(0.1, parseFloat(value) || 0.1);
+            r.duration = Math.max(0.1, parseFloat(value) || 0.1);
         } else if (field === 'start') {
             // preserve existing time-of-day, just change the calendar date
             const prev = new Date(r.start);
@@ -5132,10 +4995,11 @@ export class BridgeView extends HTMLElement {
         }
         // second pass: resolve each row's predLinkIndex/predLinkIndices (a
         // position, or several, within this batch) into the real id(s) that
-        // ended up saved at those positions. WBS and Sheet imports can have
-        // more than one predecessor per row (a real schedule row can depend
-        // on several prior activities), where every other mode only ever has one.
-        const isWbsImport = this.bulkPreviewMode === 'wbs' || this.bulkPreviewMode === 'sheet';
+        // ended up saved at those positions. Sheet import can have more
+        // than one predecessor per row (a real schedule row can depend on
+        // several prior activities), where Combination Builder only ever
+        // has one.
+        const isSheetImport = this.bulkPreviewMode === 'sheet';
         let linkCount = 0;
         for (let i = 0; i < this.bulkPreviewRows.length; i++) {
             const r = this.bulkPreviewRows[i];
@@ -5154,11 +5018,11 @@ export class BridgeView extends HTMLElement {
                 linkCount++;
             }
             await this.ItemsDB.update(succId, { predecessor_ids: succItem.predecessor_ids });
-            // A WBS import brings its own Start Date per row — the whole
+            // A Sheet import brings its own Start Date per row — the whole
             // point of "use the start date as the original" is that it's
             // NOT recalculated from a predecessor's finish time, so skip
-            // the auto-cascade every other mode relies on here.
-            if (!isWbsImport) {
+            // the auto-cascade Combination Builder relies on here.
+            if (!isSheetImport) {
                 for (const pos of linkPositions) { if (insertedIds[pos]) await this.enforceDependencies(insertedIds[pos]); }
             }
         }
@@ -5353,77 +5217,6 @@ export class BridgeView extends HTMLElement {
         this.afterListChange();
         this.setSaveIndicator('ready', 'Ready');
         this.toast(`Removed ${toRemove.length} unused activity option(s).`, 4000);
-    }
-
-    /* =========================================================================
-       10. BASELINE PDF IMPORT
-       Renders page 1, tries the embedded text layer first (fast, accurate for
-       vector/drawn PDFs), and falls back to Tesseract OCR on the rendered
-       canvas for scanned/image-only sheets. Detected tokens become candidate
-       Zones/Areas the user can add with one click.
-       ========================================================================= */
-
-    async handleBaselineFile(file) {
-        if (!file) return;
-        const statusEl = this.$('baselineStatus');
-        const canvasWrap = this.$('baselineCanvasWrap');
-        statusEl.textContent = 'Loading PDF reader...';
-        canvasWrap.innerHTML = '';
-        this.baselineDetectedTokens = [];
-
-        await ensurePdfJs();
-        statusEl.textContent = 'Loading PDF...';
-        const buf = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.4 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width; canvas.height = viewport.height;
-        canvasWrap.appendChild(canvas);
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-        statusEl.textContent = 'Extracting text layer...';
-        const textContent = await page.getTextContent();
-        let tokens = textContent.items.map(t => t.str.trim()).filter(s => s && s.length > 1 && s.length < 30 && !/^\d+$/.test(s));
-
-        if (tokens.length < 3) {
-            statusEl.textContent = 'No embedded text found — loading OCR engine...';
-            try {
-                await ensureTesseract();
-                statusEl.textContent = 'Running OCR (this can take a few seconds)...';
-                const { data } = await Tesseract.recognize(canvas, 'eng');
-                tokens = data.text.split(/\n|,/).map(s => s.trim()).filter(s => s && s.length > 1 && s.length < 30 && !/^\d+$/.test(s));
-                statusEl.textContent = `OCR complete — ${tokens.length} candidate label(s) found.`;
-            } catch (err) {
-                console.error(err);
-                statusEl.textContent = 'OCR failed. You can still add labels manually via Manage Lists.';
-            }
-        } else {
-            statusEl.textContent = `${tokens.length} candidate label(s) found in the PDF text layer.`;
-        }
-
-        this.baselineDetectedTokens = [...new Set(tokens)].slice(0, 200);
-        this.renderBaselineTokens();
-    }
-
-    renderBaselineTokens() {
-        const el = this.$('baselineTokens');
-        if (!this.baselineDetectedTokens.length) {
-            el.innerHTML = '<div style="color:#999; font-size:12.5px;">No labels detected yet.</div>';
-            return;
-        }
-        el.innerHTML = this.baselineDetectedTokens.map((t, i) =>
-            `<span class="token-chip" data-i="${i}" onclick="this.classList.toggle('selected')">${escHtml(t)}</span>`).join('');
-    }
-
-    async commitBaselineTokens(kind) {
-        const selected = [...this.$$('#baselineTokens .token-chip.selected')].map(c => c.textContent);
-        if (!selected.length) { this.toast('Select at least one label first.'); return; }
-        for (const name of selected) {
-            await this.ensureListValue(kind, name);
-        }
-        this.afterListChange();
-        this.toast(`Added ${selected.length} ${kind === 'zones' ? 'zone(s)' : 'area(s)'}`);
     }
 
     /* =========================================================================
