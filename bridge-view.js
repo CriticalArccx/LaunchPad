@@ -3626,11 +3626,21 @@ export class BridgeView extends HTMLElement {
 
         const floatById = {}, esById = {}, efById = {}, lsById = {}, lfById = {};
 
+        // Per request: float is measured as if work on every chain began
+        // right now, not on whatever each chain's own real scheduled date
+        // happens to be — "putting the first applicable activity at the
+        // current day." A root (no predecessor in its component) that
+        // hasn't started yet gets pulled back to today, snapped forward to
+        // the next active day if today itself is excluded (Included Days /
+        // Blackout Dates). An already-in-progress root keeps its own real,
+        // already-happened start instead (today can't be later than a
+        // start that's already in the past) — min() picks whichever of the
+        // two is earlier, which is "today" for a not-yet-started root and
+        // the real past start for one already underway.
+        const todayDayIdx = Math.floor(this.dayIndexForDate(todayStart));
+        const todayAnchorMs = this.dayIndexToMs(this.nextIncludedDayIndex(todayDayIdx));
+
         // ---- pass 1: forward (earliest start/finish) for every component ----
-        // A "beginning" activity (no predecessor in its component) starts on
-        // its own real scheduled date — not an arbitrary shared zero — so
-        // multiple independent starting points keep their real time
-        // relationship intact.
         const compInfos = [];
         components.forEach(comp => {
             if (comp.length < 2) { comp.forEach(id => floatById[id] = null); return; } // isolated item — not part of any chain
@@ -3651,22 +3661,8 @@ export class BridgeView extends HTMLElement {
             if (topoOrder.length < comp.length) { comp.forEach(id => floatById[id] = null); return; } // shouldn't happen (cycles are blocked elsewhere), but bail out safely
 
             // Standard CPM forward pass: early start is max(predecessor
-            // finishes), falling back to the item's own real scheduled
-            // start only for a root (no predecessor in this component).
-            // A real-date-anchored version of this was tried instead (ES =
-            // item's own real start always, ignoring predecessor finish
-            // times) — that made a chain's calendar gaps look like "this
-            // chain finishes later, so it's more critical" instead of what
-            // float actually means: how much a chain COULD slip without
-            // pushing the project's real finish date later. Confirmed
-            // against live data that it breaks exactly backwards — a chain
-            // with a large real gap downstream (AC-F03 -> an activity
-            // scheduled 11 days later) still has zero float across its
-            // ENTIRE length under this formula, correctly identified as
-            // the longest dependency chain end to end, where the real-date
-            // version only ever flagged the one or two activities after
-            // the gap and left the chain feeding into it looking like it
-            // had slack it doesn't actually have.
+            // finishes), falling back to the today-anchor above for a root
+            // (no predecessor in this component).
             topoOrder.forEach(id => {
                 const preds = (byId[id].predecessor_ids || []).filter(p => compSet.has(p));
                 const durMs = (parseFloat(byId[id].duration_hours) || 0) * 3600000;
@@ -3679,16 +3675,12 @@ export class BridgeView extends HTMLElement {
                     // per request, an excluded weekday or Blackout Date
                     // can't be this item's earliest possible start even in
                     // the analysis, or float would be measured against a
-                    // day the schedule could never actually land on. Only
-                    // applies to a dependency-DERIVED ES — a root item's
-                    // own real scheduled start (the `else` below) is left
-                    // exactly as scheduled, even if that date happens to
-                    // fall on a day this project has since excluded.
+                    // day the schedule could never actually land on.
                     const maxPredEf = Math.max(...preds.map(p => efById[p]));
                     const maxPredEfDayIdx = Math.floor(this.dayIndexForDate(new Date(maxPredEf)));
                     es = Math.max(maxPredEf, this.dayIndexToMs(this.nextIncludedDayIndex(maxPredEfDayIdx)));
                 } else {
-                    es = ownStartMs;
+                    es = Math.min(todayAnchorMs, ownStartMs);
                 }
                 esById[id] = es;
                 efById[id] = es + durMs;
