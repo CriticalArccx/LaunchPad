@@ -897,6 +897,7 @@ const MARKUP = `
                     <button class="tab-btn active" onclick="this.getRootNode().host.switchTab('bulkTab','combo',event)">Combination Builder</button>
                     <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','paste',event)">Paste / CSV</button>
                     <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','wbs',event)">Import Schedule (WBS)</button>
+                    <button class="tab-btn" onclick="this.getRootNode().host.switchTab('bulkTab','sheet',event)">Import Sheet</button>
                 </div>
                 <div class="tab-panel active" id="bulkTab-combo">
                     <div class="form-grid">
@@ -947,6 +948,13 @@ Pump-101, Install Piping, 1, 2026-08-03, Apex Mechanical | Acme Electric, Confir
 3	EYD.Z1.FBAT.04	L2D for Temp power SSS1-A BDC	Temp Power	SSS-1A	Not Started	2		10/26/2026	0.5d	Tune
 4	EYD.Z1.FBAT.05	Temp Power to SSS1-A BDC	Temp Power	SSS-1A	Not Started	3		10/26/2026	1d	" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
                     <button class="tool-btn primary" style="margin-top:10px;" onclick="this.getRootNode().host.generateBulkPreview('wbs')">Generate Preview →</button>
+                </div>
+                <div class="tab-panel" id="bulkTab-sheet">
+                    <p style="color:#666; font-size:13px; margin-top:0;">Paste rows copied straight from a live bulk-entry sheet, with columns in this exact order: <strong>ID, Activity, Asset, Predecessors, Duration, Start Date, Assigned To, Notes</strong>. Tab-separated (a normal spreadsheet paste) is safest. <strong>ID</strong> is required on every row — it's how Predecessors links rows to each other by row number. An <strong>Asset</strong> cell holding more than one asset (a multi-select cell, comma-separated) creates one line item per asset, all sharing this row's Activity/Duration/Start Date/Assigned To/Notes/Predecessors — a Predecessor reference to a row that itself expanded into several assets links to all of them.</p>
+                    <textarea id="bulkSheetPasteArea" rows="10" placeholder="ID	Activity	Asset	Predecessors	Duration	Start Date	Assigned To	Notes
+1	Temp Power	SSS-1A-BDC			1	2026-11-02		Temp Power to SSS1-A BDC
+13	Vendor Start-up	GPS1A-Mech, SSS-1A-Mech, SSS-1B-Mech	5, 8, 11	1	2026-11-23		GPS Bard unit start-up on all 3 units" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
+                    <button class="tool-btn primary" style="margin-top:10px;" onclick="this.getRootNode().host.generateBulkPreview('sheet')">Generate Preview →</button>
                 </div>
             </div>
             <div id="bulkStep2" style="display:none;">
@@ -4822,6 +4830,70 @@ export class BridgeView extends HTMLElement {
                 r.predLinkIndices = r.predSrcIndices.map(si => indexToPosition[si]).filter(pos => pos !== undefined);
             });
             this.bulkPreviewRows = rows;
+        } else if (mode === 'sheet') {
+            // ID, Activity, Asset, Predecessors, Duration, Start Date,
+            // Assigned To, Notes — matches a live bulk-entry sheet's own
+            // column layout. Two things this format needs that the plain
+            // paste/WBS formats above don't:
+            //  - an Asset cell can hold MORE than one asset (a multi-select
+            //    cell copies out as a comma/pipe-separated list) — each one
+            //    becomes its own line item, all sharing this row's other
+            //    fields, per request ("line items may have multiple assets,
+            //    it should make multiple instances").
+            //  - Predecessors references other rows by their own ID column
+            //    (not asset+activity text), same idea as WBS's Index
+            //    column, reused below (srcIndex/predLinkIndices) so
+            //    renderBulkPreview()'s existing read-only multi-predecessor
+            //    display just works unchanged for this mode too.
+            const raw = this.$('bulkSheetPasteArea').value.trim();
+            if (!raw) { this.toast('Paste the sheet rows first.'); return; }
+            const lines = raw.split('\n').filter(l => l.trim());
+            const srcRows = [];
+            lines.forEach((line, i) => {
+                if (i === 0 && /^id\b/i.test(line) && /activity/i.test(line)) return; // skip header row
+                const parts = line.includes('\t')
+                    ? line.split('\t').map(s => s.trim())
+                    : line.split(/,(?![^"]*")/).map(s => s.trim());
+                const [idStr, activity, assetsRaw, predsRaw, durationRaw, startDate, assignedTo, notes] = parts;
+                const srcIndex = parseInt(idStr, 10);
+                if (!Number.isFinite(srcIndex) || !activity || !assetsRaw) return;
+                const assets = assetsRaw.split(/[,|]/).map(s => s.trim()).filter(Boolean);
+                if (!assets.length) return;
+                const parsedStart = parseFlexibleDate(startDate);
+                const start = (parsedStart && !isNaN(parsedStart)) ? parsedStart : new Date();
+                srcRows.push({
+                    srcIndex, activity, assets,
+                    duration: Math.max(0.1, parseFloat(durationRaw) || 1),
+                    start: start.toISOString(),
+                    contractor: assignedTo || '', notes: notes || '',
+                    predSrcIndices: (predsRaw || '').split(',').map(s => parseInt(s.trim(), 10)).filter(Number.isFinite)
+                });
+            });
+            if (!srcRows.length) { this.toast('No valid rows found — every row needs at least an ID, Activity, and Asset.'); return; }
+
+            // Expand each source row into one preview row PER asset.
+            const rows = [];
+            const srcIndexToPositions = {}; // srcIndex -> every preview-row position it expanded into
+            srcRows.forEach(sr => {
+                srcIndexToPositions[sr.srcIndex] = [];
+                sr.assets.forEach(asset => {
+                    rows.push({
+                        srcIndex: sr.srcIndex, asset, activity: sr.activity, duration: sr.duration,
+                        area: this.ASSET_TO_AREA_MAP[asset] || '', contractor: sr.contractor, notes: sr.notes,
+                        start: sr.start, predSrcIndices: sr.predSrcIndices
+                    });
+                    srcIndexToPositions[sr.srcIndex].push(rows.length - 1);
+                });
+            });
+            // Resolve each row's Predecessor row-ID references into
+            // positions within this batch — a referenced row that itself
+            // expanded into several asset instances links to ALL of them
+            // (the gate is "every one of those instances must finish," not
+            // a guessed one-to-one pairing between unrelated assets).
+            rows.forEach(r => {
+                r.predLinkIndices = [...new Set(r.predSrcIndices.flatMap(si => srcIndexToPositions[si] || []))];
+            });
+            this.bulkPreviewRows = rows;
         }
         if (!this.bulkPreviewRows.length) { this.toast('No valid rows to preview.'); return; }
         this.renderBulkPreview();
@@ -4847,28 +4919,46 @@ export class BridgeView extends HTMLElement {
         // removed) — an open picker's onchange handlers close over the OLD
         // index, so it must close rather than risk editing the wrong row.
         this.closeBulkContractorPicker();
-        const unmatchedCount = this.bulkPreviewRows.filter(r => !this.isKnownListValue('assets', r.asset) || !this.isKnownListValue('activities', r.activity)).length;
+        const unmatchedCount = this.bulkPreviewRows.filter(r =>
+            (!this.isKnownListValue('assets', r.asset) && !r.forceCreateAsset) ||
+            (!this.isKnownListValue('activities', r.activity) && !r.forceCreateActivity)
+        ).length;
         this.$('bulkPreviewCount').textContent = unmatchedCount
-            ? `${this.bulkPreviewRows.length} item(s) — ${unmatchedCount} need a matching Asset/Activity (highlighted) before they can be added`
+            ? `${this.bulkPreviewRows.length} item(s) — ${unmatchedCount} need a matching Asset/Activity (highlighted — pick an existing one, or Create it) before they can be added`
             : `${this.bulkPreviewRows.length} item(s) ready`;
         const assetOpts = this.DATA.assets.map(a => a.name);
         const activityOpts = this.DATA.activities.map(a => a.name);
-        const isWbs = this.bulkPreviewMode === 'wbs';
-        this.$('bulkPreviewHead').innerHTML = isWbs
-            ? `<tr><th>Index</th><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Predecessors</th><th></th></tr>`
+        // WBS and Sheet imports both resolve Predecessors from a row-ID
+        // column into predLinkIndices (possibly several per row) up front
+        // in generateBulkPreview() — shown read-only below, with a row-ID
+        // column of their own, rather than the single re-editable
+        // "Linked after" dropdown the simpler combo/paste formats use.
+        const hasMultiPred = this.bulkPreviewMode === 'wbs' || this.bulkPreviewMode === 'sheet';
+        this.$('bulkPreviewHead').innerHTML = hasMultiPred
+            ? `<tr><th>ID</th><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Predecessors</th><th></th></tr>`
             : `<tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Linked after</th><th></th></tr>`;
         this.$('bulkPreviewBody').innerHTML = this.bulkPreviewRows.map((r, i) => {
             const dateVal = new Date(r.start).toISOString().slice(0, 10);
             // Red highlight = not in this project's dropdownoptions list —
             // see commitBulkAdd(), which skips rows still in this state
-            // instead of silently adding a new list entry for them.
-            const assetUnmatched = !this.isKnownListValue('assets', r.asset);
-            const activityUnmatched = !this.isKnownListValue('activities', r.activity);
+            // unless the row's own forceCreateAsset/forceCreateActivity
+            // flag is set (via the "+ Create" button below), in which case
+            // that specific new name is deliberately added to the master
+            // list instead of silently guessed at or silently blocked.
+            const assetUnmatched = !this.isKnownListValue('assets', r.asset) && !r.forceCreateAsset;
+            const activityUnmatched = !this.isKnownListValue('activities', r.activity) && !r.forceCreateActivity;
             const unmatchedStyle = 'border:2px solid #d32f2f; background:#fdecea;';
-            const assetCell = `<td><select style="width:120px; ${assetUnmatched ? unmatchedStyle : ''}" title="${assetUnmatched ? "Not in this project's Asset list — pick an existing one" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select></td>`;
+            const willCreateStyle = 'border:2px solid #2e7d32; background:#eef7ee;';
+            const assetCreateBtn = assetUnmatched
+                ? `<button type="button" title="Add &quot;${escAttr(r.asset)}&quot; as a new Asset in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'asset')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed #2e7d32; background:white; color:#2e7d32; border-radius:3px;">+ Create</button>`
+                : (r.forceCreateAsset ? `<span style="margin-left:4px; font-size:10.5px; color:#2e7d32;" title="Will be added as a new Asset">(new)</span>` : '');
+            const activityCreateBtn = activityUnmatched
+                ? `<button type="button" title="Add &quot;${escAttr(r.activity)}&quot; as a new Activity in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'activity')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed #2e7d32; background:white; color:#2e7d32; border-radius:3px;">+ Create</button>`
+                : (r.forceCreateActivity ? `<span style="margin-left:4px; font-size:10.5px; color:#2e7d32;" title="Will be added as a new Activity">(new)</span>` : '');
+            const assetCell = `<td><select style="width:120px; ${assetUnmatched ? unmatchedStyle : (r.forceCreateAsset ? willCreateStyle : '')}" title="${assetUnmatched ? "Not in this project's Asset list — pick an existing one, or Create it" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select>${assetCreateBtn}</td>`;
             const activityCell = `<td>
                     <span class="legend-swatch" style="background:${this.activityColor(r.activity)}; display:inline-block; width:9px;height:9px;border-radius:3px; margin-right:3px;"></span>
-                    <select style="width:118px; ${activityUnmatched ? unmatchedStyle : ''}" title="${activityUnmatched ? "Not in this project's Activity list — pick an existing one" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'activity',this.value)">${this.selectOptionsHtml(activityOpts, r.activity, false)}</select>
+                    <select style="width:118px; ${activityUnmatched ? unmatchedStyle : (r.forceCreateActivity ? willCreateStyle : '')}" title="${activityUnmatched ? "Not in this project's Activity list — pick an existing one, or Create it" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'activity',this.value)">${this.selectOptionsHtml(activityOpts, r.activity, false)}</select>${activityCreateBtn}
                 </td>`;
             const durationCell = `<td><input type="number" min="1" step="1" value="${r.duration}" style="width:56px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'duration',this.value)"></td>`;
             // Area is automatic (derived from Asset) everywhere else, but
@@ -4881,7 +4971,7 @@ export class BridgeView extends HTMLElement {
             const notesCell = `<td><input value="${escAttr(r.notes || '')}" placeholder="Notes" style="width:120px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'notes',this.value)"></td>`;
             const removeCell = `<td><button class="preview-remove" onclick="this.getRootNode().host.removeBulkRow(${i})" title="Remove row">✕</button></td>`;
 
-            if (isWbs) {
+            if (hasMultiPred) {
                 // Predecessors here were resolved automatically from the
                 // pasted Index/Predecessors columns — shown read-only
                 // (rather than a re-editable dropdown, since a row can have
@@ -4931,9 +5021,31 @@ export class BridgeView extends HTMLElement {
             r[field] = value;
             // Area stays automatic even after a row's Asset is changed in
             // the preview table, same as every other entry path.
-            if (field === 'asset') r.area = this.ASSET_TO_AREA_MAP[value] || '';
+            if (field === 'asset') { r.area = this.ASSET_TO_AREA_MAP[value] || ''; r.forceCreateAsset = false; }
+            // Picking a different value (even another unmatched one) means
+            // whatever "+ Create" decision was made for the OLD value no
+            // longer applies — require a fresh explicit click for the new
+            // one rather than silently carrying it over.
+            if (field === 'activity') r.forceCreateActivity = false;
         }
         // re-render swatch/labels that depend on the edited field without losing focus on unrelated inputs
+        this.renderBulkPreview();
+    }
+    // The explicit alternative to "pick an existing value" for a flagged
+    // row — per request, an unmatched Asset/Activity should let the user
+    // either reselect from the list (the dropdown, unchanged) or
+    // deliberately use the pasted value to create a new list entry,
+    // rather than only ever silently blocking it. Marking the row this
+    // way (instead of e.g. calling ensureListValue() immediately) keeps it
+    // reversible — switching the dropdown to something else clears the
+    // flag (see updateBulkPreviewField()) — and the actual list entry is
+    // only created at commit time, in commitBulkAdd(), alongside the item
+    // insert itself.
+    forceCreateBulkField(i, field) {
+        const r = this.bulkPreviewRows[i];
+        if (!r) return;
+        if (field === 'asset') r.forceCreateAsset = true;
+        else if (field === 'activity') r.forceCreateActivity = true;
         this.renderBulkPreview();
     }
     removeBulkRow(i) {
@@ -4990,13 +5102,21 @@ export class BridgeView extends HTMLElement {
         this.setSaveIndicator('dirty', 'Saving...');
         const insertedIds = [];
         for (const r of this.bulkPreviewRows) {
-            const assetOk = this.isKnownListValue('assets', r.asset);
-            const activityOk = this.isKnownListValue('activities', r.activity);
+            // forceCreateAsset/forceCreateActivity (set via the "+ Create"
+            // button in renderBulkPreview(), per request) is the deliberate
+            // escape hatch from the block below — the row's own Asset/
+            // Activity gets added to the master list right here, same as
+            // any other explicit "new entry" action elsewhere in the app,
+            // rather than treating an unmatched paste as an automatic one.
+            const assetOk = this.isKnownListValue('assets', r.asset) || r.forceCreateAsset;
+            const activityOk = this.isKnownListValue('activities', r.activity) || r.forceCreateActivity;
             if (!assetOk || !activityOk) {
                 insertedIds.push(null);
                 skipped.push(r);
                 continue;
             }
+            if (r.forceCreateAsset) await this.ensureListValue('assets', r.asset);
+            if (r.forceCreateActivity) await this.ensureListValue('activities', r.activity);
             // r.contractor can now hold several names joined with " | " (a
             // multi-select, or free-typed paste/WBS text) — ensure each one
             // individually, not the joined string as a single new entry.
@@ -5020,10 +5140,10 @@ export class BridgeView extends HTMLElement {
         }
         // second pass: resolve each row's predLinkIndex/predLinkIndices (a
         // position, or several, within this batch) into the real id(s) that
-        // ended up saved at those positions. WBS-imported rows can have more
-        // than one predecessor (a real schedule row can depend on several
-        // prior activities), where every other mode only ever has one.
-        const isWbsImport = this.bulkPreviewMode === 'wbs';
+        // ended up saved at those positions. WBS and Sheet imports can have
+        // more than one predecessor per row (a real schedule row can depend
+        // on several prior activities), where every other mode only ever has one.
+        const isWbsImport = this.bulkPreviewMode === 'wbs' || this.bulkPreviewMode === 'sheet';
         let linkCount = 0;
         for (let i = 0; i < this.bulkPreviewRows.length; i++) {
             const r = this.bulkPreviewRows[i];
