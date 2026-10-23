@@ -752,7 +752,7 @@ const MARKUP = `
         <button class="preview-remove" onclick="this.getRootNode().host.clearMultiSelect()" title="Clear selection" style="color:var(--green-dark);">✕</button>
     </span>
     <button class="tool-btn" id="editModeToggleBtn" onclick="this.getRootNode().host.toggleEditMode()" title="Bridge starts locked every time it loads — nothing can be dragged, resized, connected, added, or deleted until this is on.">🔒 Edit</button>
-    <div class="menu-btn-wrap" id="add-menu-wrap">
+    <div class="menu-btn-wrap" id="add-menu-wrap" style="display:none;">
         <button class="tool-btn" onclick="if(this.getRootNode().host.requireEditMode()) this.getRootNode().host.toggleMenu('addMenu', event)">➕ Add ▾</button>
         <div class="menu-dropdown right" id="addMenu">
             <div class="menu-item" id="newItemMenuBtn" onclick="this.getRootNode().host.closeAllMenus(); this.getRootNode().host.openModal('itemModal')">➕ New Item</div>
@@ -760,6 +760,7 @@ const MARKUP = `
             <div class="menu-item" onclick="this.getRootNode().host.closeAllMenus(); this.getRootNode().host.openImportBaselineModal()">📐 Import Baseline</div>
         </div>
     </div>
+    <button class="tool-btn" id="optimizeBtn" style="display:none;" onclick="this.getRootNode().host.optimizeSchedule()" title="Pull every linked activity to the earliest date its own dependencies allow, closing gaps left over from edits/reschedules/imports. Nothing publishes automatically — review the report, then Accept &amp; Publish or Discard like any other change.">⚡ Optimize</button>
     <span id="saveIndicator">Ready</span>
     <div class="menu-btn-wrap">
         <button class="tool-btn small" onclick="this.getRootNode().host.toggleMenu('reportMenu', event)">📊 Report ▾</button>
@@ -1017,6 +1018,28 @@ const MARKUP = `
         </div>
         <div class="modal-foot">
             <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('listsModal')">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== OPTIMIZE REPORT MODAL ===== -->
+<div class="modal-overlay" id="optimizeReportModal">
+    <div class="modal-box wide">
+        <div class="modal-head">
+            <h2>⚡ Optimize Report</h2>
+            <button class="modal-close" onclick="this.getRootNode().host.closeModal('optimizeReportModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <p id="optimizeReportSummary" style="color:#666; font-size:13px; margin-top:0;"></p>
+            <div style="max-height:340px; overflow:auto; border:1px solid #eee; border-radius:6px;">
+                <table class="preview-table">
+                    <thead><tr><th>Asset</th><th>Activity</th><th>Old Start</th><th>New Start</th><th>Moved</th></tr></thead>
+                    <tbody id="optimizeReportBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('optimizeReportModal')">Done</button>
         </div>
     </div>
 </div>
@@ -1954,6 +1977,12 @@ export class BridgeView extends HTMLElement {
             btn.classList.toggle('primary', this.editModeActive);
             btn.textContent = this.editModeActive ? '🔓 Editing' : '🔒 Edit';
         }
+        // Add and Optimize both mutate the schedule, so per request neither
+        // one is even shown until Edit is on — not just gated on click.
+        const addWrap = this.$('add-menu-wrap');
+        if (addWrap) addWrap.style.display = this.editModeActive ? 'inline-block' : 'none';
+        const optimizeBtn = this.$('optimizeBtn');
+        if (optimizeBtn) optimizeBtn.style.display = this.editModeActive ? 'flex' : 'none';
         this.classList.toggle('edit-locked', !this.isViewerRole && !this.editModeActive);
         // Re-apply to whichever item modal is currently open (if any) so
         // toggling mid-edit immediately enables/disables its fields —
@@ -3510,7 +3539,15 @@ export class BridgeView extends HTMLElement {
        links at all (not part of any chain) are left out entirely; a lone
        activity isn't meaningfully "critical."
        ========================================================================= */
-    computeCriticalPath() {
+    // anchorToday=true (the default, used for the fire-icon/float display)
+    // measures float as if every chain started right now — see the forward
+    // pass below. optimizeSchedule() calls this with anchorToday=false
+    // instead, since compacting the REAL schedule must pull a root back no
+    // further than its own real scheduled date, not hypothetically to
+    // today — otherwise "optimize" would mass-reschedule the entire
+    // project to start immediately instead of just closing gaps between
+    // already-linked activities.
+    computeCriticalPath(anchorToday = true) {
         const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
         const todayStartMs = todayStart.getTime();
         // Fully-completed activities are excluded from the analysis
@@ -3607,7 +3644,7 @@ export class BridgeView extends HTMLElement {
                     const maxPredEfDayIdx = Math.floor(this.dayIndexForDate(new Date(maxPredEf)));
                     es = Math.max(maxPredEf, this.dayIndexToMs(this.nextIncludedDayIndex(maxPredEfDayIdx)));
                 } else {
-                    es = Math.min(todayAnchorMs, ownStartMs);
+                    es = anchorToday ? Math.min(todayAnchorMs, ownStartMs) : ownStartMs;
                 }
                 esById[id] = es;
                 efById[id] = es + durMs;
@@ -3684,6 +3721,71 @@ export class BridgeView extends HTMLElement {
         }
         if (f <= 0.01) return '0 days — on the critical path 🔥';
         return `${hoursToDays(f)} days of slack`;
+    }
+
+    // "⚡ Optimize" — per request, pulls every linked activity to the
+    // earliest date its own dependencies actually allow, closing gaps
+    // that have built up from edits, reschedules, or imports. Reuses
+    // computeCriticalPath()'s forward pass with anchorToday=false for
+    // exactly this: esById already IS "the earliest this item's own
+    // dependencies allow," computed in one consistent topological pass
+    // across the whole graph, so applying it directly compacts every
+    // chain correctly in a single pass — no separate cascade step
+    // needed afterward. A root (no predecessor) never moves — its ES
+    // under anchorToday=false is just its own real start — only
+    // successors get pulled tighter.
+    //
+    // Nothing publishes automatically: every changed item is marked
+    // pending, same as a manual drag, so the existing Accept & Publish /
+    // Discard banner is how the user reviews and commits (or backs out
+    // of) this, exactly like any other edit — per request.
+    async optimizeSchedule() {
+        if (!this.requireEditMode()) return;
+        const { esById } = this.computeCriticalPath(false);
+        const changes = [];
+        for (const id of Object.keys(esById)) {
+            const item = this.DATA.items.find(i => i.id === id);
+            if (!item) continue;
+            const newStartMs = esById[id];
+            const oldStartMs = new Date(item.start_ts).getTime();
+            // A full hour of slop before counting something as "changed"
+            // — this is just floating-point/rounding noise from the ES
+            // math, not a real gap worth reporting.
+            if (Math.abs(newStartMs - oldStartMs) < 3600000) continue;
+            changes.push({ item, oldStartTs: item.start_ts, newStartTs: new Date(newStartMs).toISOString() });
+        }
+        if (!changes.length) { this.toast('Schedule is already optimal — no gaps to close.'); return; }
+
+        for (const c of changes) {
+            c.item.start_ts = c.newStartTs;
+            await this.ItemsDB.update(c.item.id, { start_ts: c.newStartTs });
+            this.markPendingSync(c.item);
+        }
+        this.savePendingSyncState();
+        this.updatePendingSyncUI();
+        this.renderGantt();
+        this.renderOptimizeReport(changes);
+    }
+
+    renderOptimizeReport(changes) {
+        const sorted = changes.slice().sort((a, b) => new Date(a.newStartTs) - new Date(b.newStartTs));
+        this.$('optimizeReportSummary').textContent =
+            `${changes.length} activit${changes.length === 1 ? 'y' : 'ies'} adjusted to the earliest date its dependencies actually allow. ` +
+            `Nothing has been published to Schedule yet — close this, then use Accept & Publish (or Discard) on the pending-changes banner.`;
+        this.$('optimizeReportBody').innerHTML = sorted.map(c => {
+            const oldD = new Date(c.oldStartTs).toISOString().slice(0, 10);
+            const newD = new Date(c.newStartTs).toISOString().slice(0, 10);
+            const daysMoved = Math.round((new Date(c.oldStartTs).getTime() - new Date(c.newStartTs).getTime()) / 86400000);
+            const moveLabel = daysMoved > 0 ? `${daysMoved}d earlier` : `${Math.abs(daysMoved)}d later`;
+            return `<tr>
+                <td>${escHtml(c.item.asset_name)}</td>
+                <td>${escHtml(c.item.activity_name)}</td>
+                <td>${oldD}</td>
+                <td>${newD}</td>
+                <td style="text-align:center;">${moveLabel}</td>
+            </tr>`;
+        }).join('');
+        this.openModal('optimizeReportModal');
     }
     toggleCriticalPath(checked) {
         this.showCriticalPath = checked;
