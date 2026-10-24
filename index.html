@@ -8430,24 +8430,41 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             bridgeEl.DATA.items.push(newItem); // enforceDependencies()/syncItemToLaunchPad() below read this in-memory list
         }
 
+        // Per request: a rescheduled activity that carries over a
+        // multi-day duration is restructured into its daily chain right
+        // away, same structural rule every other creation path in Bridge
+        // now follows (bridge-view.js's splitItemIntoDays()). chainDays is
+        // just [newItem] unchanged if it's a single day — nothing else
+        // below needs to special-case that case.
+        let chainDays = [newItem];
+        if (newItem.duration_hours > 24) chainDays = await bridgeEl.splitItemIntoDays(newItem);
+        const lastChainDay = chainDays[chainDays.length - 1];
+
         // Everything that depended on the cancelled activity now depends on
         // its replacement instead — same "redirect downstream links to the
         // replacement" pattern Bridge's own duplicate-merge logic uses.
-        const successors = bridgeEl.DATA.items.filter(it => it.id !== newItem.id && (it.predecessor_ids || []).includes(origItem.id));
+        // Redirected to the LAST day of the chain, not newItem/day 1 — a
+        // downstream activity has to wait for the whole multi-day
+        // replacement to finish, not just its first day.
+        const chainIds = new Set(chainDays.map(d => d.id));
+        const successors = bridgeEl.DATA.items.filter(it => !chainIds.has(it.id) && (it.predecessor_ids || []).includes(origItem.id));
         for (const succ of successors) {
-            succ.predecessor_ids = (succ.predecessor_ids || []).filter(id => id !== origItem.id).concat(newItem.id);
+            succ.predecessor_ids = (succ.predecessor_ids || []).filter(id => id !== origItem.id).concat(lastChainDay.id);
             await bridgeEl.ItemsDB.update(succ.id, { predecessor_ids: succ.predecessor_ids });
         }
 
         // Apply the real cascade — the exact same engine
         // simulateReschedulePreview() already showed the user a preview of.
         // This writes every affected successor's new start_ts for real and
-        // tracks each one as pending-sync (Bridge's own bookkeeping).
+        // tracks each one as pending-sync (Bridge's own bookkeeping). Runs
+        // for every day in the chain, not just the first, so a cascade
+        // that only a LATER day's own finish would actually trigger isn't
+        // missed.
         const pendingBefore = new Set(bridgeEl.pendingSyncIds);
-        await bridgeEl.enforceDependencies(newItem.id);
+        for (const d of chainDays) await bridgeEl.enforceDependencies(d.id);
         const newlyPending = Array.from(bridgeEl.pendingSyncIds).filter(id => !pendingBefore.has(id));
 
-        // Publish the new item and every cascaded item to Schedule right
+        // Publish the new item(s) and every cascaded item to Schedule right
         // now, rather than leaving it sitting as a pending change someone
         // has to separately Accept inside Bridge — "automatically moving
         // items if applicable" is this feature's whole point.
@@ -8455,14 +8472,16 @@ async function linkRescheduledItemInBridge(originalRowId, newRowId, newDayLabel,
             // No per-item publish primitive exists in unified mode — Accept
             // always commits everything currently pending (see
             // _acceptPendingChangesUnified()), same as clicking the
-            // Accept & Publish button would. newItem's carried-over fields
-            // and every cascaded successor above are already tracked via
-            // markPendingSync(), so this picks all of it up; it'll also
-            // publish any other unrelated pending edit already sitting in
-            // Bridge, same as a manual Accept click always has.
+            // Accept & Publish button would. newItem's carried-over fields,
+            // every split day (staged as local drafts by ItemsDB.insert()
+            // in unified mode), and every cascaded successor above are
+            // already tracked via markPendingSync(), so this picks all of
+            // it up; it'll also publish any other unrelated pending edit
+            // already sitting in Bridge, same as a manual Accept click
+            // always has.
             await bridgeEl.acceptPendingChanges();
         } else {
-            for (const id of [newItem.id, ...newlyPending]) {
+            for (const id of [...chainDays.map(d => d.id), ...newlyPending]) {
                 const item = bridgeEl.DATA.items.find(it => it.id === id);
                 if (!item) continue;
                 const ok = await bridgeEl.syncItemToLaunchPad(item);
@@ -9681,7 +9700,18 @@ async function applyBulkActionToBridge(action, ops, origItemsByOldId) {
                     });
                     if (newItem) bridgeEl.DATA.items.push(newItem);
                 }
-                if (newItem) cascadeIds.push(newItem.id);
+                // Per request: a duplicate that carries over a multi-day
+                // duration is restructured into its daily chain right
+                // away too, same rule every other creation path follows.
+                // Nothing else here needs the chain's last-day id
+                // specifically (unlike the reschedule flow) — duplicating
+                // doesn't retire/redirect anything that depended on the
+                // original, so every day just needs to end up in
+                // cascadeIds below like any other newly-created item.
+                if (newItem) {
+                    const chainDays = newItem.duration_hours > 24 ? await bridgeEl.splitItemIntoDays(newItem) : [newItem];
+                    for (const d of chainDays) cascadeIds.push(d.id);
+                }
             }
         }
 
