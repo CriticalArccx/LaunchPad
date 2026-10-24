@@ -761,6 +761,7 @@ const MARKUP = `
         </div>
     </div>
     <button class="tool-btn" id="optimizeBtn" style="display:none;" onclick="this.getRootNode().host.optimizeSchedule()" title="Pull every linked activity to the earliest date its own dependencies allow, closing gaps left over from edits/reschedules/imports. Nothing publishes automatically — review the report, then Accept &amp; Publish or Discard like any other change.">⚡ Optimize</button>
+    <button class="tool-btn" id="splitMultiDayBtn" style="display:none;" onclick="this.getRootNode().host.splitAllMultiDayItems()" title="Restructure every current/future multi-day activity into a chain of single-day activities (Day 1 of Y, Day 2 of Y, ...). Nothing publishes automatically — review the report, then Accept &amp; Publish or Discard like any other change.">🔀 Split Multi-Day</button>
     <span id="saveIndicator">Ready</span>
     <div class="menu-btn-wrap">
         <button class="tool-btn small" onclick="this.getRootNode().host.toggleMenu('reportMenu', event)">📊 Report ▾</button>
@@ -1040,6 +1041,28 @@ const MARKUP = `
         </div>
         <div class="modal-foot">
             <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('optimizeReportModal')">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SPLIT MULTI-DAY REPORT MODAL ===== -->
+<div class="modal-overlay" id="splitReportModal">
+    <div class="modal-box wide">
+        <div class="modal-head">
+            <h2>🔀 Split Multi-Day Report</h2>
+            <button class="modal-close" onclick="this.getRootNode().host.closeModal('splitReportModal')">×</button>
+        </div>
+        <div class="modal-body">
+            <p id="splitReportSummary" style="color:#666; font-size:13px; margin-top:0;"></p>
+            <div style="max-height:340px; overflow:auto; border:1px solid #eee; border-radius:6px;">
+                <table class="preview-table">
+                    <thead><tr><th>Asset</th><th>Activity</th><th>Start Date</th><th>Days Split Into</th></tr></thead>
+                    <tbody id="splitReportBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('splitReportModal')">Done</button>
         </div>
     </div>
 </div>
@@ -1977,12 +2000,15 @@ export class BridgeView extends HTMLElement {
             btn.classList.toggle('primary', this.editModeActive);
             btn.textContent = this.editModeActive ? '🔓 Editing' : '🔒 Edit';
         }
-        // Add and Optimize both mutate the schedule, so per request neither
-        // one is even shown until Edit is on — not just gated on click.
+        // Add, Optimize, and Split Multi-Day all mutate the schedule, so
+        // per request none of them are even shown until Edit is on — not
+        // just gated on click.
         const addWrap = this.$('add-menu-wrap');
         if (addWrap) addWrap.style.display = this.editModeActive ? 'inline-block' : 'none';
         const optimizeBtn = this.$('optimizeBtn');
         if (optimizeBtn) optimizeBtn.style.display = this.editModeActive ? 'flex' : 'none';
+        const splitBtn = this.$('splitMultiDayBtn');
+        if (splitBtn) splitBtn.style.display = this.editModeActive ? 'flex' : 'none';
         this.classList.toggle('edit-locked', !this.isViewerRole && !this.editModeActive);
         // Re-apply to whichever item modal is currently open (if any) so
         // toggling mid-edit immediately enables/disables its fields —
@@ -3787,6 +3813,54 @@ export class BridgeView extends HTMLElement {
         }).join('');
         this.openModal('optimizeReportModal');
     }
+
+    // "🔀 Split Multi-Day" — the retroactive counterpart to
+    // splitItemIntoDays() being applied automatically on every creation
+    // path now: restructures every EXISTING current/future multi-day
+    // activity into its daily chain, per request ("split all existing
+    // multi-day items too"). A completed (fully in the past) multi-day
+    // activity is left alone — historical record, not something to
+    // restructure. Same "mark pending, show a report, let the user
+    // Accept & Publish or Discard" pattern as Optimize, rather than a
+    // silent background sweep — this app already learned that lesson the
+    // hard way with the background-sweep race earlier.
+    async splitAllMultiDayItems() {
+        if (!this.requireEditMode()) return;
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+        const todayStartMs = todayStart.getTime();
+        const candidates = this.DATA.items.filter(it => (parseFloat(it.duration_hours) || 0) > 24 && this.itemEndMs(it) > todayStartMs);
+        if (!candidates.length) { this.toast('No multi-day activities to split — everything current/future is already single-day.'); return; }
+
+        const report = [];
+        const pendingItems = [];
+        for (const item of candidates) {
+            const asset = item.asset_name, activity = item.activity_name;
+            const totalDays = Math.round((parseFloat(item.duration_hours) || 24) / 24);
+            const startDate = new Date(item.start_ts).toISOString().slice(0, 10);
+            const days = await this.splitItemIntoDays(item);
+            pendingItems.push(...days);
+            report.push({ asset, activity, totalDays, startDate });
+        }
+        for (const it of pendingItems) this.markPendingSync(it);
+        this.savePendingSyncState();
+        this.updatePendingSyncUI();
+        this.renderGantt();
+        this.renderSplitReport(report);
+    }
+
+    renderSplitReport(report) {
+        this.$('splitReportSummary').textContent =
+            `${report.length} multi-day activit${report.length === 1 ? 'y' : 'ies'} restructured into daily chains. ` +
+            `Nothing has been published to Schedule yet — close this, then use Accept & Publish (or Discard) on the pending-changes banner.`;
+        this.$('splitReportBody').innerHTML = report.map(r => `<tr>
+            <td>${escHtml(r.asset)}</td>
+            <td>${escHtml(r.activity)}</td>
+            <td>${r.startDate}</td>
+            <td style="text-align:center;">${r.totalDays}</td>
+        </tr>`).join('');
+        this.openModal('splitReportModal');
+    }
+
     toggleCriticalPath(checked) {
         this.showCriticalPath = checked;
         this.renderGantt();
@@ -4221,6 +4295,31 @@ export class BridgeView extends HTMLElement {
         });
     }
 
+    // If `item` is "Day 1 of Y" (Y>1) in a split multi-day activity (see
+    // splitItemIntoDays()), returns the full ordered chain
+    // [day1, day2, ..., dayY] by walking forward from day1 to whichever
+    // item is both (a) a successor of the previous day and (b) labeled
+    // "Day N of Y" in its own notes. Returns null if this item isn't a
+    // Day 1, Y<=1, or the chain turns out to be broken/incomplete (a day
+    // deleted or re-labeled by hand) — callers fall back to a normal
+    // single-item drag in that case rather than guessing.
+    getDayChainFromDay1(item) {
+        const m = (item.notes || '').match(/Day\s+(\d+)\s+of\s+(\d+)/i);
+        if (!m) return null;
+        const x = parseInt(m[1], 10), y = parseInt(m[2], 10);
+        if (x !== 1 || !(y > 1)) return null;
+        const chain = [item];
+        let cursorId = item.id;
+        for (let d = 2; d <= y; d++) {
+            const dayRe = new RegExp(`Day\\s+${d}\\s+of\\s+${y}\\b`, 'i');
+            const next = this.DATA.items.find(i => (i.predecessor_ids || []).includes(cursorId) && dayRe.test(i.notes || ''));
+            if (!next) return null;
+            chain.push(next);
+            cursorId = next.id;
+        }
+        return chain;
+    }
+
     startDrag(e, el, mode) {
         e.preventDefault();
         if (!this.requireEditMode()) return;
@@ -4230,9 +4329,20 @@ export class BridgeView extends HTMLElement {
         // dragging a move-handle on a multi-selected item (with others also
         // selected) moves the whole group together, each keeping its own
         // duration and relative time offset from the others
-        const isGroupDrag = mode === 'move' && this.multiSelectedIds.has(id) && this.multiSelectedIds.size > 1;
+        const isMultiSelectGroupDrag = mode === 'move' && this.multiSelectedIds.has(id) && this.multiSelectedIds.size > 1;
+        // Day 1 of a split multi-day activity drags the same way — per
+        // request, moving the first day shifts the WHOLE activity (every
+        // later day) together, auto-"selected" from the day-chain instead
+        // of requiring a manual Ctrl/Cmd-click. Day 2 onward is NOT
+        // special-cased here — dragging one of those is a normal
+        // single-item move, which only pushes what comes after it forward
+        // if it would otherwise overlap (enforceDependencies(), unchanged)
+        // and never touches the day(s) before it.
+        const dayChain = (!isMultiSelectGroupDrag && mode === 'move') ? this.getDayChainFromDay1(item) : null;
+        const isGroupDrag = isMultiSelectGroupDrag || !!dayChain;
+        const groupIds = isMultiSelectGroupDrag ? [...this.multiSelectedIds] : (dayChain ? dayChain.map(d => d.id) : null);
         const groupSnapshot = isGroupDrag
-            ? [...this.multiSelectedIds].map(mid => {
+            ? groupIds.map(mid => {
                   const mItem = this.DATA.items.find(i => i.id === mid);
                   const mEl = this.shadowRoot.querySelector(`.gantt-item[data-id="${mid}"]`);
                   return mItem && mEl ? { id: mid, el: mEl, origLeft: this.displayLeft(mItem), origStart: new Date(mItem.start_ts) } : null;
@@ -4378,8 +4488,12 @@ export class BridgeView extends HTMLElement {
 
         this.setSaveIndicator('dirty', 'Saving...');
         await this.ItemsDB.update(id, { start_ts: item.start_ts, duration_hours: item.duration_hours });
-        await this.enforceDependencies(id);
-        this.markPendingSync(item);
+        // A resize that stretches an item past a day is the same
+        // structural rule as saving a new multi-day item — split it into
+        // its daily chain right away instead of leaving a lone
+        // multi-day item sitting there until some other save catches it.
+        const days = item.duration_hours > 24 ? await this.splitItemIntoDays(item) : [item];
+        for (const d of days) { await this.enforceDependencies(d.id); this.markPendingSync(d); }
         this.setSaveIndicator('ready', 'Saved');
         this.renderGantt();
         this.dragCtx = null;
@@ -4552,6 +4666,69 @@ export class BridgeView extends HTMLElement {
         this.renderPredChips();
     }
 
+    // A multi-day item (duration > 24h) is restructured into one item per
+    // day — "Day 1 of Y" through "Day Y of Y" — chained Day(i) ->
+    // Day(i+1) via predecessor_ids, each exactly 24h, per request
+    // ("structure all of the items the same as the single day"). `item`
+    // must already exist in this.DATA.items and have been saved via
+    // ItemsDB (insert or update) with its real duration — this only
+    // handles the RESTRUCTURING, not the initial save. Called from every
+    // creation path (New Item, Bulk Add) and from splitAllMultiDayItems()
+    // for existing data.
+    //
+    // Day 1 reuses the original item's id/predecessor_ids — nothing
+    // pointing INTO this activity needs to change. Anything that already
+    // pointed at it as THEIR OWN predecessor is redirected to the LAST
+    // day instead, since the whole activity isn't done until its final
+    // day finishes, not just the first one. Returns the resulting array
+    // [day1, day2, ..., dayY] (or [item] unchanged if duration is 1 day
+    // or less — nothing to split).
+    async splitItemIntoDays(item) {
+        const totalDays = Math.round((parseFloat(item.duration_hours) || 24) / 24);
+        if (totalDays <= 1) return [item];
+
+        const baseNotes = (item.notes || '').replace(/\s*(—\s*)?Day\s+\d+\s+of\s+\d+\s*/i, '').trim();
+        const dayLabel = (x) => baseNotes ? `${baseNotes} — Day ${x} of ${totalDays}` : `Day ${x} of ${totalDays}`;
+        const originalStartMs = new Date(item.start_ts).getTime();
+        const originalId = item.id;
+
+        item.duration_hours = 24;
+        item.notes = dayLabel(1);
+        await this.ItemsDB.update(item.id, { duration_hours: 24, notes: item.notes });
+
+        const days = [item];
+        let prevId = item.id;
+        for (let d = 2; d <= totalDays; d++) {
+            const payload = {
+                asset_name: item.asset_name, activity_name: item.activity_name,
+                duration_hours: 24,
+                start_ts: new Date(originalStartMs + (d - 1) * 86400000).toISOString(),
+                area: item.area || '', contractor_name: item.contractor_name || '',
+                notes: dayLabel(d),
+                predecessor_ids: [prevId],
+                // Still never shown/collected, but schedule_items.type is
+                // NOT NULL with no default on non-unified projects — see
+                // saveItemModal()'s own payload for the full story.
+                type: '', zone: '', asset_type: ''
+            };
+            const saved = await this.ItemsDB.insert(payload);
+            const newDay = saved ? { ...saved, duration_hours: 24 } : { id: uid(), ...payload };
+            this.DATA.items.push(newDay);
+            days.push(newDay);
+            prevId = newDay.id;
+        }
+
+        const lastDayId = days[days.length - 1].id;
+        const dayIds = new Set(days.map(d => d.id));
+        for (const other of this.DATA.items) {
+            if (dayIds.has(other.id) || !(other.predecessor_ids || []).includes(originalId)) continue;
+            other.predecessor_ids = other.predecessor_ids.filter(pid => pid !== originalId).concat(lastDayId);
+            await this.ItemsDB.update(other.id, { predecessor_ids: other.predecessor_ids });
+        }
+
+        return days;
+    }
+
     async saveItemModal() {
         if (!this.requireEditMode()) return;
         const id = this.$('itemId').value;
@@ -4612,8 +4789,12 @@ export class BridgeView extends HTMLElement {
             savedId = saved ? saved.id : uid();
             this.DATA.items.push(saved ? { ...saved, duration_hours: payload.duration_hours } : { id: savedId, ...payload });
         }
-        await this.enforceDependencies(savedId);
-        this.markPendingSync(this.DATA.items.find(i => i.id === savedId));
+        // Per request: any item saved with more than a day of duration is
+        // immediately restructured into its daily chain — a structural
+        // rule, not an opt-in action.
+        const savedItem = this.DATA.items.find(i => i.id === savedId);
+        const days = savedItem && savedItem.duration_hours > 24 ? await this.splitItemIntoDays(savedItem) : [savedItem].filter(Boolean);
+        for (const d of days) { await this.enforceDependencies(d.id); this.markPendingSync(d); }
         this.setSaveIndicator('ready', 'Saved');
         this.closeModal('itemModal');
         this.renderFilterBar();
@@ -5128,7 +5309,21 @@ export class BridgeView extends HTMLElement {
                 for (const pos of linkPositions) { if (insertedIds[pos]) await this.enforceDependencies(insertedIds[pos]); }
             }
         }
-        for (const id of insertedIds) { if (id) this.markPendingSync(this.DATA.items.find(i => i.id === id)); }
+        // third pass: any newly-inserted item with more than a day of
+        // duration gets restructured into its daily chain — same rule
+        // saveItemModal() applies, run only now (after the predecessor
+        // links above are resolved) so splitItemIntoDays()'s own
+        // redirect-to-last-day step has something real to find and
+        // redirect, rather than running before any link into it exists.
+        const pendingItems = [];
+        for (const id of insertedIds) {
+            if (!id) continue;
+            const it = this.DATA.items.find(x => x.id === id);
+            if (!it) continue;
+            const days = it.duration_hours > 24 ? await this.splitItemIntoDays(it) : [it];
+            pendingItems.push(...days);
+        }
+        for (const it of pendingItems) this.markPendingSync(it);
         this.setSaveIndicator('ready', 'Saved');
         const addedCount = insertedIds.filter(Boolean).length;
         if (skipped.length) {
