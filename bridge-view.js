@@ -4427,7 +4427,24 @@ export class BridgeView extends HTMLElement {
             // that way instead of drifting onto an odd time that pixel/
             // rounding noise could then read as the wrong day.
             const dayDelta = Math.round(dx / this.DAY_WIDTH);
-            const shiftMs = dayDelta * 86400000;
+            let shiftMs = dayDelta * 86400000;
+            // Per request, Included Days/Blackout Dates apply to a group
+            // move too — specifically to the item actually being dragged
+            // (Day 1 of a multi-day chain, or whichever multi-selected
+            // item was grabbed). If its raw drop position lands on an
+            // excluded day, nudge the SHARED shift forward just enough to
+            // put it on the next included one instead, so the whole group
+            // still moves together by the same adjusted amount — every
+            // other member keeps its original relative offset from Day 1/
+            // the anchor rather than each day independently skipping
+            // excluded days on its own, which would stretch a chain's
+            // internal day-to-day spacing instead of just repositioning it.
+            const anchorSnap = this.dragCtx.groupSnapshot.find(s => s.id === this.dragCtx.id);
+            if (anchorSnap) {
+                const rawAnchorDayIdx = Math.floor(this.dayIndexForDate(new Date(anchorSnap.origStart.getTime() + shiftMs)));
+                const validAnchorDayIdx = this.nextIncludedDayIndex(rawAnchorDayIdx);
+                if (validAnchorDayIdx !== rawAnchorDayIdx) shiftMs += (validAnchorDayIdx - rawAnchorDayIdx) * 86400000;
+            }
             this.setSaveIndicator('dirty', 'Saving...');
             for (const snap of this.dragCtx.groupSnapshot) {
                 const item = this.DATA.items.find(i => i.id === snap.id);
@@ -4461,8 +4478,12 @@ export class BridgeView extends HTMLElement {
             // so there's no real precision lost by snapping straight to
             // that instead of preserving whatever odd time the pixel math
             // produced.
+            // Snapped forward to the next day Included Days/Blackout Dates
+            // actually allow — per request, a direct drag can't drop an
+            // item on an excluded day any more than the automatic cascade
+            // can.
             const dayDelta = Math.round((this.dragCtx.origLeft + dx) / this.DAY_WIDTH);
-            item.start_ts = new Date(this.dayIndexToMs(dayDelta)).toISOString();
+            item.start_ts = new Date(this.dayIndexToMs(this.nextIncludedDayIndex(dayDelta))).toISOString();
         } else if (mode === 'resize-right') {
             const newWidthPx = Math.max(20, this.dragCtx.origWidth + dx);
             item.duration_hours = Math.max(0.25, this.snapHours((newWidthPx / this.DAY_WIDTH) * 24));
@@ -4470,7 +4491,7 @@ export class BridgeView extends HTMLElement {
             const newLeftPx = this.dragCtx.origLeft + dx;
             const newWidthPx = Math.max(20, this.dragCtx.origWidth - dx);
             const dayDelta = Math.round(newLeftPx / this.DAY_WIDTH);
-            item.start_ts = new Date(this.dayIndexToMs(dayDelta)).toISOString();
+            item.start_ts = new Date(this.dayIndexToMs(this.nextIncludedDayIndex(dayDelta))).toISOString();
             item.duration_hours = Math.max(0.25, this.snapHours((newWidthPx / this.DAY_WIDTH) * 24));
         }
 
@@ -4689,7 +4710,6 @@ export class BridgeView extends HTMLElement {
 
         const baseNotes = (item.notes || '').replace(/\s*(—\s*)?Day\s+\d+\s+of\s+\d+\s*/i, '').trim();
         const dayLabel = (x) => baseNotes ? `${baseNotes} — Day ${x} of ${totalDays}` : `Day ${x} of ${totalDays}`;
-        const originalStartMs = new Date(item.start_ts).getTime();
         const originalId = item.id;
 
         item.duration_hours = 24;
@@ -4698,11 +4718,21 @@ export class BridgeView extends HTMLElement {
 
         const days = [item];
         let prevId = item.id;
+        // Day 1's own day-index, trusted as-is (same "a root's real date
+        // isn't second-guessed" rule computeCriticalPath()/
+        // enforceDependencies() already follow) — every day after it
+        // lands on the next INCLUDED day following the previous one, per
+        // request ("movement of multi-day activities still obeys blackout
+        // days and non-applicable days"). Without this, a 3-day activity
+        // starting Thursday would silently put Day 2 on a Saturday if
+        // weekends are excluded, instead of skipping to Monday.
+        let prevDayIdx = Math.floor(this.dayIndexForDate(new Date(item.start_ts)));
         for (let d = 2; d <= totalDays; d++) {
+            const dayIdx = this.nextIncludedDayIndex(prevDayIdx + 1);
             const payload = {
                 asset_name: item.asset_name, activity_name: item.activity_name,
                 duration_hours: 24,
-                start_ts: new Date(originalStartMs + (d - 1) * 86400000).toISOString(),
+                start_ts: new Date(this.dayIndexToMs(dayIdx)).toISOString(),
                 area: item.area || '', contractor_name: item.contractor_name || '',
                 notes: dayLabel(d),
                 predecessor_ids: [prevId],
@@ -4716,6 +4746,7 @@ export class BridgeView extends HTMLElement {
             this.DATA.items.push(newDay);
             days.push(newDay);
             prevId = newDay.id;
+            prevDayIdx = dayIdx;
         }
 
         const lastDayId = days[days.length - 1].id;
