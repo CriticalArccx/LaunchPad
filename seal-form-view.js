@@ -202,6 +202,33 @@ export class SealFormView extends HTMLElement {
     $(id) { return this.shadowRoot.getElementById(id); }
     $$(sel) { return this.shadowRoot.querySelectorAll(sel); }
 
+    // Called at the start of every submit*() handler and again on its
+    // every failure path (never on success — showSuccess() replaces the
+    // whole form, button included, so there's nothing left to re-enable)
+    // — per request, the form stayed fully editable and the Submit button
+    // stayed clickable for the entire multi-second chain of sequential
+    // inserts/notifications each handler runs, which could be double-
+    // submitted or edited mid-flight with nothing to show it was even
+    // working. Locks every field and the submit button itself, swapping
+    // the button's own label for "Submitting…" (restored from
+    // data-original-label on the way back out) rather than a generic one,
+    // so a project's three differently-worded buttons ("Submit Break
+    // Request", "Log Seal Break", "Notify Ready for Reseal") still read
+    // naturally while busy.
+    setFormBusy(busy) {
+        const btn = this.$$('.submit-btn')[0];
+        if (btn) {
+            if (busy) {
+                if (!btn.dataset.originalLabel) btn.dataset.originalLabel = btn.textContent;
+                btn.textContent = 'Submitting…';
+            } else if (btn.dataset.originalLabel) {
+                btn.textContent = btn.dataset.originalLabel;
+            }
+            btn.disabled = busy;
+        }
+        this.$$('.card input, .card select, .card textarea').forEach(el => { el.disabled = busy; });
+    }
+
     // A document-level click listener sees `event.target` retargeted to
     // this element itself (Shadow DOM retargeting), not the actual element
     // that was clicked inside the shadow tree — composedPath() is the
@@ -753,6 +780,7 @@ export class SealFormView extends HTMLElement {
             return;
         }
 
+        this.setFormBusy(true);
         try {
             const allKnown = this.allSeals.concat(this.newlyCreatedSeals);
             const selectedSeals = checkedSealIds.map(id => allKnown.find(s => s.id === id)).filter(Boolean);
@@ -765,6 +793,7 @@ export class SealFormView extends HTMLElement {
             if (!transitionResult.anyUpdated) {
                 const { message } = buildResultMessage(transitionResult, '');
                 errorEl.innerHTML = `<div class="error-box">${message}</div>`;
+                this.setFormBusy(false);
                 return;
             }
 
@@ -804,6 +833,7 @@ export class SealFormView extends HTMLElement {
             this.showSuccess((transitionResult.skipped.length + transitionResult.blocked.length) === 0 ? 'Break Request Submitted' : result.title, result.message);
         } catch (e) {
             errorEl.innerHTML = `<div class="error-box">Something went wrong: ${e.message}</div>`;
+            this.setFormBusy(false);
         }
     }
 
@@ -842,6 +872,7 @@ export class SealFormView extends HTMLElement {
             return;
         }
 
+        this.setFormBusy(true);
         try {
             const allKnown = this.allSeals.concat(this.newlyCreatedSeals);
             const selectedSeals = checkedSealIds.map(id => allKnown.find(s => s.id === id)).filter(Boolean);
@@ -856,6 +887,7 @@ export class SealFormView extends HTMLElement {
             if (!transitionResult.anyUpdated) {
                 const { message } = buildResultMessage(transitionResult, '');
                 errorEl.innerHTML = `<div class="error-box">${message}</div>`;
+                this.setFormBusy(false);
                 return;
             }
 
@@ -877,6 +909,7 @@ export class SealFormView extends HTMLElement {
             this.showSuccess((transitionResult.skipped.length + transitionResult.blocked.length) === 0 ? 'Seal Break Logged' : result.title, result.message);
         } catch (e) {
             errorEl.innerHTML = `<div class="error-box">Something went wrong: ${e.message}</div>`;
+            this.setFormBusy(false);
         }
     }
 
@@ -904,6 +937,7 @@ export class SealFormView extends HTMLElement {
             return;
         }
 
+        this.setFormBusy(true);
         try {
             const allKnown = this.allSeals.concat(this.newlyCreatedSeals);
             const selectedSeals = checkedSealIds.map(id => allKnown.find(s => s.id === id)).filter(Boolean);
@@ -914,6 +948,7 @@ export class SealFormView extends HTMLElement {
             if (!transitionResult.anyUpdated) {
                 const { message } = buildResultMessage(transitionResult, '');
                 errorEl.innerHTML = `<div class="error-box">${message}</div>`;
+                this.setFormBusy(false);
                 return;
             }
 
@@ -927,6 +962,7 @@ export class SealFormView extends HTMLElement {
             this.showSuccess((transitionResult.skipped.length + transitionResult.blocked.length) === 0 ? 'Marked Ready for Reseal' : result.title, result.message);
         } catch (e) {
             errorEl.innerHTML = `<div class="error-box">Something went wrong: ${e.message}</div>`;
+            this.setFormBusy(false);
         }
     }
 
