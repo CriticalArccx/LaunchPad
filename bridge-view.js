@@ -761,7 +761,6 @@ const MARKUP = `
         </div>
     </div>
     <button class="tool-btn" id="optimizeBtn" style="display:none;" onclick="this.getRootNode().host.optimizeSchedule()" title="Pull every linked activity to the earliest date its own dependencies allow, closing gaps left over from edits/reschedules/imports. Nothing publishes automatically — review the report, then Accept &amp; Publish or Discard like any other change.">⚡ Optimize</button>
-    <button class="tool-btn" id="splitMultiDayBtn" style="display:none;" onclick="this.getRootNode().host.splitAllMultiDayItems()" title="Restructure every current/future multi-day activity into a chain of single-day activities (Day 1 of Y, Day 2 of Y, ...). Nothing publishes automatically — review the report, then Accept &amp; Publish or Discard like any other change.">🔀 Split Multi-Day</button>
     <span id="saveIndicator">Ready</span>
     <div class="menu-btn-wrap">
         <button class="tool-btn small" onclick="this.getRootNode().host.toggleMenu('reportMenu', event)">📊 Report ▾</button>
@@ -1041,28 +1040,6 @@ const MARKUP = `
         </div>
         <div class="modal-foot">
             <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('optimizeReportModal')">Done</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== SPLIT MULTI-DAY REPORT MODAL ===== -->
-<div class="modal-overlay" id="splitReportModal">
-    <div class="modal-box wide">
-        <div class="modal-head">
-            <h2>🔀 Split Multi-Day Report</h2>
-            <button class="modal-close" onclick="this.getRootNode().host.closeModal('splitReportModal')">×</button>
-        </div>
-        <div class="modal-body">
-            <p id="splitReportSummary" style="color:#666; font-size:13px; margin-top:0;"></p>
-            <div style="max-height:340px; overflow:auto; border:1px solid #eee; border-radius:6px;">
-                <table class="preview-table">
-                    <thead><tr><th>Asset</th><th>Activity</th><th>Start Date</th><th>Days Split Into</th></tr></thead>
-                    <tbody id="splitReportBody"></tbody>
-                </table>
-            </div>
-        </div>
-        <div class="modal-foot">
-            <button class="tool-btn primary" onclick="this.getRootNode().host.closeModal('splitReportModal')">Done</button>
         </div>
     </div>
 </div>
@@ -2000,15 +1977,12 @@ export class BridgeView extends HTMLElement {
             btn.classList.toggle('primary', this.editModeActive);
             btn.textContent = this.editModeActive ? '🔓 Editing' : '🔒 Edit';
         }
-        // Add, Optimize, and Split Multi-Day all mutate the schedule, so
-        // per request none of them are even shown until Edit is on — not
-        // just gated on click.
+        // Add and Optimize both mutate the schedule, so per request
+        // neither is even shown until Edit is on — not just gated on click.
         const addWrap = this.$('add-menu-wrap');
         if (addWrap) addWrap.style.display = this.editModeActive ? 'inline-block' : 'none';
         const optimizeBtn = this.$('optimizeBtn');
         if (optimizeBtn) optimizeBtn.style.display = this.editModeActive ? 'flex' : 'none';
-        const splitBtn = this.$('splitMultiDayBtn');
-        if (splitBtn) splitBtn.style.display = this.editModeActive ? 'flex' : 'none';
         this.classList.toggle('edit-locked', !this.isViewerRole && !this.editModeActive);
         // Re-apply to whichever item modal is currently open (if any) so
         // toggling mid-edit immediately enables/disables its fields —
@@ -3823,53 +3797,6 @@ export class BridgeView extends HTMLElement {
         this.openModal('optimizeReportModal');
     }
 
-    // "🔀 Split Multi-Day" — the retroactive counterpart to
-    // splitItemIntoDays() being applied automatically on every creation
-    // path now: restructures every EXISTING current/future multi-day
-    // activity into its daily chain, per request ("split all existing
-    // multi-day items too"). A completed (fully in the past) multi-day
-    // activity is left alone — historical record, not something to
-    // restructure. Same "mark pending, show a report, let the user
-    // Accept & Publish or Discard" pattern as Optimize, rather than a
-    // silent background sweep — this app already learned that lesson the
-    // hard way with the background-sweep race earlier.
-    async splitAllMultiDayItems() {
-        if (!this.requireEditMode()) return;
-        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-        const todayStartMs = todayStart.getTime();
-        const candidates = this.DATA.items.filter(it => (parseFloat(it.duration_hours) || 0) > 24 && this.itemEndMs(it) > todayStartMs);
-        if (!candidates.length) { this.toast('No multi-day activities to split — everything current/future is already single-day.'); return; }
-
-        const report = [];
-        const pendingItems = [];
-        for (const item of candidates) {
-            const asset = item.asset_name, activity = item.activity_name;
-            const totalDays = Math.round((parseFloat(item.duration_hours) || 24) / 24);
-            const startDate = new Date(item.start_ts).toISOString().slice(0, 10);
-            const days = await this.splitItemIntoDays(item);
-            pendingItems.push(...days);
-            report.push({ asset, activity, totalDays, startDate });
-        }
-        for (const it of pendingItems) this.markPendingSync(it);
-        this.savePendingSyncState();
-        this.updatePendingSyncUI();
-        this.renderGantt();
-        this.renderSplitReport(report);
-    }
-
-    renderSplitReport(report) {
-        this.$('splitReportSummary').textContent =
-            `${report.length} multi-day activit${report.length === 1 ? 'y' : 'ies'} restructured into daily chains. ` +
-            `Nothing has been published to Schedule yet — close this, then use Accept & Publish (or Discard) on the pending-changes banner.`;
-        this.$('splitReportBody').innerHTML = report.map(r => `<tr>
-            <td>${escHtml(r.asset)}</td>
-            <td>${escHtml(r.activity)}</td>
-            <td>${r.startDate}</td>
-            <td style="text-align:center;">${r.totalDays}</td>
-        </tr>`).join('');
-        this.openModal('splitReportModal');
-    }
-
     toggleCriticalPath(checked) {
         this.showCriticalPath = checked;
         this.renderGantt();
@@ -4729,8 +4656,10 @@ export class BridgeView extends HTMLElement {
     // must already exist in this.DATA.items and have been saved via
     // ItemsDB (insert or update) with its real duration — this only
     // handles the RESTRUCTURING, not the initial save. Called from every
-    // creation path (New Item, Bulk Add) and from splitAllMultiDayItems()
-    // for existing data.
+    // creation/resize path (New Item, Bulk Add, drag-resize, Schedule's
+    // Reschedule/Duplicate) — there is no separate action to retroactively
+    // split existing items; this only ever runs when something is actually
+    // being created, resized, or rescheduled.
     //
     // Day 1 reuses the original item's id/predecessor_ids — nothing
     // pointing INTO this activity needs to change. Anything that already
@@ -6418,8 +6347,21 @@ export class BridgeView extends HTMLElement {
             // group whenever a superseded_by relationship links two of its
             // own members — genuine accidental duplicates (no such
             // relationship) are still consolidated exactly as before.
+            //
+            // A split multi-day activity (splitItemIntoDays()) is the SAME
+            // kind of false positive, just worse — every one of its Day 1
+            // ... Day Y items shares the identical asset+activity by
+            // design, so a 3-day activity's own three legitimate days
+            // looked exactly like a 3-way accidental duplicate and got
+            // merged down to one on the very next pull, the moment Bridge
+            // was reloaded/reselected — confirmed happening in production.
+            // "Day \d+ of \d+" in any member's notes is this feature's own
+            // unambiguous signature (see splitItemIntoDays()); its
+            // presence anywhere in the group means this is a real,
+            // intentional multi-instance activity, not a duplicate.
             const groupIds = new Set(group.map(it => it.id));
             if (group.some(it => it.superseded_by && groupIds.has(it.superseded_by))) continue;
+            if (group.some(it => /Day\s+\d+\s+of\s+\d+/i.test(it.notes || ''))) continue;
             group.sort((a, b) => {
                 const aLinked = a.launchpad_id ? 1 : 0, bLinked = b.launchpad_id ? 1 : 0;
                 if (aLinked !== bLinked) return bLinked - aLinked; // linked item wins first
@@ -6452,75 +6394,99 @@ export class BridgeView extends HTMLElement {
 
         for (const key of Object.keys(rowGroups)) {
             const rows = rowGroups[key];
-            // an id already linked to one of our items always wins; among
-            // ties (or when nothing is linked yet), the latest day_label wins
-            rows.sort((a, b) => {
-                const aLinked = reverseMap[a.id] ? 1 : 0, bLinked = reverseMap[b.id] ? 1 : 0;
-                if (aLinked !== bLinked) return bLinked - aLinked;
-                return (b.day_label || '').localeCompare(a.day_label || '');
-            });
-            const bestRow = rows[0];
-
-            // ---- Step 2: resolve to a single item ----
-            let item = reverseMap[bestRow.id];
-            if (!item) {
-                for (const r of rows) { if (reverseMap[r.id]) { item = reverseMap[r.id]; break; } }
+            // ---- Step 2: resolve EVERY row in this group to its own item ----
+            // Used to pick a single "bestRow" per (asset, activity) group
+            // and resolve just that one, silently skipping every other row
+            // in the group entirely. That was fine when at most one Bridge
+            // item could ever share an asset+activity — a split multi-day
+            // activity (splitItemIntoDays()) breaks that assumption on
+            // purpose, pushing one row PER DAY under the identical
+            // asset+activity, so the old code dropped every day but one
+            // from this pass (or worse, could match the wrong row to the
+            // wrong day once none were linked yet). Confirmed happening in
+            // production. Every row is resolved on its own now:
+            //   1. A row whose id already matches an item's launchpad_id
+            //      is an unambiguous, already-established link.
+            //   2. Whatever's left (a day_label change, or nothing pushed
+            //      yet) is paired up earliest-row-to-earliest-item by
+            //      date — correct for a same-named chain, since its days
+            //      are already in date order on both sides, and a no-op
+            //      distinction for the ordinary single-row/single-item case.
+            //   3. Any row still left over past that becomes a new
+            //      imported item, same as the single-row case always did.
+            const resolved = []; // { row, item } — item is null for a brand-new import
+            const linkedItemIds = new Set();
+            const unresolvedRows = [];
+            for (const row of rows) {
+                const linkedItem = reverseMap[row.id];
+                if (linkedItem) { resolved.push({ row, item: linkedItem }); linkedItemIds.add(linkedItem.id); }
+                else unresolvedRows.push(row);
             }
-            if (!item) {
+            if (unresolvedRows.length) {
                 // asset+activity identity takes precedence over trusting
-                // whatever this item's launchpad_id currently says — LaunchPad
+                // whatever an item's launchpad_id currently says — LaunchPad
                 // doesn't reliably preserve row ids or clean up the old row
                 // when an activity moves, so a stale link must not block a
                 // legitimate re-match here (that's exactly how the "moved in
                 // LaunchPad but created a duplicate" bug happened)
-                item = this.DATA.items.find(it =>
-                    it.asset_name.trim().toLowerCase() === bestRow.asset.trim().toLowerCase() &&
-                    it.activity_name.trim().toLowerCase() === bestRow.activity.trim().toLowerCase());
-                if (item && !item.launchpad_id) matched++;
+                const candidateItems = this.DATA.items.filter(it =>
+                    !linkedItemIds.has(it.id) &&
+                    it.asset_name.trim().toLowerCase() === unresolvedRows[0].asset.trim().toLowerCase() &&
+                    it.activity_name.trim().toLowerCase() === unresolvedRows[0].activity.trim().toLowerCase());
+                unresolvedRows.sort((a, b) => (a.day_label || '').localeCompare(b.day_label || ''));
+                candidateItems.sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
+                for (let i = 0; i < unresolvedRows.length; i++) {
+                    const item = candidateItems[i] || null;
+                    if (item && !item.launchpad_id) matched++;
+                    resolved.push({ row: unresolvedRows[i], item });
+                }
             }
 
-            if (item) {
-                let dayChanged = false;
-                const patch = {};
-                if (bestRow.day_label !== item.launchpad_day_label) {
-                    const oldStart = new Date(item.start_ts);
-                    const [y, m, d] = bestRow.day_label.split('-').map(Number);
-                    const newStart = new Date(oldStart);
-                    newStart.setFullYear(y, m - 1, d);
-                    item.start_ts = newStart.toISOString();
-                    patch.start_ts = item.start_ts;
-                    dayChanged = true;
+            for (const { row: bestRow, item: matchedItem } of resolved) {
+                let item = matchedItem;
+                if (item) {
+                    let dayChanged = false;
+                    const patch = {};
+                    if (bestRow.day_label !== item.launchpad_day_label) {
+                        const oldStart = new Date(item.start_ts);
+                        const [y, m, d] = bestRow.day_label.split('-').map(Number);
+                        const newStart = new Date(oldStart);
+                        newStart.setFullYear(y, m - 1, d);
+                        item.start_ts = newStart.toISOString();
+                        patch.start_ts = item.start_ts;
+                        dayChanged = true;
+                    }
+                    if (item.launchpad_id !== bestRow.id) patch.launchpad_id = bestRow.id;
+                    item.launchpad_id = bestRow.id;
+                    item.launchpad_day_label = bestRow.day_label;
+                    patch.launchpad_day_label = bestRow.day_label;
+                    if ((bestRow.notes || '') !== (item.notes || '')) {
+                        item.notes = bestRow.notes || '';
+                        patch.notes = item.notes;
+                    }
+                    await this.DB.update(this.TABLES.items, item.id, patch);
+                    if (dayChanged) { await this.enforceDependencies(item.id); moved++; }
+                } else {
+                    const startDate = new Date(bestRow.day_label + 'T07:00');
+                    await this.ensureListValue('assets', bestRow.asset);
+                    await this.ensureListValue('activities', bestRow.activity);
+                    const payload = {
+                        asset_name: bestRow.asset,
+                        activity_name: bestRow.activity,
+                        duration_hours: daysToHours(1),
+                        area: bestRow.place || '',
+                        contractor_name: bestRow.trade_partners || '',
+                        notes: bestRow.notes || 'Imported from LaunchPad',
+                        start_ts: startDate.toISOString(),
+                        predecessor_ids: [],
+                        launchpad_id: bestRow.id,
+                        launchpad_day_label: bestRow.day_label
+                    };
+                    const saved = await this.DB.insert(this.TABLES.items, payload);
+                    const newItem = saved ? { ...saved, duration_hours: payload.duration_hours } : { id: uid(), ...payload };
+                    this.DATA.items.push(newItem);
+                    imported++;
                 }
-                if (item.launchpad_id !== bestRow.id) patch.launchpad_id = bestRow.id;
-                item.launchpad_id = bestRow.id;
-                item.launchpad_day_label = bestRow.day_label;
-                patch.launchpad_day_label = bestRow.day_label;
-                if ((bestRow.notes || '') !== (item.notes || '')) {
-                    item.notes = bestRow.notes || '';
-                    patch.notes = item.notes;
-                }
-                await this.DB.update(this.TABLES.items, item.id, patch);
-                if (dayChanged) { await this.enforceDependencies(item.id); moved++; }
-            } else {
-                const startDate = new Date(bestRow.day_label + 'T07:00');
-                await this.ensureListValue('assets', bestRow.asset);
-                await this.ensureListValue('activities', bestRow.activity);
-                const payload = {
-                    asset_name: bestRow.asset,
-                    activity_name: bestRow.activity,
-                    duration_hours: daysToHours(1),
-                    area: bestRow.place || '',
-                    contractor_name: bestRow.trade_partners || '',
-                    notes: bestRow.notes || 'Imported from LaunchPad',
-                    start_ts: startDate.toISOString(),
-                    predecessor_ids: [],
-                    launchpad_id: bestRow.id,
-                    launchpad_day_label: bestRow.day_label
-                };
-                const saved = await this.DB.insert(this.TABLES.items, payload);
-                const newItem = saved ? { ...saved, duration_hours: payload.duration_hours } : { id: uid(), ...payload };
-                this.DATA.items.push(newItem);
-                imported++;
             }
         }
         this.setSaveIndicator('ready', 'Ready');
