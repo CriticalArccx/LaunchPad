@@ -3153,9 +3153,18 @@ export class BridgeView extends HTMLElement {
                 this.LAST_GROUPS = {}; this.LAST_GROUPBY = groupBy;
                 return;
             }
+            // Per request: every day of a split multi-day activity shares
+            // ONE row here instead of each getting its own — grouped by
+            // the chain's Day 1 id (getChainRootId()) rather than each
+            // item's own id. layoutLanes() below already packs them onto
+            // the same lane on its own (each day starts exactly when the
+            // previous one's lane frees up, by construction), so this is
+            // the only change actually needed — an ordinary single-day
+            // item just groups under its own id same as before.
             visibleItems.slice().sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts)).forEach(it => {
-                groups[it.id] = [it];
-                displayLabels[it.id] = `${it.asset_name} — ${it.activity_name}`;
+                const rootId = this.getChainRootId(it);
+                (groups[rootId] = groups[rootId] || []).push(it);
+                if (!displayLabels[rootId]) displayLabels[rootId] = `${it.asset_name} — ${it.activity_name}`;
             });
         } else {
             items.forEach(it => {
@@ -4318,6 +4327,32 @@ export class BridgeView extends HTMLElement {
             cursorId = next.id;
         }
         return chain;
+    }
+
+    // Inverse of getDayChainFromDay1() — given ANY day of a split
+    // multi-day chain, walks backward via predecessor_ids to find Day 1's
+    // id (used by renderGantt()'s Waterfall-zoom row grouping, per
+    // request, so every day of one activity shares a row instead of each
+    // getting its own). Returns the item's own id unchanged if it isn't
+    // part of a multi-day chain, or if the chain turns out to be broken —
+    // same "fall back rather than guess" rule getDayChainFromDay1() uses.
+    getChainRootId(item) {
+        const m = (item.notes || '').match(/Day\s+(\d+)\s+of\s+(\d+)/i);
+        if (!m) return item.id;
+        let x = parseInt(m[1], 10);
+        const y = parseInt(m[2], 10);
+        if (!(y > 1) || !(x >= 1)) return item.id;
+        let cursor = item;
+        while (x > 1) {
+            const predId = (cursor.predecessor_ids || [])[0];
+            const pred = predId ? this.DATA.items.find(i => i.id === predId) : null;
+            if (!pred) return item.id;
+            const pm = (pred.notes || '').match(/Day\s+(\d+)\s+of\s+(\d+)\b/i);
+            if (!pm || parseInt(pm[2], 10) !== y || parseInt(pm[1], 10) !== x - 1) return item.id;
+            cursor = pred;
+            x -= 1;
+        }
+        return cursor.id;
     }
 
     startDrag(e, el, mode) {
