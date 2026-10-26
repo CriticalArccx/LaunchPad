@@ -1,0 +1,17 @@
+-- Run this once in the Supabase SQL editor. Adds a column for the
+-- "Status Refresh Schedule" setting — specific times of day (in an
+-- admin-chosen time zone) at which every occupied Schedule row's Status
+-- column is fully repopulated, not just the rolling 7-day window the
+-- always-on background sync already covers. Read by index.html's
+-- Schedule config modal (Settings → Status Refresh Schedule) and by
+-- checkScheduledStatusRefresh()/triggerFullStatusRefresh().
+--
+-- jsonb object: { "times": ["06:00","14:00"], "timezone": "America/New_York" }
+-- — times are 24h "HH:MM" strings, timezone is an IANA zone name.
+--
+-- No default value / backfill needed, same reasoning as included_days.sql/
+-- blackout_dates.sql/status_color_rules.sql: index.html already defaults
+-- to { times: [], timezone: 'America/New_York' } (no scheduled refresh)
+-- when this column is null, so every existing project is unaffected
+-- until an admin actually adds a time.
+alter table launchpad_schedule_config add column if not exists status_refresh_schedule jsonb;

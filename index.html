@@ -1642,6 +1642,28 @@ body.help-docked #loading-overlay {
         </div>
 
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
+            <h2 style="color: #333; margin: 0;">Status Refresh Schedule</h2>
+            <p style="font-size:12px; color:#666; margin-bottom: 15px;">Times of day (in the chosen time zone) at which every occupied row's Status column is fully repopulated, not just the rolling 7-day window already kept current in the background. Requires at least one browser tab with this project open at that time — there is no server-side schedule behind this.</p>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                <label style="font-size:12.5px; color:#555; font-weight:600;">Time Zone
+                    <select id="status-refresh-timezone" style="padding:7px; border:1px solid #ccc; border-radius:4px; font-size:13px; margin-left:6px;">
+                        <option value="America/New_York">Eastern (America/New_York)</option>
+                        <option value="America/Chicago">Central (America/Chicago)</option>
+                        <option value="America/Denver">Mountain (America/Denver)</option>
+                        <option value="America/Phoenix">Arizona, no DST (America/Phoenix)</option>
+                        <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
+                        <option value="America/Anchorage">Alaska (America/Anchorage)</option>
+                        <option value="Pacific/Honolulu">Hawaii (Pacific/Honolulu)</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </label>
+                <input type="time" id="status-refresh-time-input" style="padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                <button onclick="addStatusRefreshTime()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed #2e7d32; background: white; color: #2e7d32; border-radius:4px;">+ Add Time</button>
+            </div>
+            <div id="status-refresh-times-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ddd; min-height: 20px;"></div>
+        </div>
+
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-bottom: 30px;">
             <h2 style="color: #333; margin: 0;">Status Colors</h2>
             <p style="font-size:12px; color:#666; margin-bottom: 15px;">Colors Status/Result cells use for matching keywords, checked top to bottom — the first rule whose keywords match wins. "Default" covers anything that doesn't match a rule above it.</p>
             <div id="status-color-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
@@ -2307,6 +2329,67 @@ function isDateIncluded(dateStr) {
     return !blackoutDates.includes(dateStr);
 }
 
+// Status Refresh Schedule — per request, lets an admin define specific
+// times of day (in a chosen time zone) at which every occupied row's
+// Status (col 5) is repopulated in full, not just the rolling 7-day
+// window the always-on 60-second background sync already covers (see
+// triggerFullStatusRefresh()/checkScheduledStatusRefresh() below). Empty
+// times = feature off (default) until an admin adds one in Settings.
+let statusRefreshSchedule = { times: [], timezone: 'America/New_York' };
+
+// Returns "HH:MM" (24h) for right now in the given IANA time zone, or
+// null if the zone string is invalid — Intl.DateTimeFormat is the
+// standard way to read wall-clock time in an arbitrary zone from a plain
+// Date (which otherwise only ever exposes local-browser or UTC time).
+function currentTimeInZone(timeZone) {
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+        let hh = parts.find(p => p.type === 'hour').value;
+        const mm = parts.find(p => p.type === 'minute').value;
+        if (hh === '24') hh = '00'; // some engines report midnight as "24" with hour12:false
+        return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+    } catch (e) {
+        console.error('Status Refresh Schedule: invalid time zone', timeZone, e);
+        return null;
+    }
+}
+
+// "YYYY-MM-DD" for right now in the given zone — used only to key
+// __lastStatusRefreshFireKey below so a matching minute fires exactly
+// once, not on every 60-second tick while the clock still reads that
+// same "HH:MM".
+function currentDateInZone(timeZone) {
+    try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+    } catch (e) {
+        return null;
+    }
+}
+
+let __lastStatusRefreshFireKey = null;
+// Checked every 60 seconds alongside the regular background sync (see the
+// setInterval() below) — fires a full, all-occupied-rows status refresh
+// the one minute each configured time actually matches, regardless of
+// document.hidden (a scheduled admin refresh should still fire for a
+// backgrounded tab, unlike the casual continuous sync). This is
+// inherently client-side-only: it can only ever fire while at least one
+// browser tab has this project open, the same limitation
+// triggerFullStatusRefresh()'s own interval already has — there is no
+// server-side cron behind this.
+function checkScheduledStatusRefresh() {
+    if (!statusRefreshSchedule.times || !statusRefreshSchedule.times.length) return;
+    const tz = statusRefreshSchedule.timezone || 'America/New_York';
+    const nowHHMM = currentTimeInZone(tz);
+    const nowDate = currentDateInZone(tz);
+    if (!nowHHMM || !nowDate) return;
+    if (!statusRefreshSchedule.times.includes(nowHHMM)) return;
+    const fireKey = `${nowDate} ${nowHHMM}`;
+    if (__lastStatusRefreshFireKey === fireKey) return; // already fired for this exact minute
+    __lastStatusRefreshFireKey = fireKey;
+    console.log(`⏰ Status Refresh Schedule firing (${tz} ${nowHHMM})`);
+    triggerFullStatusRefresh(true);
+}
+
 async function loadScheduleConfig() {
     try {
         // select('*') rather than naming status_color_rules/included_days
@@ -2336,6 +2419,13 @@ async function loadScheduleConfig() {
         if (row && Array.isArray(row.blackout_dates)) {
             blackoutDates = row.blackout_dates;
             LP_CACHE.set('blackoutDates', blackoutDates);
+        }
+        if (row && row.status_refresh_schedule && typeof row.status_refresh_schedule === 'object') {
+            statusRefreshSchedule = {
+                times: Array.isArray(row.status_refresh_schedule.times) ? row.status_refresh_schedule.times : [],
+                timezone: row.status_refresh_schedule.timezone || 'America/New_York'
+            };
+            LP_CACHE.set('statusRefreshSchedule', statusRefreshSchedule);
         }
         if (row && row.column_config && row.column_config.length) {
             scheduleColConfig = row.column_config;
@@ -2519,6 +2609,10 @@ if (isIPad()) {
 // a paced series of network lookups; no reason to do that for a tab nobody's
 // looking at. Catch up with one pass as soon as the tab becomes visible again.
 setInterval(() => {
+        // Runs regardless of document.hidden — a scheduled admin refresh
+        // should still fire for a backgrounded tab, unlike the casual
+        // continuous sync below.
+        checkScheduledStatusRefresh();
         if (document.hidden) return;
         triggerFullStatusRefresh(); // Silent background sync
          // Periodic Google Sheets refresh
@@ -4689,7 +4783,12 @@ function updateSearchUI() {
  * Automatically rechecks statuses for rows within the 7-day targeted window.
  * Performs a quiet background sync without clearing text or causing a visual flicker.
  */
-async function triggerFullStatusRefresh() {
+// fullRange=true (used by the admin-configured Status Refresh Schedule
+// below) skips the 7-day window entirely and refreshes every occupied
+// row regardless of date — "all of the status columns," per request,
+// not just the near-term ones the regular 60-second background pass
+// already keeps current.
+async function triggerFullStatusRefresh(fullRange = false) {
     // 1. Calculate the 7-day range using Local Time to match autoCleanUI
     const now = new Date();
     const todayStr = [
@@ -4697,7 +4796,7 @@ async function triggerFullStatusRefresh() {
         String(now.getMonth() + 1).padStart(2, '0'),
         String(now.getDate()).padStart(2, '0')
     ].join('-');
-    
+
     const endDate = new Date();
     endDate.setDate(now.getDate() + 6);
     const endStr = [
@@ -4706,8 +4805,8 @@ async function triggerFullStatusRefresh() {
         String(endDate.getDate()).padStart(2, '0')
     ].join('-');
 
-    console.log(`♻️ Starting Targeted Refresh: ${todayStr} to ${endStr}`);
-    
+    console.log(fullRange ? '⏰ Starting Scheduled Full Refresh (all occupied rows)' : `♻️ Starting Targeted Refresh: ${todayStr} to ${endStr}`);
+
     // Select all occupied rows (rows that have data)
     const occupiedRows = document.querySelectorAll('.cell-row[data-occupied="true"]');
     let refreshCount = 0;
@@ -4717,8 +4816,9 @@ async function triggerFullStatusRefresh() {
     for (const row of occupiedRows) {
         const rowDate = row.getAttribute('data-date');
 
-        // 2. Filter: Only proceed if the row falls within the targeted 7-day window
-        if (rowDate >= todayStr && rowDate <= endStr) {
+        // 2. Filter: Only proceed if the row falls within the targeted
+        // 7-day window — skipped entirely for a scheduled full refresh.
+        if (fullRange || (rowDate >= todayStr && rowDate <= endStr)) {
             const rowNum = parseInt(row.id.replace('row-wrapper-', ''));
 
             // Search for the specific columns using the data-col-index attribute
@@ -6637,12 +6737,14 @@ async function continueStartAppAfterProject(user) {
             const cachedStatusColorRules = LP_CACHE.get('statusColorRules');
             const cachedIncludedDays = LP_CACHE.get('includedDays');
             const cachedBlackoutDates = LP_CACHE.get('blackoutDates');
+            const cachedStatusRefreshSchedule = LP_CACHE.get('statusRefreshSchedule');
 
             if (cachedColConfig) { scheduleColConfig = cachedColConfig; renderDynamicHeaders(); }
             if (cachedRescheduleTriggers) { rescheduleTriggerResults = cachedRescheduleTriggers; }
             if (cachedStatusColorRules) { statusColorRules = cachedStatusColorRules; }
             if (cachedIncludedDays) { includedDays = cachedIncludedDays; }
             if (cachedBlackoutDates) { blackoutDates = cachedBlackoutDates; }
+            if (cachedStatusRefreshSchedule) { statusRefreshSchedule = cachedStatusRefreshSchedule; }
             if (cachedAppConfig) { appConfig = { ...appConfig, ...cachedAppConfig }; applySidebarConfig(); }
             if (cachedEqActivities) { equivalentActivitiesConfig = cachedEqActivities; renderEquivalentActivitiesUI(); }
             if (cachedDropdowns) {
@@ -6993,6 +7095,9 @@ function openScheduleConfigModal() {
     renderIncludedDaysUI();
     __blackoutDatesDraft = blackoutDates.slice();
     renderBlackoutDatesUI();
+    __statusRefreshTimesDraft = (statusRefreshSchedule.times || []).slice();
+    document.getElementById('status-refresh-timezone').value = statusRefreshSchedule.timezone || 'America/New_York';
+    renderStatusRefreshTimesUI();
 }
 
 // Builds the Included Days checkboxes (Sun-Sat) from the current
@@ -7050,6 +7155,41 @@ function addBlackoutDate() {
 function removeBlackoutDate(dateStr) {
     __blackoutDatesDraft = __blackoutDatesDraft.filter(d => d !== dateStr);
     renderBlackoutDatesUI();
+}
+
+// Same staged-draft pattern as __blackoutDatesDraft above, for the Status
+// Refresh Schedule's time list — the timezone <select> doesn't need a
+// draft of its own since it's a single field read directly from the DOM
+// at save time (see saveAllSettings()).
+let __statusRefreshTimesDraft = [];
+
+function renderStatusRefreshTimesUI() {
+    const container = document.getElementById('status-refresh-times-list');
+    if (!container) return;
+    if (!__statusRefreshTimesDraft.length) {
+        container.innerHTML = '<span style="font-size:12.5px; color:#999;">No scheduled refresh times yet.</span>';
+        return;
+    }
+    container.innerHTML = __statusRefreshTimesDraft.slice().sort().map(t => `
+        <span style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #ccc; border-radius:14px; padding:5px 10px 5px 12px; font-size:13px; color:#333;">
+            ${t}
+            <span onclick="removeStatusRefreshTime('${t}')" title="Remove" style="cursor:pointer; color:#d32f2f; font-weight:bold;">✕</span>
+        </span>
+    `).join('');
+}
+
+function addStatusRefreshTime() {
+    const input = document.getElementById('status-refresh-time-input');
+    const val = input.value;
+    if (!val) return;
+    if (!__statusRefreshTimesDraft.includes(val)) __statusRefreshTimesDraft.push(val);
+    input.value = '';
+    renderStatusRefreshTimesUI();
+}
+
+function removeStatusRefreshTime(val) {
+    __statusRefreshTimesDraft = __statusRefreshTimesDraft.filter(t => t !== val);
+    renderStatusRefreshTimesUI();
 }
 
 // Builds the Status Colors editor in the Schedule config modal — one row
@@ -7171,6 +7311,12 @@ async function saveAllSettings(btn) {
     // comment for why this is staged separately until now).
     blackoutDates = __blackoutDatesDraft.slice();
 
+    // 3b4. Commit the Status Refresh Schedule draft + timezone select.
+    statusRefreshSchedule = {
+        times: __statusRefreshTimesDraft.slice(),
+        timezone: document.getElementById('status-refresh-timezone').value || 'America/New_York'
+    };
+
     // 3c. Gather Status Colors — reads the DOM rows back into
     // statusColorRules in whatever order they're in now (new rows always
     // insert above 'default' — see addStatusColorRule() — so order is
@@ -7190,10 +7336,10 @@ async function saveAllSettings(btn) {
         const savedBy = window.__currentUserEmail || null;
 
         // launchpad_schedule_config's status_color_rules/included_days/
-        // blackout_dates columns only exist once their sync/*.sql
-        // migrations have been run for this project — if any hasn't,
-        // retry once without all three of those newer fields rather than
-        // letting a 42703 ("column does not exist") take the
+        // blackout_dates/status_refresh_schedule columns only exist once
+        // their sync/*.sql migrations have been run for this project — if
+        // any hasn't, retry once without all four of those newer fields
+        // rather than letting a 42703 ("column does not exist") take the
         // column_config/reschedule_trigger_results save down with it too.
         const scheduleConfigPayload = {
             project_key: window.LP_CONFIG.projectKey,
@@ -7202,12 +7348,13 @@ async function saveAllSettings(btn) {
             status_color_rules: statusColorRules,
             included_days: includedDays,
             blackout_dates: blackoutDates,
+            status_refresh_schedule: statusRefreshSchedule,
             updated_by: savedBy
         };
         let scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(scheduleConfigPayload, { onConflict: 'project_key' });
         if (scheduleConfigSave.error && scheduleConfigSave.error.code === '42703') {
-            console.warn('status_color_rules/included_days/blackout_dates column not found yet — saving the rest of Schedule Config without them. Run sync/status_color_rules.sql, sync/included_days.sql, and sync/blackout_dates.sql to enable saving those.', scheduleConfigSave.error);
-            const { status_color_rules, included_days, blackout_dates, ...withoutNewerFields } = scheduleConfigPayload;
+            console.warn('status_color_rules/included_days/blackout_dates/status_refresh_schedule column not found yet — saving the rest of Schedule Config without them. Run sync/status_color_rules.sql, sync/included_days.sql, sync/blackout_dates.sql, and sync/status_refresh_schedule.sql to enable saving those.', scheduleConfigSave.error);
+            const { status_color_rules, included_days, blackout_dates, status_refresh_schedule, ...withoutNewerFields } = scheduleConfigPayload;
             scheduleConfigSave = await _supabase.from('launchpad_schedule_config').upsert(withoutNewerFields, { onConflict: 'project_key' });
         }
         if (scheduleConfigSave.error) throw scheduleConfigSave.error;
@@ -7247,6 +7394,7 @@ async function saveAllSettings(btn) {
         LP_CACHE.set('statusColorRules', statusColorRules);
         LP_CACHE.set('includedDays', includedDays);
         LP_CACHE.set('blackoutDates', blackoutDates);
+        LP_CACHE.set('statusRefreshSchedule', statusRefreshSchedule);
 
         // Phase Rules still writes to Google Sheets in the background, so we
         // still give that a moment to finish before reloading — the three
