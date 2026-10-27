@@ -1,0 +1,26 @@
+name: PR title
+
+# Squash merges use the PR title as the commit on main, and release-please
+# reads those commits, so every title must be a Conventional Commit with the
+# Jira key as its scope, e.g. "feat(ARC-142): add forecast snapshot".
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          requireScope: true
+          scopes: |
+            ARC-\d+
+          # release-please's own release PRs ("chore(main): release x.y.z")
+          ignoreLabels: |
+            autorelease: pending

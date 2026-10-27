@@ -38,6 +38,7 @@ Google Sheet (per project) → Apps Script (launchpad_projects.google_script_url
 - The dashboard's title can be overridden by an admin through Dashboard Settings. The override is stored in `launchpad_projects.dashboard_display_name` and read as `LP_CONFIG.dashboardDisplayName`.
 
 ## Hard rules: do not break the live site
+0. **Branch per Jira item.** New work goes on `ARC-<number>-short-description`, one branch and one PR per ARC work item (see CLAUDE.md and the arclab-workflow plugin). `dashboard-edits` stays only until its open work is merged; the rules below apply to every branch.
 1. **Never commit to, push to, merge into, or rebase `main`.** All work happens on the `dashboard-edits` branch (or another feature branch).
 2. **Never force-push** and never rewrite shared history.
 3. Before any git write, run `git branch --show-current` and confirm it is **not** `main`.

@@ -1,0 +1,36 @@
+name: Claude docs check
+
+# Comments a short docs checklist on every PR (Agent Integration Guide, Step 7).
+# Skips itself until the ANTHROPIC_API_KEY secret exists, so it never turns a PR red
+# before setup. Comment only: it never approves or requests changes.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        if: env.HAS_KEY == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: '--allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"'
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} in ${{ github.repository }} against CLAUDE.md.
+            Then post one short checklist comment on the PR with `gh pr comment` answering:
+            1. Does the diff change behavior, schema, env vars, or data flow? If yes, is README.md updated?
+            2. Does it introduce an architecture decision? If yes, is there a new ADR in docs/adr/?
+            3. Does it add any secret, credential, client data, or SSI? Flag the line.
+            Do not approve or request changes. Comment only.
