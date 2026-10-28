@@ -6349,6 +6349,13 @@ let __pickerRequestsOpen = false;
 // Same admin rule a project applies once it's open (verifyPermission()):
 // the person's role in that project's own authorized_editors table.
 async function resolvePickerAdminProjects(projects, email) {
+    // A fresh PIN login reaches the picker before signInWithPassword() runs,
+    // so the email here is only what was typed. Admits need a real session
+    // (RLS rejects anon inserts), and requests shouldn't show to someone who
+    // only typed an admin's address — so require a session for this email.
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (!session || session.user.email.toLowerCase() !== email.toLowerCase()) return [];
+
     const isAdmin = await Promise.all(projects.map(async p => {
         const { data, error } = await _supabase
             .from(`${p.table_prefix}authorized_editors`)
