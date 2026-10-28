@@ -1433,6 +1433,12 @@ body.help-docked #loading-overlay {
     display: block;
     transform-origin: top left;
 }
+
+/* Picker's pending-requests dropdown: drop the browser's own disclosure
+   marker (Safari ignores list-style:none) and turn our arrow when open. */
+#picker-access-requests summary { list-style: none; }
+#picker-access-requests summary::-webkit-details-marker { display: none; }
+#picker-access-requests details[open] .picker-req-arrow { transform: rotate(90deg); }
 </style>
 </head>
 <body>
@@ -6333,6 +6339,9 @@ function toggleAccessRequestForm() {
 // URL, since admitUserCore()/declineUserCore() run with no project open.
 let __pickerAccessRequests = [];
 let __pickerAdminProjects = [];
+// Starts collapsed; remembered so reloading the list after an admit or
+// decline doesn't snap the dropdown shut on the admin mid-review.
+let __pickerRequestsOpen = false;
 
 async function loadPickerAccessRequests(adminProjects) {
     __pickerAdminProjects = adminProjects || [];
@@ -6367,7 +6376,20 @@ function renderPickerAccessRequests() {
 
     const esc = escapeHtmlForReschedule;
     slot.innerHTML = `
-        <div style="text-align:left; font-size:13px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:#d32f2f; margin: 0 0 10px;">Pending access requests (${reqs.length})</div>
+        <details ${__pickerRequestsOpen ? 'open' : ''} ontoggle="__pickerRequestsOpen = this.open" style="text-align:left; margin-bottom:18px; border:1px solid #f3c7c7; border-radius:10px; background:#fffafa; overflow:hidden;">
+        <summary style="cursor:pointer; display:flex; align-items:center; gap:8px; padding:10px 12px; font-size:13px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:#d32f2f; background:#fdecec;">
+            <span class="picker-req-arrow" style="display:inline-block; transition:transform 0.15s;">▸</span>
+            Pending access requests (${reqs.length})
+        </summary>
+        <div style="padding:10px 12px 4px;">
+        <div style="display:flex; gap:8px; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid #eee;">
+            <button id="picker-admit-all-btn" onclick="pickerAdmitAllRequests()" style="flex:1; background:#2e7d32; color:white; border:none; padding:8px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">
+                Admit All (${reqs.length})
+            </button>
+            <button id="picker-decline-all-btn" onclick="pickerDeclineAllRequests()" style="flex:1; background:#d32f2f; color:white; border:none; padding:8px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">
+                Decline All (${reqs.length})
+            </button>
+        </div>
         ${reqs.map((req, i) => `
             <div style="text-align:left; padding:10px 12px; margin-bottom:8px; border:1px solid #f3c7c7; border-radius:10px; background:#fff8f8;">
                 <div style="font-size:14px; font-weight:700; color:#1b1b1b; word-break:break-all;">${esc(req.email)}</div>
@@ -6387,7 +6409,8 @@ function renderPickerAccessRequests() {
                 </div>
             </div>
         `).join('')}
-        <div style="border-top:1px solid #eee; margin:14px 0 18px;"></div>
+        </div>
+        </details>
     `;
 }
 
@@ -6428,6 +6451,64 @@ async function pickerDeclineRequest(i) {
     } catch (e) {
         alert("Error declining request: " + e.message);
     }
+    loadPickerAccessRequests(__pickerAdminProjects);
+}
+
+// Disables every Admit/Decline in the dropdown while a bulk run is going.
+function setPickerBulkBusy(busy) {
+    __pickerAccessRequests.forEach((_, i) => setPickerRequestBusy(i, busy));
+    ['picker-admit-all-btn', 'picker-decline-all-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) { btn.disabled = busy; btn.style.opacity = busy ? '0.6' : '1'; }
+    });
+}
+
+// Picker versions of admitAllUsers()/declineAllUsers(): same one-confirm,
+// one-summary pattern, but each request goes to its own project.
+async function pickerAdmitAllRequests() {
+    const pending = __pickerAccessRequests.slice();
+    if (pending.length === 0) return;
+    const projectCount = new Set(pending.map(r => r.project.projectKey)).size;
+    if (!confirm(`Admit all ${pending.length} pending request${pending.length === 1 ? '' : 's'} across ${projectCount} project${projectCount === 1 ? '' : 's'} with their currently selected roles?`)) return;
+
+    setPickerBulkBusy(true);
+    let ok = 0, fail = 0, anyMembershipWarning = false;
+    for (const [i, req] of pending.entries()) {
+        try {
+            const roleSelect = document.getElementById(`picker-admit-role-${i}`);
+            const role = roleSelect ? roleSelect.value : (req.requested_role || 'editor');
+            const membershipError = await admitUserCore(req.email, req.company, req.id, role, req.project);
+            if (membershipError) anyMembershipWarning = true;
+            ok++;
+        } catch (e) {
+            fail++;
+            console.error('Picker Admit All: failed for', req.email, req.projectName, e);
+        }
+    }
+
+    alert(`Admitted ${ok} user${ok === 1 ? '' : 's'}${fail ? ` — ${fail} failed, see console` : '.'}` + (anyMembershipWarning ? '\n\n(Warning: at least one launchpad_memberships row failed to add — check the console.)' : ''));
+    loadPickerAccessRequests(__pickerAdminProjects);
+}
+
+async function pickerDeclineAllRequests() {
+    const pending = __pickerAccessRequests.slice();
+    if (pending.length === 0) return;
+    const projectCount = new Set(pending.map(r => r.project.projectKey)).size;
+    if (!confirm(`Decline all ${pending.length} pending request${pending.length === 1 ? '' : 's'} across ${projectCount} project${projectCount === 1 ? '' : 's'}? This cannot be undone.`)) return;
+
+    setPickerBulkBusy(true);
+    let ok = 0, fail = 0;
+    for (const req of pending) {
+        try {
+            await declineUserCore(req.email, req.id, req.project);
+            ok++;
+        } catch (e) {
+            fail++;
+            console.error('Picker Decline All: failed for', req.email, req.projectName, e);
+        }
+    }
+
+    alert(`Declined ${ok} request${ok === 1 ? '' : 's'}${fail ? ` — ${fail} failed, see console` : '.'}`);
     loadPickerAccessRequests(__pickerAdminProjects);
 }
 
