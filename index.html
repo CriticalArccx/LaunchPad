@@ -5385,7 +5385,7 @@ async function updateMemberRole(email, newRole) {
         return;
     }
 
-    // Keep the picker's admin flag (controls access-code regeneration) in
+    // Keep the picker's admin flag (controls who sees pending access requests) in
     // sync with the real role.
     await _supabase
         .from('launchpad_memberships')
@@ -6266,11 +6266,6 @@ function renderProjectPicker(projects, opts) {
             <span style="font-weight:600; color:#1b1b1b; padding: 10px 14px; display:flex; align-items:center; flex:1; min-width:0;">${p.project_name || p.project_key}: <span id="access-code-display-${p.project_key}" style="letter-spacing:1px; margin-left:5px;">${p.access_code || '——————'}</span></span>
             ${p.logo_url ? `<img src="${p.logo_url}" style="align-self:stretch; width:300px; object-fit:cover; flex-shrink:0; display:block;">` : '<span style="font-size:22px; flex-shrink:0; display:flex; align-items:center; padding-right:14px;">📁</span>'}
         </button>
-        ${p.isAdminHere ? `
-            <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#666; padding:6px 4px 12px;">
-                <a href="javascript:void(0)" onclick="regenerateAccessCode('${p.project_key}', event)" style="color:#2e7d32; text-decoration:none; font-weight:600;">Regenerate code</a>
-            </div>
-        ` : ''}
         <div style="margin-bottom:8px;"></div>
     `;
 
@@ -6510,24 +6505,6 @@ async function pickerDeclineAllRequests() {
 
     alert(`Declined ${ok} request${ok === 1 ? '' : 's'}${fail ? ` — ${fail} failed, see console` : '.'}`);
     loadPickerAccessRequests(__pickerAdminProjects);
-}
-
-// Lets a project's own admin (checked server-side via RLS, not just this
-// client-side flag) generate a fresh code, invalidating the old one.
-async function regenerateAccessCode(projectKey, event) {
-    if (event) event.stopPropagation();
-    const newCode = String(Math.floor(100000 + Math.random() * 900000));
-    const { error } = await _supabase
-        .from('launchpad_projects')
-        .update({ access_code: newCode })
-        .eq('project_key', projectKey);
-
-    if (error) {
-        alert('Could not regenerate code: ' + error.message);
-        return;
-    }
-    const display = document.getElementById(`access-code-display-${projectKey}`);
-    if (display) display.innerText = newCode;
 }
 
 // Called when the user clicks a project on the picker screen. Resumes
