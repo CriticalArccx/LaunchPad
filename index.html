@@ -5408,16 +5408,29 @@ async function removeMember(email) {
     refreshMembersList();
 }
 
+// Which project an admit/decline acts on. Defaults to the open project; the
+// project picker passes the request's own project instead, since no project
+// is open there (and one admin's requests can span several projects).
+function requestProjectContext(project) {
+    return project || {
+        projectKey: window.LP_CONFIG.projectKey,
+        tablePrefix: window.LP_CONFIG.tablePrefix,
+        googleScriptUrl: GOOGLE_SCRIPT_URL
+    };
+}
+
 // Core of declineUser() with no confirm()/alert()/refresh — declineUser()
 // wraps this for the single-click case, declineAllUsers() calls it directly
 // in a loop so a bulk decline doesn't pop a dialog per row.
-async function declineUserCore(email, requestId) {
+async function declineUserCore(email, requestId, project) {
+    const ctx = requestProjectContext(project);
+
     // 1. Remove from STY4access_requests
-    const { error } = await _supabase.from(T('access_requests')).delete().eq('id', requestId);
+    const { error } = await _supabase.from(`${ctx.tablePrefix}access_requests`).delete().eq('id', requestId);
     if (error) throw error;
 
     // 2. Send Notification Email via Google Script
-    const url = `${GOOGLE_SCRIPT_URL}?action=notifyDecline&email=${encodeURIComponent(email)}`;
+    const url = `${ctx.googleScriptUrl}?action=notifyDecline&email=${encodeURIComponent(email)}`;
     await fetch(url);
 }
 
@@ -5573,16 +5586,17 @@ async function refreshRequestList() {
 // the single-click case, admitAllUsers() calls it directly in a loop.
 // Returns the membershipError (if any) so callers can decide how to warn
 // about it, same as the single-click path already did inline.
-async function admitUserCore(email, company, requestId, role) {
+async function admitUserCore(email, company, requestId, role, project) {
     role = role || 'editor';
     const emailLower = email.toLowerCase();
+    const ctx = requestProjectContext(project);
 
     // Someone requesting a role UPGRADE (e.g. viewer -> editor via
         // requestHigherAccess()) is already a row in authorized_editors —
         // trying to INSERT them again fails on the unique email constraint.
         // Check first, and update in place if they already exist instead.
         const { data: existingMember, error: lookupError } = await _supabase
-            .from(T('authorized_editors'))
+            .from(`${ctx.tablePrefix}authorized_editors`)
             .select('email')
             .ilike('email', emailLower)
             .maybeSingle();
@@ -5591,7 +5605,7 @@ async function admitUserCore(email, company, requestId, role) {
 
         if (existingMember) {
             const { data: updatedRows, error: updateError } = await _supabase
-                .from(T('authorized_editors'))
+                .from(`${ctx.tablePrefix}authorized_editors`)
                 .update({ company: company, role: role, is_admin: role === 'admin' })
                 .ilike('email', emailLower)
                 .select();
@@ -5607,7 +5621,7 @@ async function admitUserCore(email, company, requestId, role) {
             }
         } else {
             const { error: addError } = await _supabase
-                .from(T('authorized_editors'))
+                .from(`${ctx.tablePrefix}authorized_editors`)
                 .insert([{ email: emailLower, company: company, role: role, is_admin: role === 'admin' }]);
             if (addError) throw addError;
         }
@@ -5622,7 +5636,7 @@ async function admitUserCore(email, company, requestId, role) {
             .from('launchpad_memberships')
             .upsert([{
                 email: emailLower,
-                project_key: window.LP_CONFIG.projectKey,
+                project_key: ctx.projectKey,
                 is_admin: role === 'admin',
                 company: company
             }], { onConflict: 'email,project_key' })
@@ -5637,10 +5651,10 @@ async function admitUserCore(email, company, requestId, role) {
         }
 
     // 2. Remove from STY4access_requests
-    await _supabase.from(T('access_requests')).delete().eq('id', requestId);
+    await _supabase.from(`${ctx.tablePrefix}access_requests`).delete().eq('id', requestId);
 
     // 3. Send Notification Email via Google Script
-    const url = `${GOOGLE_SCRIPT_URL}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
+    const url = `${ctx.googleScriptUrl}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
     await fetch(url);
 
     return membershipError || null;
@@ -6174,7 +6188,7 @@ async function selectProject(userEmail, knownUser) {
 
     const { data: memberships, error } = await _supabase
         .from('launchpad_memberships')
-        .select('project_key')
+        .select('project_key, is_admin')
         .eq('email', userEmail.toLowerCase());
 
     if (error || !memberships || memberships.length === 0) {
@@ -6215,6 +6229,9 @@ async function selectProject(userEmail, knownUser) {
         isAdminHere: memberships.some(m => m.project_key === p.project_key && m.is_admin)
     }));
     renderProjectPicker(withAdminFlag, { showRequestAccess: true, allowCancel: false, currentUserEmail: userEmail });
+    // Not awaited: the picker is usable straight away, and the requests
+    // section fills in once every admin project's table has been read.
+    loadPickerAccessRequests(withAdminFlag.filter(p => p.isAdminHere));
     return false;
 }
 
@@ -6290,7 +6307,13 @@ function renderProjectPicker(projects, opts) {
         ? `<div style="margin-top:12px; text-align:center;"><a href="javascript:void(0)" onclick="switchToLoginView()" style="font-size:13px; color:#999; text-decoration:none;">Back to Sign In</a></div>`
         : '';
 
-    list.innerHTML = projectsHtml;
+    // Placeholder for loadPickerAccessRequests(), only for admins — it stays
+    // empty (no header) until there's at least one pending request to show.
+    const requestsSlot = projects.some(p => p.isAdminHere)
+        ? '<div id="picker-access-requests"></div>'
+        : '';
+
+    list.innerHTML = requestsSlot + projectsHtml;
     // Rendered in the sticky footer outside the scrollable list (see the
     // #project-picker-footer markup) instead of appended after the
     // projects, so "Request access to another project" is always visible
@@ -6302,6 +6325,110 @@ function renderProjectPicker(projects, opts) {
 function toggleAccessRequestForm() {
     const form = document.getElementById('access-request-form');
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+// Pending access requests across every project this person administers,
+// shown at the top of the picker so they can admit people without opening
+// each project first. Each row keeps its own project's key/prefix/script
+// URL, since admitUserCore()/declineUserCore() run with no project open.
+let __pickerAccessRequests = [];
+let __pickerAdminProjects = [];
+
+async function loadPickerAccessRequests(adminProjects) {
+    __pickerAdminProjects = adminProjects || [];
+    const slot = document.getElementById('picker-access-requests');
+    if (!slot || __pickerAdminProjects.length === 0) return;
+
+    const perProject = await Promise.all(__pickerAdminProjects.map(async p => {
+        const { data, error } = await _supabase.from(`${p.table_prefix}access_requests`).select('*');
+        if (error) {
+            console.error('Picker: could not load access requests for', p.project_key, error);
+            return [];
+        }
+        return (data || []).map(req => ({
+            ...req,
+            project: { projectKey: p.project_key, tablePrefix: p.table_prefix, googleScriptUrl: p.google_script_url },
+            projectName: p.project_name || p.project_key
+        }));
+    }));
+
+    __pickerAccessRequests = perProject.flat();
+    renderPickerAccessRequests();
+}
+
+function renderPickerAccessRequests() {
+    const slot = document.getElementById('picker-access-requests');
+    if (!slot) return;
+    const reqs = __pickerAccessRequests;
+    if (reqs.length === 0) {
+        slot.innerHTML = '';
+        return;
+    }
+
+    const esc = escapeHtmlForReschedule;
+    slot.innerHTML = `
+        <div style="text-align:left; font-size:13px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:#d32f2f; margin: 0 0 10px;">Pending access requests (${reqs.length})</div>
+        ${reqs.map((req, i) => `
+            <div style="text-align:left; padding:10px 12px; margin-bottom:8px; border:1px solid #f3c7c7; border-radius:10px; background:#fff8f8;">
+                <div style="font-size:14px; font-weight:700; color:#1b1b1b; word-break:break-all;">${esc(req.email)}</div>
+                <div style="font-size:12.5px; color:#555; margin:3px 0 8px;">
+                    Requested <strong style="color:#2e7d32;">${esc(req.projectName)}</strong>
+                    · ${esc(req.company) || 'No company'}
+                    · ${req.requested_role === 'viewer' ? 'Viewer' : 'Editor'}
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <select id="picker-admit-role-${i}" style="font-size:12px; padding:5px; border-radius:4px; border:1px solid #ccc;">
+                        <option value="viewer" ${req.requested_role === 'viewer' ? 'selected' : ''}>Viewer</option>
+                        <option value="editor" ${req.requested_role === 'editor' || !req.requested_role ? 'selected' : ''}>Editor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button id="picker-admit-btn-${i}" onclick="pickerAdmitRequest(${i})" style="background:#2e7d32; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">Admit</button>
+                    <button id="picker-decline-btn-${i}" onclick="pickerDeclineRequest(${i})" style="background:#d32f2f; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">Decline</button>
+                </div>
+            </div>
+        `).join('')}
+        <div style="border-top:1px solid #eee; margin:14px 0 18px;"></div>
+    `;
+}
+
+// Disables a row's buttons while its admit/decline is in flight, so a
+// double-click can't run it twice.
+function setPickerRequestBusy(i, busy) {
+    ['picker-admit-btn-', 'picker-decline-btn-'].forEach(id => {
+        const btn = document.getElementById(id + i);
+        if (btn) { btn.disabled = busy; btn.style.opacity = busy ? '0.6' : '1'; }
+    });
+}
+
+async function pickerAdmitRequest(i) {
+    const req = __pickerAccessRequests[i];
+    if (!req) return;
+    const role = document.getElementById(`picker-admit-role-${i}`).value;
+    if (!confirm(`Admit ${req.email} to ${req.projectName} as ${role}?`)) return;
+
+    setPickerRequestBusy(i, true);
+    try {
+        const membershipError = await admitUserCore(req.email, req.company, req.id, role, req.project);
+        alert(`Access to ${req.projectName} granted and email sent to ${req.email}` + (membershipError ? '\n\n(Warning: could not add them to launchpad_memberships — check the console and add that row manually.)' : ''));
+    } catch (e) {
+        alert("Error admitting user: " + e.message);
+    }
+    loadPickerAccessRequests(__pickerAdminProjects);
+}
+
+async function pickerDeclineRequest(i) {
+    const req = __pickerAccessRequests[i];
+    if (!req) return;
+    if (!confirm(`Decline the request from ${req.email} for ${req.projectName}?`)) return;
+
+    setPickerRequestBusy(i, true);
+    try {
+        await declineUserCore(req.email, req.id, req.project);
+        alert(`Request declined and notification sent to ${req.email}`);
+    } catch (e) {
+        alert("Error declining request: " + e.message);
+    }
+    loadPickerAccessRequests(__pickerAdminProjects);
 }
 
 // Lets a project's own admin (checked server-side via RLS, not just this
