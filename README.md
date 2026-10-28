@@ -20,6 +20,10 @@ Static HTML and JavaScript with no build step, hosted on Vercel. Data lives in S
 (one production project). GitHub Actions in `.github/workflows/` sync and back up data on a
 schedule; their logic is in `sync/`.
 
+Database changes are SQL files in `sync/`, run by hand in the Supabase SQL editor.
+`sync/editor_policies.sql` sets who can add or change each project's editors; re-run it
+after creating a new project's tables.
+
 ## 3. Data flow
 
 Google Sheet (per project) → Apps Script → GitHub Action (`sync/sync-equipment-data.mjs`)

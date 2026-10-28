@@ -5381,7 +5381,7 @@ async function updateMemberRole(email, newRole) {
     }
 
     if (!updatedRows || updatedRows.length === 0) {
-        alert("The update didn't apply to any rows. This usually means there's no RLS UPDATE policy on this table for logged-in admins — run rbac_update_policy.sql.");
+        alert("The update didn't apply to any rows. This usually means you aren't an admin of this project, or its update policy is missing — run sync/editor_policies.sql.");
         return;
     }
 
@@ -5627,7 +5627,7 @@ async function admitUserCore(email, company, requestId, role, project) {
             // changed nothing. Catch that explicitly instead of reporting
             // false success.
             if (!updatedRows || updatedRows.length === 0) {
-                throw new Error("The update didn't apply to any rows. This usually means there's no RLS UPDATE policy on this table for logged-in admins — run rbac_update_policy.sql.");
+                throw new Error("The update didn't apply to any rows. This usually means you aren't an admin of this project, or its update policy is missing — run sync/editor_policies.sql.");
             }
         } else {
             const { error: addError } = await _supabase
