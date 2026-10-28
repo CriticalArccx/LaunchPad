@@ -5479,11 +5479,14 @@ async function declineAllUsers() {
 // companies (same list the schedule's own dropdowns use) plus an "+ Add New"
 // option that reveals a free-text field. Used by both the Pending Requests
 // and Members lists in Manage Access.
-function buildCompanyEditor(uid, currentValue, targetType, targetId) {
-    const companies = (window.dropdownData && window.dropdownData.col6) || [];
+// companies/tablePrefix default to the open project; the project picker
+// passes the request's own project's trade partners and table prefix.
+function buildCompanyEditor(uid, currentValue, targetType, targetId, companies, tablePrefix) {
+    companies = companies || (window.dropdownData && window.dropdownData.col6) || [];
+    tablePrefix = tablePrefix || '';
     const isKnown = currentValue && companies.includes(currentValue);
     return `
-        <select id="company-select-${uid}" onchange="onCompanySelectChange('${uid}', '${targetType}', '${targetId}', this.value)" style="font-size:11px; padding:4px; border-radius:4px; border:1px solid #ccc; max-width:130px;">
+        <select id="company-select-${uid}" onchange="onCompanySelectChange('${uid}', '${targetType}', '${targetId}', this.value, '${tablePrefix}')" style="font-size:11px; padding:4px; border-radius:4px; border:1px solid #ccc; max-width:130px;">
             <option value="">Unknown</option>
             ${companies.map(c => `<option value="${c}" ${c === currentValue ? 'selected' : ''}>${c}</option>`).join('')}
             ${!isKnown && currentValue ? `<option value="${currentValue}" selected>${currentValue}</option>` : ''}
@@ -5491,13 +5494,13 @@ function buildCompanyEditor(uid, currentValue, targetType, targetId) {
         </select>
         <input type="text" id="company-new-${uid}" placeholder="New company"
             value=""
-            onkeydown="if(event.key==='Enter'){ commitCompanyChange('${targetType}', '${targetId}', this.value); }"
-            onblur="commitCompanyChange('${targetType}', '${targetId}', this.value)"
+            onkeydown="if(event.key==='Enter'){ commitCompanyChange('${targetType}', '${targetId}', this.value, '${tablePrefix}'); }"
+            onblur="commitCompanyChange('${targetType}', '${targetId}', this.value, '${tablePrefix}')"
             style="display:none; font-size:11px; padding:4px; border-radius:4px; border:1px solid #ccc; max-width:110px; margin-left:4px;">
     `;
 }
 
-function onCompanySelectChange(uid, targetType, targetId, value) {
+function onCompanySelectChange(uid, targetType, targetId, value, tablePrefix) {
     const newInput = document.getElementById(`company-new-${uid}`);
     if (value === '__add_new__') {
         newInput.style.display = 'inline-block';
@@ -5506,14 +5509,15 @@ function onCompanySelectChange(uid, targetType, targetId, value) {
         return;
     }
     newInput.style.display = 'none';
-    commitCompanyChange(targetType, targetId, value);
+    commitCompanyChange(targetType, targetId, value, tablePrefix);
 }
 
-async function commitCompanyChange(targetType, targetId, value) {
+async function commitCompanyChange(targetType, targetId, value, tablePrefix) {
     value = value.trim();
     if (!value) return;
 
-    const table = targetType === 'request' ? T('access_requests') : T('authorized_editors');
+    const tbl = name => tablePrefix ? `${tablePrefix}${name}` : T(name);
+    const table = targetType === 'request' ? tbl('access_requests') : tbl('authorized_editors');
     const column = targetType === 'request' ? 'id' : 'email';
     // targetId comes through as a string from the inline onclick attribute;
     // access_requests.id is numeric, so cast it back for the request case.
@@ -5945,6 +5949,13 @@ async function handleForgotPin() {
 // 1. Function to handle sending the Magic Link
 // --- AUTHENTICATION LOGIC ---
 
+// A member's role from their authorized_editors row: the one rule shared by
+// verifyPermission() and the picker's admin check. Falls back gracefully for
+// any row that predates the role column/migration.
+function editorRole(row) {
+    return row.role || (row.is_admin ? 'admin' : 'editor');
+}
+
 // 1. Verify if email exists in your STY4authorized_editors table
 async function verifyPermission(email) {
     const { data, error } = await _supabase
@@ -5957,8 +5968,7 @@ async function verifyPermission(email) {
     
     // Save it globally for the filter
     window.userCompany = data.company;
-    // Fall back gracefully for any row that predates the role column/migration.
-    const role = data.role || (data.is_admin ? 'admin' : 'editor');
+    const role = editorRole(data);
     window.userRole = role;
     return { isAuthorized: true, isAdmin: role === 'admin', role, company: data.company };
 }
@@ -6194,7 +6204,7 @@ async function selectProject(userEmail, knownUser) {
 
     const { data: memberships, error } = await _supabase
         .from('launchpad_memberships')
-        .select('project_key, is_admin')
+        .select('project_key')
         .eq('email', userEmail.toLowerCase());
 
     if (error || !memberships || memberships.length === 0) {
@@ -6230,14 +6240,11 @@ async function selectProject(userEmail, knownUser) {
 
     if (projectsErr) console.error('Failed to load projects for picker:', projectsErr);
 
-    const withAdminFlag = (projects || []).map(p => ({
-        ...p,
-        isAdminHere: memberships.some(m => m.project_key === p.project_key && m.is_admin)
-    }));
-    renderProjectPicker(withAdminFlag, { showRequestAccess: true, allowCancel: false, currentUserEmail: userEmail });
+    const pickerProjects = projects || [];
+    renderProjectPicker(pickerProjects, { showRequestAccess: true, allowCancel: false, currentUserEmail: userEmail });
     // Not awaited: the picker is usable straight away, and the requests
     // section fills in once every admin project's table has been read.
-    loadPickerAccessRequests(withAdminFlag.filter(p => p.isAdminHere));
+    resolvePickerAdminProjects(pickerProjects, userEmail).then(loadPickerAccessRequests);
     return false;
 }
 
@@ -6308,9 +6315,10 @@ function renderProjectPicker(projects, opts) {
         ? `<div style="margin-top:12px; text-align:center;"><a href="javascript:void(0)" onclick="switchToLoginView()" style="font-size:13px; color:#999; text-decoration:none;">Back to Sign In</a></div>`
         : '';
 
-    // Placeholder for loadPickerAccessRequests(), only for admins — it stays
-    // empty (no header) until there's at least one pending request to show.
-    const requestsSlot = projects.some(p => p.isAdminHere)
+    // Placeholder for loadPickerAccessRequests(). It stays empty (no header)
+    // unless the person turns out to be an admin somewhere with at least
+    // one pending request, so non-admins never see anything here.
+    const requestsSlot = projects.length
         ? '<div id="picker-access-requests"></div>'
         : '';
 
@@ -6338,13 +6346,32 @@ let __pickerAdminProjects = [];
 // decline doesn't snap the dropdown shut on the admin mid-review.
 let __pickerRequestsOpen = false;
 
+// Same admin rule a project applies once it's open (verifyPermission()):
+// the person's role in that project's own authorized_editors table.
+async function resolvePickerAdminProjects(projects, email) {
+    const isAdmin = await Promise.all(projects.map(async p => {
+        const { data, error } = await _supabase
+            .from(`${p.table_prefix}authorized_editors`)
+            .select('is_admin, role')
+            .eq('email', email.toLowerCase())
+            .maybeSingle();
+        if (error) console.error('Picker: could not check admin role for', p.project_key, error);
+        return !error && !!data && editorRole(data) === 'admin';
+    }));
+    return projects.filter((_, i) => isAdmin[i]);
+}
+
 async function loadPickerAccessRequests(adminProjects) {
     __pickerAdminProjects = adminProjects || [];
     const slot = document.getElementById('picker-access-requests');
     if (!slot || __pickerAdminProjects.length === 0) return;
 
     const perProject = await Promise.all(__pickerAdminProjects.map(async p => {
-        const { data, error } = await _supabase.from(`${p.table_prefix}access_requests`).select('*');
+        // Trade partners feed the same company editor the in-project list uses.
+        const [{ data, error }, companies] = await Promise.all([
+            _supabase.from(`${p.table_prefix}access_requests`).select('*'),
+            fetchTradePartnersForProject(p.table_prefix)
+        ]);
         if (error) {
             console.error('Picker: could not load access requests for', p.project_key, error);
             return [];
@@ -6352,7 +6379,8 @@ async function loadPickerAccessRequests(adminProjects) {
         return (data || []).map(req => ({
             ...req,
             project: { projectKey: p.project_key, tablePrefix: p.table_prefix, googleScriptUrl: p.google_script_url },
-            projectName: p.project_name || p.project_key
+            projectName: p.project_name || p.project_key,
+            companies
         }));
     }));
 
@@ -6388,10 +6416,12 @@ function renderPickerAccessRequests() {
         ${reqs.map((req, i) => `
             <div style="text-align:left; padding:10px 12px; margin-bottom:8px; border:1px solid #f3c7c7; border-radius:10px; background:#fff8f8;">
                 <div style="font-size:14px; font-weight:700; color:#1b1b1b; word-break:break-all;">${esc(req.email)}</div>
-                <div style="font-size:12.5px; color:#555; margin:3px 0 8px;">
+                <div style="font-size:12.5px; color:#555; margin:3px 0 6px;">
                     Requested <strong style="color:#2e7d32;">${esc(req.projectName)}</strong>
-                    · ${esc(req.company) || 'No company'}
                     · ${req.requested_role === 'viewer' ? 'Viewer' : 'Editor'}
+                </div>
+                <div style="font-size:11px; color:#666; margin-bottom:8px; display:flex; align-items:center; gap:4px;">
+                    Company: ${buildCompanyEditor('pick-' + i, req.company, 'request', req.id, req.companies, req.project.tablePrefix)}
                 </div>
                 <div style="display:flex; gap:6px; align-items:center;">
                     <select id="picker-admit-role-${i}" style="font-size:12px; padding:5px; border-radius:4px; border:1px solid #ccc;">
@@ -6426,7 +6456,7 @@ async function pickerAdmitRequest(i) {
 
     setPickerRequestBusy(i, true);
     try {
-        const membershipError = await admitUserCore(req.email, req.company, req.id, role, req.project);
+        const membershipError = await admitUserCore(req.email, getCurrentCompanyValue(`pick-${i}`), req.id, role, req.project);
         alert(`Access to ${req.projectName} granted and email sent to ${req.email}` + (membershipError ? '\n\n(Warning: could not add them to launchpad_memberships — check the console and add that row manually.)' : ''));
     } catch (e) {
         alert("Error admitting user: " + e.message);
@@ -6472,7 +6502,8 @@ async function pickerAdmitAllRequests() {
         try {
             const roleSelect = document.getElementById(`picker-admit-role-${i}`);
             const role = roleSelect ? roleSelect.value : (req.requested_role || 'editor');
-            const membershipError = await admitUserCore(req.email, req.company, req.id, role, req.project);
+            const company = getCurrentCompanyValue(`pick-${i}`);
+            const membershipError = await admitUserCore(req.email, company, req.id, role, req.project);
             if (membershipError) anyMembershipWarning = true;
             ok++;
         } catch (e) {
