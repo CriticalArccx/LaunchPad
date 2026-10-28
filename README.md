@@ -65,7 +65,7 @@ release-please opens the release PR and writes `CHANGELOG.md`; the Jira version 
 
 ## 8. Feedback owner
 
-Canny owner for LaunchPad: _TBD_ (triages posts, creates Feature Requests by hand,
+Canny owner for LaunchPad: Quinn Harder (triages posts, creates Feature Requests by hand,
 closes posts at release).
 
 ## 9. User guides
