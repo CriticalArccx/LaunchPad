@@ -6031,21 +6031,19 @@ export class BridgeView extends HTMLElement {
             else { fail++; console.error('Accept: pending LaunchPad delete failed', launchpadId, error); }
         }
 
-        // "The scheduler should be resynced to match the bridge" — pushing
-        // the tracked deltas above is the common case, but this final sweep
-        // is the actual guarantee: anything still sitting in Schedule with
-        // no matching Bridge item gets cleared too, not just the ones this
-        // session happened to track through pendingDeleteLaunchPadIds.
-        // Silent — Accept itself was already the user's confirmation.
-        const extraCleared = await this.clearOrphanedScheduleRows({ silent: true });
+        // Accept deletes only what was deleted in Bridge (above). It used to
+        // finish with a silent clearOrphanedScheduleRows() sweep, which also
+        // deleted Schedule lines Bridge had never linked: lines with no
+        // asset or activity (the pull can't import those) and lines typed
+        // into Schedule since the last pull (ARC-170). Leftover rows are
+        // for the manual Reconcile tool, which pulls first and confirms.
 
         this.savePendingSyncState();
         this.updatePendingSyncUI();
         this.setSaveIndicator('ready', 'Ready');
         this.toast(
             `Published ${ok} change${ok === 1 ? '' : 's'} to Schedule` +
-            (extraCleared ? `, cleared ${extraCleared} stale row${extraCleared === 1 ? '' : 's'}` : '') +
-            ` — Schedule now matches Bridge${fail ? `. ${fail} failed, still pending, see console` : '.'}`,
+            `${fail ? `. ${fail} failed, still pending, see console` : '.'}`,
             7000
         );
     }
@@ -6513,10 +6511,6 @@ export class BridgeView extends HTMLElement {
     // fully-automatic pull/repair above, this stays a manually-triggered
     // tool (see the "Reconcile Scheduler with Bridge" button in Manage
     // Lists) with a confirmation preview, same pattern as deleteItemById().
-    //
-    // Piloting on the CASB project only for now, per request — the
-    // clearing half is a no-op for every other project until this has been
-    // proven out there; the additive pull above still runs for everyone.
     async reconcileScheduleWithBridge() {
         if (!this._supabase) { this.toast('Connect to Supabase first.'); return; }
         if (this.UNIFIED_SCHEDULE) { this.toast('This project already reads/writes BackEndData directly — nothing to reconcile.'); return; }
@@ -6529,13 +6523,8 @@ export class BridgeView extends HTMLElement {
     // Deletes every Scheduler row that has no matching Bridge item — the
     // other half of "tightening the pipeline": a Bridge delete should mean
     // the row disappears from Schedule too, not just stop being linked.
-    // Called two ways: manually via the Manage Lists button above (with a
-    // confirm preview, since it's a standalone maintenance sweep someone
-    // might run at any time), and automatically at the end of
-    // acceptPendingChanges() (silent — the user already confirmed intent by
-    // clicking Accept, and by that point every legitimate deletion has
-    // already gone through pendingDeleteLaunchPadIds; this is the final
-    // consistency guarantee that nothing else got left behind).
+    // Only called from reconcileScheduleWithBridge() above, with a confirm
+    // preview. It no longer runs on Accept (ARC-170).
     async clearOrphanedScheduleRows(opts) {
         const silent = opts && opts.silent;
         if (!this._supabase || this.UNIFIED_SCHEDULE) return 0;
@@ -6566,8 +6555,12 @@ export class BridgeView extends HTMLElement {
             return 0;
         }
         const linkedIds = new Set((linkedRows || []).map(r => String(r.launchpad_id)));
-        const isOccupied = row => !!(row.activity || row.asset || row.notes || row.status || row.trade_partners || row.time || row.place || row.result || row.loto);
-        const orphans = (data || []).filter(row => isOccupied(row) && !linkedIds.has(String(row.id)));
+        // Only rows Bridge could ever link count as orphans — the same test
+        // pullFromLaunchPad() uses to import a row. A line with no asset,
+        // activity or day (a meeting, a notes-only line) is never in Bridge,
+        // so being unlinked doesn't mean it was deleted there.
+        const isLinkable = row => !!(row.activity && row.asset && row.day_label);
+        const orphans = (data || []).filter(row => isLinkable(row) && !linkedIds.has(String(row.id)));
 
         if (!orphans.length) {
             if (!silent) this.toast('Reconcile: Scheduler already matches Bridge — nothing to clear.');
