@@ -5957,15 +5957,25 @@ function editorRole(row) {
 }
 
 // 1. Verify if email exists in your STY4authorized_editors table
+// Case-insensitive (older rows aren't always lowercased) and tolerant of a
+// duplicate row, either of which used to read as "not authorized" and bounce
+// a signed-in user to the sign-in form. A failed query is retried once and
+// reported as checkFailed, so callers can tell it apart from no access.
 async function verifyPermission(email) {
-    const { data, error } = await _supabase
+    const pattern = email.toLowerCase().replace(/[\\%_]/g, '\\$&');
+    const query = () => _supabase
         .from(T('authorized_editors'))
         .select('is_admin, company, role') // Fetch company + role here
-        .eq('email', email.toLowerCase())
-        .single();
+        .ilike('email', pattern);
 
-    if (error || !data) return { isAuthorized: false, isAdmin: false, role: null, company: null };
-    
+    let { data: rows, error } = await query();
+    if (error) ({ data: rows, error } = await query());
+
+    const rank = { admin: 3, editor: 2, viewer: 1 };
+    const data = (rows || []).sort((a, b) => (rank[editorRole(b)] || 0) - (rank[editorRole(a)] || 0))[0];
+
+    if (error || !data) return { isAuthorized: false, checkFailed: !!error, isAdmin: false, role: null, company: null };
+
     // Save it globally for the filter
     window.userCompany = data.company;
     const role = editorRole(data);
@@ -7069,8 +7079,29 @@ async function continueStartAppAfterProject(user) {
         return;
     }
 
+    // Still signed in, just can't open this project: send them back to the
+    // picker with the reason, not to the sign-in form (which looked like a
+    // logout).
+    if (await returnToPicker(user, permissions.checkFailed
+        ? `Couldn't check your access to ${window.LP_CONFIG.projectKey}. Check your connection and pick it again.`
+        : `Your account doesn't have access to ${window.LP_CONFIG.projectKey} yet. Ask that project's admin to add you.`)) return;
+
     spinnerSection.style.display = 'none';
     document.getElementById('auth-prompt').style.display = 'block';
+}
+
+// Re-shows the picker with a message on top. Returns false when there's no
+// picker to go back to (selectProject() picked a project on its own), so the
+// caller can fall back to the sign-in form.
+async function returnToPicker(user, message) {
+    localStorage.removeItem('launchpad_project');
+    if (await selectProject(user.email, user)) return false;
+    const list = document.getElementById('project-picker-list');
+    if (list) {
+        list.insertAdjacentHTML('afterbegin',
+            `<p style="background:#fdecec; color:#d32f2f; border-radius:6px; padding:10px 12px; font-size:13px; text-align:left; margin:0 0 14px;">${escapeHtmlForReschedule(message)}</p>`);
+    }
+    return true;
 }
 
 async function processGrantAccess() {
