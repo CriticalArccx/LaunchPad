@@ -8487,6 +8487,14 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
             .upsert([updateObj])
             .select();
 
+        // A rejected save used to be dropped silently, so the cell looked
+        // saved until the next reload (ARC-177).
+        if (error) {
+            console.error(`Save failed for ${dbCols[colIndex]} on row ${rowNum}`, error);
+            const indicator = document.getElementById('saveIndicator');
+            if (indicator) indicator.innerText = 'Save failed — see console';
+        }
+
         if (!error && data && data[0]) {
             row.setAttribute('data-occupied', 'true');
             document.getElementById('saveIndicator').innerText = `Saved at: ${new Date().toLocaleTimeString()}`;
