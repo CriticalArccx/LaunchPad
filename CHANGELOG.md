@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.0.0...v1.1.0) (2026-10-29)
+
+
+### Features
+
+* **ARC-175:** add a People column to the Schedule, filtered by Trade Partners ([763fcdf](https://github.com/CriticalArccx/LaunchPad/commit/763fcdf7aa60e201a584d907b0e1d1441e325829))
+* **ARC-175:** add a People column to the Schedule, filtered by Trade… ([4ec1715](https://github.com/CriticalArccx/LaunchPad/commit/4ec1715e1ebbaea8c4f8e30afb99903faaf3e206))
+
+
+### Bug Fixes
+
+* **ARC-177:** show Schedule cell save failures instead of dropping them ([f4a7905](https://github.com/CriticalArccx/LaunchPad/commit/f4a79050530949ed99ffd6bccc2c48eb1ba76c6d))
+* **ARC-177:** show Schedule cell save failures instead of dropping them ([e8209f5](https://github.com/CriticalArccx/LaunchPad/commit/e8209f5df2cb70b1571fa41efb922ed64fe61b30))
+
 ## 1.0.0 (2026-10-29)
 
 
