@@ -2286,6 +2286,12 @@ body.help-docked #loading-overlay {
 <script>
 
 // 🟢 THE FIX: Widths are now percentages that perfectly equal 100%
+// Duration dropdown: 0.5 hrs to 8 hrs in half-hour steps.
+const DURATION_OPTIONS = Array.from({ length: 16 }, (_, i) => {
+    const n = (i + 1) / 2;
+    return n === 1 ? '1 hr' : `${n} hrs`;
+});
+
 const defaultScheduleConfig = [
     { id: 1, name: 'Time', visible: true, width: 10 },
     { id: 2, name: 'Place', visible: true, width: 10 },
@@ -7183,7 +7189,7 @@ function refreshDropdowns() {
         // window.dropdownData.col10 (always undefined/empty) left it with
         // nothing but the blank "Select..." entry — the exact "LOTO has
         // no Yes/No options" bug. Just recolor it and move on.
-        if (colNum === 10) { applyCellColor(select, select.value); return; }
+        if (colNum === 9 || colNum === 10) { applyCellColor(select, select.value); return; }
 
         const options = window.dropdownData[`col${colNum}`] || [];
         
@@ -8114,16 +8120,20 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
                 };
             }
             else if (col === 9) {
-                // 🟢 THE FIX: Generates a locked, non-editable text input for Col 9 (Duration)
-                element = document.createElement('input');
-                element.type = 'text';
+                // Duration: filled from the project's sheet by the Status
+                // lookup when the activity has a set time, otherwise picked
+                // here from 0.5-8 hrs (ARC-176).
+                element = document.createElement('select');
                 element.id = cellId;
                 element.setAttribute('data-col-index', col);
-                element.readOnly = true;              // Locks the field from typing
-                element.tabIndex = -1;                // Prevents tabbing into it
-                element.style.pointerEvents = 'none'; // Prevents mouse clicks entirely
-                element.style.textAlign = 'center';   // Matches the status column look
+                element.innerHTML = '<option value="">Select...</option>' +
+                    DURATION_OPTIONS.map(d => `<option value="${d}">${d}</option>`).join('');
+                element.style.textAlign = 'center';
                 element.style.fontWeight = 'bold';
+                element.onchange = () => {
+                    applyCellColor(element, element.value);
+                    saveCell(element, element.value, col, true);
+                };
             }
             else {
                 // Generates a standard Text Input for any future columns
@@ -10296,25 +10306,22 @@ async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
             
             // --- NEW: Automatically populate Duration ---
             const col9 = document.getElementById(`${dayLabel}-r${rowNum}-c9`);
-            if (col9 && data.duration !== undefined) {
-                if (col9.value !== data.duration) {
-                    col9.value = data.duration;
-                    applyCellColor(col9, data.duration);
-                    saveCell(col9, data.duration, 9, true);
+            const sheetDuration = (data.duration ?? '').toString().trim();
+            if (col9 && sheetDuration && col9.value !== sheetDuration) {
+                if (![...col9.options].some(o => o.value === sheetDuration)) {
+                    col9.add(new Option(sheetDuration, sheetDuration));
                 }
+                col9.value = sheetDuration;
+                applyCellColor(col9, sheetDuration);
+                saveCell(col9, sheetDuration, 9, true);
             }
             
         } else if (!isBackground) {
             col5.innerText = "NA";
             applyCellColor(col5, "NA");
             
-            // Clear duration if nothing is found
-            const col9 = document.getElementById(`${dayLabel}-r${rowNum}-c9`);
-            if (col9) {
-                col9.value = "";
-                applyCellColor(col9, "");
-                saveCell(col9, "", 9, true);
-            }
+            // Duration is left as it is: with no set time from the sheet,
+            // it's whatever was picked from the dropdown.
         }
     } catch (e) {
         console.error("VLOOKUP Pull Error:", e);
