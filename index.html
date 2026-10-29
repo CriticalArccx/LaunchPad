@@ -520,7 +520,7 @@
     transition: opacity 0.5s ease;
 }
 /* Update your Column 6 style in the <style> block */
-[id$="-c6"] {
+[id$="-c6"], [id$="-c11"] {
     height: auto !important;
     min-height: 38px;       /* Standard height when empty */
     white-space: normal !important; /* Forces text to wrap to next line */
@@ -2296,7 +2296,9 @@ const defaultScheduleConfig = [
     { id: 7, name: 'Result', visible: true, width: 10 },
     { id: 8, name: 'Notes', visible: true, width: 10 },
     { id: 9, name: 'Duration', visible: true, width: 5 },
-    { id: 10, name: 'LOTO', visible: true, width: 8 }
+    { id: 10, name: 'LOTO', visible: true, width: 8 },
+    // Off by default in every project; turn on in Schedule settings.
+    { id: 11, name: 'People', visible: false, width: 15 }
 ];
 
 // Backing data for applyCellColor()'s keyword-matching color buckets
@@ -2441,6 +2443,9 @@ async function loadScheduleConfig() {
             }
             if (!scheduleColConfig.find(c => c.id === 10)) {
                 scheduleColConfig.push({ id: 10, name: 'LOTO', visible: true, width: 8 });
+            }
+            if (!scheduleColConfig.find(c => c.id === 11)) {
+                scheduleColConfig.push({ id: 11, name: 'People', visible: false, width: 15 });
             }
             
             // 🟢 THE FIX: Guarantee every column has a valid width number!
@@ -5887,10 +5892,10 @@ function updateRowInUI(row) {
 
     rowEl.setAttribute('data-occupied', 'true');
     // Column Name Mapping
-    const dbCols = { 1: 'time', 2: 'place', 3: 'activity', 4: 'asset', 5: 'status', 6: 'trade_partners', 7: 'result', 8: 'notes', 9: 'duration', 10: 'loto' };
+    const dbCols = { 1: 'time', 2: 'place', 3: 'activity', 4: 'asset', 5: 'status', 6: 'trade_partners', 7: 'result', 8: 'notes', 9: 'duration', 10: 'loto', 11: 'people' };
 
     // Update columns 1 through 10
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 11; i++) {
         const cellId = `${row.day_label}-r${row.id}-c${i}`;
         const el = document.getElementById(cellId);
         
@@ -5903,7 +5908,7 @@ function updateRowInUI(row) {
                     if (el.innerHTML.trim() !== content.trim()) {
                         el.innerHTML = content;
                     }
-                } else if (i === 6) {
+                } else if (i === 6 || i === 11) {
                 // Column 6 is the multi-select
                 el.setAttribute('data-selected', content);
                 if (el.options && el.options[0]) {
@@ -7190,7 +7195,7 @@ function refreshDropdowns() {
         
         const labelOpt = document.createElement('option');
         labelOpt.value = "";
-        labelOpt.text = (colNum === 6) ? (savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi") : "Select...";
+        labelOpt.text = (colNum === 6 || colNum === 11) ? (savedMultiText ? `Selected: ${savedMultiText}` : "+ Add Multi") : "Select...";
         select.appendChild(labelOpt);
 
         // Add standard options from the database
@@ -7205,9 +7210,9 @@ function refreshDropdowns() {
         }
         
         // Restore the selection
-        if (colNum !== 6) select.value = currentValue;
+        if (colNum !== 6 && colNum !== 11) select.value = currentValue;
 
-        applyCellColor(select, (colNum === 6 ? savedMultiText : select.value));
+        applyCellColor(select, ((colNum === 6 || colNum === 11) ? savedMultiText : select.value));
     });
 
     document.querySelectorAll('textarea').forEach(tx => {
@@ -7674,7 +7679,7 @@ function applyCellColor(element, value) {
     const lowerVal = cleanVal.toLowerCase();
 
     // --- THE FIX: Update Column 6 Display Label ---
-    if (element.id && element.id.endsWith("-c6") && element.tagName === "SELECT") {
+    if (element.id && (element.id.endsWith("-c6") || element.id.endsWith("-c11")) && element.tagName === "SELECT") {
         if (element.options && element.options[0]) {
             element.options[0].text = cleanVal ? `Selected: ${cleanVal}` : "+ Add Multi";
             element.selectedIndex = 0;
@@ -7684,7 +7689,7 @@ function applyCellColor(element, value) {
     // --- Expansion Logic (Existing) ---
     const charCount = cleanVal.length;
     const isWrappingCol = element.id && (
-        element.id.includes("-c5") || element.id.includes("-c6") || 
+        element.id.includes("-c5") || element.id.includes("-c6") || element.id.includes("-c11") || 
         element.id.includes("-c7") || element.id.includes("-c8")
     );
 
@@ -8027,7 +8032,7 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
                 element.setAttribute('data-col-index', col);
                 element.innerText = "...";
             } 
-            else if (col === 6) {
+            else if (col === 6 || col === 11) {
                 element = document.createElement('select');
                 element.id = cellId;
                 element.setAttribute('data-col-index', col);
@@ -8352,12 +8357,12 @@ async function saveReorderedDay(container, dayLabel) {
             checked: cb ? cb.checked : false,
             cols: {} 
         };
-        for (let col = 1; col <= 9; col++) {
+        for (let col = 1; col <= 11; col++) {
             const el = row.querySelector(`[data-col-index="${col}"]`);
             let val = ""; let html = "";
             if (el) {
                 if (col === 5) { val = el.innerText || ""; html = el.innerHTML || ""; }
-                else if (col === 6) { val = el.getAttribute('data-selected') || el.value || ""; }
+                else if (col === 6 || col === 11) { val = el.getAttribute('data-selected') || el.value || ""; }
                 else { val = el.value || ""; }
                 if (val === "..." || val === "+ Add Multi" || val === "Select...") val = "";
             }
@@ -8393,7 +8398,7 @@ async function saveReorderedDay(container, dayLabel) {
             else selectedRowIds.delete(targetRow.id);
         }
         
-        for (let col = 1; col <= 9; col++) {
+        for (let col = 1; col <= 11; col++) {
             const targetEl = targetRow.querySelector(`[data-col-index="${col}"]`);
             if (!targetEl) continue;
             
@@ -8406,7 +8411,7 @@ async function saveReorderedDay(container, dayLabel) {
                     targetEl.innerText = content || "...";
                 }
                 applyCellColor(targetEl, content);
-            } else if (col === 6) {
+            } else if (col === 6 || col === 11) {
                 targetEl.setAttribute('data-selected', content);
                 if (targetEl.options && targetEl.options[0]) {
                     targetEl.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
@@ -8473,7 +8478,7 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
         if (currentValue.includes("Checking") || (isFailsafe && currentValue === oldValue)) return;
 
         // Column Name Mapping
-        const dbCols = { 1: 'time', 2: 'place', 3: 'activity', 4: 'asset', 5: 'status', 6: 'trade_partners', 7: 'result', 8: 'notes', 9: 'duration', 10: 'loto' };
+        const dbCols = { 1: 'time', 2: 'place', 3: 'activity', 4: 'asset', 5: 'status', 6: 'trade_partners', 7: 'result', 8: 'notes', 9: 'duration', 10: 'loto', 11: 'people' };
 
         const updateObj = { id: parseInt(rowNum), day_label: dateId };
         updateObj[dbCols[colIndex]] = currentValue; // <-- Map the number to the new name
@@ -8541,14 +8546,14 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
 // means per column type (status is a span with a "..." placeholder, trade
 // partners stores its real value in data-selected, not .value).
 function isRowReallyBlank(row) {
-    for (let col = 1; col <= 10; col++) {
+    for (let col = 1; col <= 11; col++) {
         const el = row.querySelector(`[data-col-index="${col}"]`);
         if (!el) continue;
         let val;
         if (col === 5) {
             val = (el.innerText || "").trim();
             if (val === "...") val = "";
-        } else if (col === 6) {
+        } else if (col === 6 || col === 11) {
             val = (el.getAttribute('data-selected') || el.value || "").trim();
         } else {
             val = (el.value || "").trim();
@@ -9010,13 +9015,13 @@ function compactDayRows(dayLabel) {
 
     const scraped = occupiedRows.map(row => {
         const cols = {};
-        for (let col = 1; col <= 10; col++) {
+        for (let col = 1; col <= 11; col++) {
             const el = row.querySelector(`[data-col-index="${col}"]`);
             if (!el) { cols[col] = { val: "", html: "" }; continue; }
             if (col === 5) {
                 const txt = el.innerText || "";
                 cols[col] = { val: txt === "..." ? "" : txt, html: el.innerHTML || "" };
-            } else if (col === 6) {
+            } else if (col === 6 || col === 11) {
                 cols[col] = { val: el.getAttribute('data-selected') || el.value || "", html: "" };
             } else {
                 cols[col] = { val: el.value || "", html: "" };
@@ -9029,7 +9034,7 @@ function compactDayRows(dayLabel) {
         const targetRow = allRows[i];
         const sourceCols = i < scraped.length ? scraped[i] : null;
 
-        for (let col = 1; col <= 10; col++) {
+        for (let col = 1; col <= 11; col++) {
             const targetEl = targetRow.querySelector(`[data-col-index="${col}"]`);
             if (!targetEl) continue;
             const content = sourceCols ? sourceCols[col].val : "";
@@ -9040,7 +9045,7 @@ function compactDayRows(dayLabel) {
                 } else {
                     targetEl.innerText = content || "...";
                 }
-            } else if (col === 6) {
+            } else if (col === 6 || col === 11) {
                 targetEl.setAttribute('data-selected', content);
                 if (targetEl.options && targetEl.options[0]) {
                     targetEl.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
@@ -9533,7 +9538,38 @@ function toggleAllSections() {
 }
 
 // Creates and positions a floating multi-select checkbox menu with a search bar
-function openMultiSelectMenu(cellElement, rowNum, dayLabel) {
+// A multi-select cell's stored value as a list. Values are joined with ' | '
+// now; older ones used commas, which a company name can also contain, so a
+// value that exactly matches a known option is kept whole.
+function splitMultiValue(value, knownOptions) {
+    const v = (value || '').trim();
+    if (!v) return [];
+    if ((knownOptions || []).includes(v)) return [v];
+    return v.split(v.includes('|') ? '|' : ',').map(x => x.trim()).filter(Boolean);
+}
+
+// The project's members (email + company) for the People column's picker.
+// Loaded once per page, on first use.
+let __projectPeoplePromise = null;
+function loadProjectPeople() {
+    if (!__projectPeoplePromise) {
+        __projectPeoplePromise = _supabase
+            .from(T('authorized_editors'))
+            .select('email, company')
+            .order('email')
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('People column: could not load project members', error);
+                    __projectPeoplePromise = null; // retry on next open
+                    return [];
+                }
+                return (data || []).map(p => ({ email: p.email, company: (p.company || '').trim() }));
+            });
+    }
+    return __projectPeoplePromise;
+}
+
+async function openMultiSelectMenu(cellElement, rowNum, dayLabel) {
     let menu = document.getElementById('multi-select-menu');
     
     // Create the global floating menu if it doesn't exist yet
@@ -9582,8 +9618,22 @@ function openMultiSelectMenu(cellElement, rowNum, dayLabel) {
     const listContainer = document.getElementById('multi-select-list');
     
     searchInput.value = '';
-    
-    const opts = (window.dropdownData?.col6) || [];
+
+    // Trade Partners (col 6) lists the project's companies. People (col 11)
+    // lists the project's members, narrowed to the companies picked in this
+    // row's Trade Partners cell.
+    const colNum = parseInt(cellElement.getAttribute('data-col-index')) || 6;
+    let opts = (window.dropdownData?.col6) || [];
+    let emptyMessage = 'No options match';
+    if (colNum === 11) {
+        const people = await loadProjectPeople();
+        const tradeCell = document.getElementById(`${dayLabel}-r${rowNum}-c6`);
+        const companies = splitMultiValue(tradeCell?.getAttribute('data-selected'), window.dropdownData?.col6).map(c => c.toLowerCase());
+        opts = people.filter(p => companies.includes(p.company.toLowerCase())).map(p => p.email);
+        if (!tradeCell) emptyMessage = 'Turn on the Trade Partners column to pick people.';
+        else if (!companies.length) emptyMessage = 'Pick Trade Partners first.';
+        else if (!opts.length) emptyMessage = 'No members from the selected Trade Partners.';
+    }
     let currentContent = cellElement.getAttribute('data-selected') || "";
     let items = [];
     
@@ -9633,7 +9683,7 @@ function openMultiSelectMenu(cellElement, rowNum, dayLabel) {
                     if (cellElement.options && cellElement.options[0]) cellElement.options[0].text = "+ Add Multi";
                     cellElement.style.backgroundColor = "";
                 }
-                saveCell(cellElement, updatedString, 6, true);
+                saveCell(cellElement, updatedString, colNum, true);
             };
             
             label.onmouseenter = () => label.style.backgroundColor = "#f1f3f4";
@@ -9645,7 +9695,7 @@ function openMultiSelectMenu(cellElement, rowNum, dayLabel) {
         });
 
         if (!hasMatches) {
-            listContainer.innerHTML = '<div style="padding: 10px; color: #999; font-size:12px; text-align: center;">No options match</div>';
+            listContainer.innerHTML = `<div style="padding: 10px; color: #999; font-size:12px; text-align: center;">${filterText ? 'No options match' : emptyMessage}</div>`;
         }
     };
 
@@ -9861,7 +9911,9 @@ async function confirmBulkAction() {
             col6: rowDiv.querySelector(`[data-col-index="6"]`)?.getAttribute('data-selected') || "",
             col7: rowDiv.querySelector(`[data-col-index="7"]`)?.value || "",
             col8: rowDiv.querySelector(`[data-col-index="8"]`)?.value || "",
-            col9: rowDiv.querySelector(`[data-col-index="9"]`)?.value || ""
+            col9: rowDiv.querySelector(`[data-col-index="9"]`)?.value || "",
+            col10: rowDiv.querySelector(`[data-col-index="10"]`)?.value || "",
+            col11: rowDiv.querySelector(`[data-col-index="11"]`)?.getAttribute('data-selected') || ""
         };
         const oldRowId = parseInt(wrapperId.replace('row-wrapper-', ''));
         rowsToProcess.push({ data: rowData, rowDiv, oldRowId });
@@ -9897,7 +9949,7 @@ async function confirmBulkAction() {
         // Grab the ID of this specific row to trigger the lookup
         const rowNum = parseInt(emptyRow.id.replace('row-wrapper-', ''));
 
-        for (let col = 1; col <= 9; col++) {
+        for (let col = 1; col <= 11; col++) {
             const el = emptyRow.querySelector(`[data-col-index="${col}"]`);
             if (!el) continue;
 
@@ -9908,7 +9960,7 @@ async function confirmBulkAction() {
                 el.innerText = "⏳ Checking...";
                 applyCellColor(el, "Checking...");
                 content = "⏳ Checking...";
-            } else if (col === 6) {
+            } else if (col === 6 || col === 11) {
                 el.setAttribute('data-selected', content);
                 if (el.options && el.options[0]) el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
                 applyCellColor(el, content);
@@ -10836,15 +10888,15 @@ function applyScheduleDataToDom(data) {
         }
 
         // THE FIX: Activity is now 2, Place is now 3
-        const dbCols = { 1: 'time', 2: 'place', 3: 'activity', 4: 'asset', 5: 'status', 6: 'trade_partners', 7: 'result', 8: 'notes', 9: 'duration', 10: 'loto' };
+        const dbCols = { 1: 'time', 2: 'place', 3: 'activity', 4: 'asset', 5: 'status', 6: 'trade_partners', 7: 'result', 8: 'notes', 9: 'duration', 10: 'loto', 11: 'people' };
 
-        for (let col = 1; col <= 10; col++) {
+        for (let col = 1; col <= 11; col++) {
             const cellId = `${row.day_label}-r${row.id}-c${col}`;
             const el = document.getElementById(cellId);
             if (el && el !== document.activeElement) {
                 const content = row[dbCols[col]] || ""; 
 
-                if (col === 6) {
+                if (col === 6 || col === 11) {
                     el.setAttribute('data-selected', content);
                     if (el.options && el.options[0]) {
                         el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
@@ -11083,7 +11135,7 @@ function exportToPDF() {
                     if (colId === 5) {
                         val = el.innerText || "";
                         if (val === "...") val = ""; // Clean up default unassigned status dots
-                    } else if (colId === 6) {
+                    } else if (colId === 6 || colId === 11) {
                         val = el.getAttribute('data-selected') || el.value || "";
                     } else {
                         val = el.value || "";
@@ -11250,7 +11302,7 @@ async function orderChronologically() {
         // 1. Scrape the data from the current rows
         const rowDataList = occupiedRows.map(row => {
             const rowData = { timeStr: "", cols: {} };
-            for (let col = 1; col <= 10; col++) {
+            for (let col = 1; col <= 11; col++) {
                 const el = row.querySelector(`[data-col-index="${col}"]`);
                 let val = "";
                 let html = ""; // Capture HTML for the hyperlink
@@ -11259,7 +11311,7 @@ async function orderChronologically() {
                         val = el.innerText || "";
                         html = el.innerHTML || "";
                     }
-                    else if (col === 6) val = el.getAttribute('data-selected') || el.value || "";
+                    else if (col === 6 || col === 11) val = el.getAttribute('data-selected') || el.value || "";
                     else val = el.value || "";
                     
                     if (val === "..." || val === "+ Add Multi" || val === "Select...") val = "";
@@ -11280,7 +11332,7 @@ async function orderChronologically() {
             const targetRow = occupiedRows[i];
             const sourceData = rowDataList[i];
 
-            for (let col = 1; col <= 10; col++) {
+            for (let col = 1; col <= 11; col++) {
                 const targetEl = targetRow.querySelector(`[data-col-index="${col}"]`);
                 if (!targetEl) continue;
                 
@@ -11294,7 +11346,7 @@ async function orderChronologically() {
                         targetEl.innerText = content || "...";
                     }
                     applyCellColor(targetEl, content);
-                } else if (col === 6) {
+                } else if (col === 6 || col === 11) {
                     targetEl.setAttribute('data-selected', content);
                     if (targetEl.options && targetEl.options[0]) {
                         targetEl.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
@@ -11347,11 +11399,11 @@ async function cleanStatusOnlyRows() {
             if (!statusText || statusText === "...") continue; // nothing to wipe
 
             let onlyStatusHasData = true;
-            for (let col = 1; col <= 10; col++) {
+            for (let col = 1; col <= 11; col++) {
                 if (col === 5) continue;
                 const el = row.querySelector(`[data-col-index="${col}"]`);
                 if (!el) continue;
-                const val = col === 6
+                const val = (col === 6 || col === 11)
                     ? (el.getAttribute('data-selected') || el.value || "").trim()
                     : (el.value || "").trim();
                 if (val !== "" && !val.toLowerCase().includes("select")) { onlyStatusHasData = false; break; }
@@ -11554,7 +11606,7 @@ async function commitBatchAdd() {
                     const exists = Array.from(el.options).some(opt => opt.value === val);
                     if (!exists) el.add(new Option(val, val));
                 }
-                if (colIndex === 6) {
+                if (colIndex === 6 || colIndex === 11) {
                     el.setAttribute('data-selected', val);
                     if (el.options && el.options[0]) el.options[0].text = val ? `Selected: ${val}` : "+ Add Multi";
                 } else {
