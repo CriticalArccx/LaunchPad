@@ -29,6 +29,8 @@ const LP_CAL_SYNC = {
   daysBack: 30,          // lines older than this are left alone
   daysAhead: 180,        // lines further out than this are left alone
   maxChangesPerRun: 100, // stay under Calendar's rate limit; the rest go next run
+  maxRunMs: 270000,      // stop after 4.5 min; Apps Script kills a run at 6 min
+  pauseMs: 400,          // gap between Calendar writes (bursts get throttled)
   defaultHours: 1,
   rowTag: 'lpRowId',
   hashTag: 'lpHash'
@@ -78,38 +80,70 @@ function syncScheduleToCalendar() {
       if (ev) wanted[String(row.id)] = ev;
     });
 
+    // Each line is synced on its own (ARC-187): a Batch Add can land dozens of
+    // lines at once, and one throttled or failed Calendar call used to abort
+    // the whole run, so nothing after it was scheduled. Now a failed line is
+    // logged and skipped, and throttling or the run-time limit ends the run
+    // cleanly; whatever is left goes in the next run.
+    const started = Date.now();
+    let changes = 0, stopReason = '';
+    const failures = [];
+    const canContinue = () => {
+      if (stopReason) return false;
+      if (changes >= LP_CAL_SYNC.maxChangesPerRun) stopReason = 'change limit reached';
+      else if (Date.now() - started > LP_CAL_SYNC.maxRunMs) stopReason = 'time limit reached';
+      return !stopReason;
+    };
+    const attempt = (id, what, fn) => {
+      try {
+        fn();
+        changes++;
+        Utilities.sleep(LP_CAL_SYNC.pauseMs);
+      } catch (err) {
+        const msg = String(err && err.message || err);
+        if (/too many|rate limit|quota|try again later/i.test(msg)) {
+          stopReason = 'Google Calendar is throttling (' + msg + ')';
+        } else {
+          failures.push(`line ${id} (${what}): ${msg}`);
+        }
+      }
+    };
+
     // Our events only (tagged with a row id); anything else on the calendar is left alone.
     const existing = {};
     cal.getEvents(from, to).forEach(e => {
       const id = e.getTag(LP_CAL_SYNC.rowTag);
       if (!id) return;
-      if (existing[id]) e.deleteEvent(); // stray duplicate
-      else existing[id] = e;
+      if (!existing[id]) existing[id] = e;
+      else if (canContinue()) attempt(id, 'remove duplicate', () => e.deleteEvent());
     });
 
-    let changes = 0;
-    const budget = () => changes < LP_CAL_SYNC.maxChangesPerRun;
-
     Object.keys(existing).forEach(id => {
-      if (!wanted[id] && budget()) { existing[id].deleteEvent(); changes++; }
+      if (!wanted[id] && canContinue()) attempt(id, 'remove', () => existing[id].deleteEvent());
     });
 
     Object.keys(wanted).forEach(id => {
-      if (!budget()) return;
       const ev = wanted[id];
       const current = existing[id];
       if (current && current.getTag(LP_CAL_SYNC.hashTag) === ev.hash) return;
-      if (current && current.isAllDayEvent() === ev.allDay) lpCalUpdate_(current, ev);
-      else {
-        if (current) current.deleteEvent();
-        lpCalCreate_(cal, id, ev);
+      if (!canContinue()) return;
+      if (current && current.isAllDayEvent() === ev.allDay) {
+        attempt(id, 'update', () => lpCalUpdate_(current, ev));
+      } else {
+        attempt(id, current ? 'replace' : 'create', () => {
+          if (current) current.deleteEvent();
+          lpCalCreate_(cal, id, ev);
+        });
       }
-      changes++;
-      Utilities.sleep(200);
     });
 
     Logger.log(`Calendar sync: ${Object.keys(wanted).length} lines, ${changes} change(s)` +
-      (budget() ? '.' : ' (limit reached, rest next run).'));
+      (stopReason ? ` (stopped early: ${stopReason}; the rest go next run).` : '.'));
+    if (failures.length) {
+      // Thrown last so every other line still synced; the run shows as Failed
+      // under Executions with the lines that need a look.
+      throw new Error(`Calendar sync: ${failures.length} line(s) failed:\n` + failures.join('\n'));
+    }
   } finally {
     lock.releaseLock();
   }
@@ -208,8 +242,15 @@ function lpCalCreate_(cal, id, ev) {
   const e = ev.allDay
     ? cal.createAllDayEvent(ev.title, ev.start, opts)
     : cal.createEvent(ev.title, ev.start, ev.end, opts);
-  e.setTag(LP_CAL_SYNC.rowTag, id);
-  e.setTag(LP_CAL_SYNC.hashTag, ev.hash);
+  try {
+    e.setTag(LP_CAL_SYNC.rowTag, id);
+    e.setTag(LP_CAL_SYNC.hashTag, ev.hash);
+  } catch (err) {
+    // An untagged event is invisible to the sync and would be created again
+    // next run as a duplicate, so take it back out.
+    try { e.deleteEvent(); } catch (ignored) {}
+    throw err;
+  }
 }
 
 function lpCalUpdate_(e, ev) {
