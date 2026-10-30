@@ -231,6 +231,47 @@
         display: none !important;
     }
 
+    /* Calendar view (ARC-180): on/off slider next to Batch Add swaps each
+       week's day lists for a time grid. */
+    .cal-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; cursor: pointer; user-select: none; font-size: 13px; font-weight: bold; color: #2e7d32; }
+    .cal-toggle input { display: none; }
+    .cal-toggle-slider { position: relative; width: 36px; height: 20px; background: #bdbdbd; border-radius: 10px; transition: background 0.2s; }
+    .cal-toggle-slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    .cal-toggle input:checked + .cal-toggle-slider { background: #2e7d32; }
+    .cal-toggle input:checked + .cal-toggle-slider::after { transform: translateX(16px); }
+
+    .week-cal { display: none; padding: 10px 12px 14px; }
+    #schedule-view.cal-mode .week-cal { display: block; }
+    #schedule-view.cal-mode .week-content > .section-container,
+    #schedule-view.cal-mode .frozen-bar,
+    #schedule-view.cal-mode #btn-expand-days { display: none !important; }
+
+    .wc-head, .wc-allday, .wc-body { display: grid; }
+    .wc-head { border-bottom: 1px solid #e0e0e0; }
+    .wc-dayname { text-align: center; padding: 4px 0 6px; font-size: 12px; color: #5f6368; text-transform: uppercase; }
+    .wc-dayname b { display: block; margin: 2px auto 0; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; font-size: 20px; font-weight: normal; color: #3c4043; }
+    .wc-dayname.today { color: #2e7d32; }
+    .wc-dayname.today b { background: #2e7d32; color: #fff; }
+    .wc-allday { border-bottom: 1px solid #e0e0e0; min-height: 6px; }
+    .wc-allday > div { padding: 3px 2px; border-left: 1px solid #eee; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .wc-gutter { font-size: 11px; color: #70757a; text-align: right; padding-right: 6px; }
+    .wc-hour { position: relative; top: -7px; }
+    .wc-col { position: relative; border-left: 1px solid #eee; min-width: 0; }
+    .wc-col.today { background: rgba(46,125,50,0.04); }
+    .wc-line { position: absolute; left: 0; right: 0; border-top: 1px solid #f0f0f0; pointer-events: none; }
+    .wc-now { position: absolute; left: 0; right: 0; border-top: 2px solid #d93025; z-index: 3; pointer-events: none; }
+    .wc-event { position: absolute; box-sizing: border-box; padding: 2px 6px; overflow: hidden; border-radius: 4px; border: 1px solid #2e7d32; border-left-width: 4px; background: #e8f5e9; color: #1b5e20; font-size: 12px; line-height: 1.3; cursor: pointer; z-index: 2; }
+    .wc-allday .wc-event { position: static; white-space: nowrap; text-overflow: ellipsis; }
+    .wc-event:hover { z-index: 4; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+    .wc-event.past { opacity: 0.6; }
+    .wc-event .wc-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wc-empty { padding: 20px; text-align: center; color: #999; font-size: 13px; }
+    body.dark-mode .wc-dayname b { color: #e0e0e0; }
+    body.dark-mode .wc-head, body.dark-mode .wc-allday { border-color: #333; }
+    body.dark-mode .wc-col, body.dark-mode .wc-allday > div { border-color: #333; }
+    body.dark-mode .wc-line { border-color: #2a2a2a; }
+    body.dark-mode .wc-event { background: #1b3a1d; color: #c8e6c9; border-color: #4caf50; }
+
     .week-arrow {
         font-size: 16px;
     }
@@ -1849,6 +1890,11 @@ body.help-docked #loading-overlay {
                 <button id="batch-add-btn" class="tool-btn" onclick="openBatchAddModal()" style="background: #ffffff; color: #9c27b0; border-color: #9c27b0; display: inline-flex; align-items: center; gap: 8px; margin-left: 5px;">
                     Batch Add
                 </button>
+                <label class="cal-toggle" title="Show each week as a calendar">
+                    <input type="checkbox" id="calendar-view-checkbox" onchange="setScheduleCalendarMode(this.checked)">
+                    <span class="cal-toggle-slider"></span>
+                    <span class="cal-toggle-label">Calendar</span>
+                </label>
             </div>
 
             <div id="presence-list" style="display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 15px;">
@@ -5806,6 +5852,14 @@ function initRealtimeSync() {
             schema: 'public',
             table: T('BackEndData')
         }, payload => {
+            // Keep the cached copy current for the Calendar view (ARC-180),
+            // which draws from it rather than from the row DOM.
+            if (__lastScheduleData) {
+                const changedId = String((payload.new && payload.new.id) || (payload.old && payload.old.id));
+                __lastScheduleData = __lastScheduleData.filter(r => String(r.id) !== changedId);
+                if (payload.eventType !== 'DELETE') __lastScheduleData.push(payload.new);
+                scheduleWeekCalendarRender();
+            }
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                 const row = payload.new;
                 updateRowInUI(row);
@@ -9214,14 +9268,265 @@ function createWeekElement(baseDate, w) {
         weekContent.appendChild(section);
     }
 
+    // Calendar view grid (ARC-180) — only shown while the Calendar slider
+    // is on; filled by renderWeekCalendars().
+    const weekCal = document.createElement('div');
+    weekCal.className = 'week-cal';
+    weekContent.appendChild(weekCal);
+
     weekDiv.appendChild(weekHeader);
     weekDiv.appendChild(weekContent);
     return weekDiv;
 }
 
+// ---------------------------------------------------------------------------
+// Calendar view (ARC-180). Read-only: each week's day lists are swapped for a
+// time grid built from __lastScheduleData (kept current by loadData() and
+// the realtime handler). Lines are placed by Time and sized by Duration;
+// no Time → all-day strip. Clicking a block jumps back to that line.
+// ---------------------------------------------------------------------------
+const CAL_VIEW_STORAGE_KEY = 'lp_schedule_calendar_view';
+const CAL_HOUR_PX = 48;
+let __scheduleCalendarMode = (() => {
+    try { return localStorage.getItem(CAL_VIEW_STORAGE_KEY) === '1'; } catch (e) { return false; }
+})();
+
+function setScheduleCalendarMode(on) {
+    __scheduleCalendarMode = !!on;
+    try { localStorage.setItem(CAL_VIEW_STORAGE_KEY, on ? '1' : '0'); } catch (e) {}
+    applyCalendarModeClass();
+    if (on) renderWeekCalendars();
+}
+
+function applyCalendarModeClass() {
+    const view = document.getElementById('schedule-view');
+    if (view) view.classList.toggle('cal-mode', __scheduleCalendarMode);
+    const cb = document.getElementById('calendar-view-checkbox');
+    if (cb) cb.checked = __scheduleCalendarMode;
+}
+
+// Debounced so a batch of realtime rows, or a render followed straight away
+// by applyViewFilter(), only redraws once and after the filter has run.
+function scheduleWeekCalendarRender() {
+    if (!__scheduleCalendarMode) return;
+    clearTimeout(window.__weekCalRenderTimer);
+    window.__weekCalRenderTimer = setTimeout(renderWeekCalendars, 60);
+}
+
+// "0530", "930", "1030" (24h), "7:30 AM", "7 AM". null when blank/unreadable.
+function calParseTime(value) {
+    const s = (value || '').toString().trim();
+    const m = s.match(/^(\d{1,2})(?::?(\d{2}))?\s*([ap])?\.?m?\.?$/i);
+    if (!m || (!m[2] && !m[3])) return null;
+    let h = Number(m[1]);
+    const min = Number(m[2] || 0);
+    if (m[3]) {
+        const pm = m[3].toLowerCase() === 'p';
+        if (pm && h < 12) h += 12;
+        if (!pm && h === 12) h = 0;
+    }
+    return (h < 24 && min < 60) ? h * 60 + min : null;
+}
+
+// "2.5 hrs", "1 hr", "90 min"; blank → 1 hr. Returns minutes.
+function calParseDurationMins(value) {
+    const m = (value || '').toString().match(/(\d+(?:\.\d+)?)\s*(m|min|mins|minutes)?\b/i);
+    const n = m ? Number(m[1]) : 0;
+    const mins = m && m[2] ? n : n * 60;
+    return mins > 0 ? mins : 60;
+}
+
+function calFormatMins(mins) {
+    const h = Math.floor(mins / 60) % 24, m = mins % 60;
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''}${h < 12 ? 'am' : 'pm'}`;
+}
+
+function calLocalDateId(d) {
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+}
+
+function renderWeekCalendars() {
+    if (!__scheduleCalendarMode) return;
+    const byDay = {};
+    (__lastScheduleData || []).forEach(row => {
+        if (deletingRows.has(row.id)) return;
+        const asset = (row.asset || '').trim();
+        const activity = (row.activity || '').trim();
+        if (!asset && !activity) return;
+        (byDay[row.day_label] = byDay[row.day_label] || []).push(row);
+    });
+    document.querySelectorAll('.week-cal').forEach(cal => renderOneWeekCalendar(cal, byDay));
+}
+
+function renderOneWeekCalendar(cal, byDay) {
+    // Same days the list shows: Included Days/Blackouts never get a section,
+    // and Look Ahead hides out-of-range sections inline.
+    const days = Array.from(cal.parentElement.querySelectorAll(':scope > .section-container'))
+        .filter(s => s.style.display !== 'none')
+        .map(s => s.querySelector('.rows-container').id.replace('rows-', ''));
+    cal.innerHTML = '';
+    if (days.length === 0) return;
+
+    const todayId = calLocalDateId(new Date());
+    const timed = {}, allDay = {};
+    let minStart = 6 * 60, maxEnd = 18 * 60;
+    days.forEach(day => {
+        timed[day] = []; allDay[day] = [];
+        (byDay[day] || []).forEach(row => {
+            const start = calParseTime(row.time);
+            if (start === null) { allDay[day].push({ row }); return; }
+            const end = Math.min(start + calParseDurationMins(row.duration), 24 * 60);
+            timed[day].push({ row, start, end });
+            minStart = Math.min(minStart, Math.floor(start / 60) * 60);
+            maxEnd = Math.max(maxEnd, Math.ceil(end / 60) * 60);
+        });
+    });
+
+    const cols = `56px repeat(${days.length}, minmax(0, 1fr))`;
+
+    const head = document.createElement('div');
+    head.className = 'wc-head';
+    head.style.gridTemplateColumns = cols;
+    head.appendChild(document.createElement('div'));
+    days.forEach(day => {
+        const [y, m, d] = day.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        const cell = document.createElement('div');
+        cell.className = 'wc-dayname' + (day === todayId ? ' today' : '');
+        cell.textContent = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const num = document.createElement('b');
+        num.textContent = d;
+        cell.appendChild(num);
+        head.appendChild(cell);
+    });
+    cal.appendChild(head);
+
+    if (days.some(day => allDay[day].length)) {
+        const strip = document.createElement('div');
+        strip.className = 'wc-allday';
+        strip.style.gridTemplateColumns = cols;
+        const label = document.createElement('div');
+        label.className = 'wc-gutter';
+        label.style.border = 'none';
+        label.textContent = 'No time';
+        strip.appendChild(label);
+        days.forEach(day => {
+            const cell = document.createElement('div');
+            allDay[day].forEach(item => cell.appendChild(createCalEvent(item, day < todayId)));
+            strip.appendChild(cell);
+        });
+        cal.appendChild(strip);
+    }
+
+    const hours = (maxEnd - minStart) / 60;
+    const body = document.createElement('div');
+    body.className = 'wc-body';
+    body.style.gridTemplateColumns = cols;
+    body.style.height = `${hours * CAL_HOUR_PX}px`;
+
+    const gutter = document.createElement('div');
+    gutter.className = 'wc-gutter';
+    gutter.style.position = 'relative';
+    for (let h = 1; h < hours; h++) {
+        const lbl = document.createElement('div');
+        lbl.className = 'wc-hour';
+        lbl.style.cssText = `position:absolute; right:6px; top:${h * CAL_HOUR_PX - 7}px;`;
+        lbl.textContent = calFormatMins(minStart + h * 60).replace(/(am|pm)$/, ' $1').toUpperCase();
+        gutter.appendChild(lbl);
+    }
+    body.appendChild(gutter);
+
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    days.forEach(day => {
+        const col = document.createElement('div');
+        col.className = 'wc-col' + (day === todayId ? ' today' : '');
+        for (let h = 1; h < hours; h++) {
+            const line = document.createElement('div');
+            line.className = 'wc-line';
+            line.style.top = `${h * CAL_HOUR_PX}px`;
+            col.appendChild(line);
+        }
+        layoutCalLanes(timed[day]).forEach(item => {
+            const ev = createCalEvent(item, day < todayId || (day === todayId && item.end <= nowMins));
+            ev.style.top = `${(item.start - minStart) / 60 * CAL_HOUR_PX}px`;
+            ev.style.height = `${Math.max((item.end - item.start) / 60 * CAL_HOUR_PX - 2, 18)}px`;
+            ev.style.left = `calc(${item.lane / item.lanes * 100}% + 1px)`;
+            ev.style.width = `calc(${100 / item.lanes}% - 3px)`;
+            col.appendChild(ev);
+        });
+        if (day === todayId && nowMins >= minStart && nowMins <= maxEnd) {
+            const nowLine = document.createElement('div');
+            nowLine.className = 'wc-now';
+            nowLine.style.top = `${(nowMins - minStart) / 60 * CAL_HOUR_PX}px`;
+            col.appendChild(nowLine);
+        }
+        body.appendChild(col);
+    });
+    cal.appendChild(body);
+}
+
+// Overlapping lines sit side by side: each cluster of overlaps is split into
+// as many lanes as it needs at its busiest.
+function layoutCalLanes(items) {
+    items.sort((a, b) => a.start - b.start || b.end - a.end);
+    let cluster = [], laneEnds = [], clusterEnd = -1;
+    const finish = () => cluster.forEach(i => { i.lanes = laneEnds.length; });
+    items.forEach(item => {
+        if (item.start >= clusterEnd) { finish(); cluster = []; laneEnds = []; }
+        let lane = laneEnds.findIndex(end => end <= item.start);
+        if (lane < 0) { lane = laneEnds.length; laneEnds.push(item.end); } else laneEnds[lane] = item.end;
+        item.lane = lane;
+        cluster.push(item);
+        clusterEnd = Math.max(clusterEnd, item.end);
+    });
+    finish();
+    return items;
+}
+
+function createCalEvent(item, isPast) {
+    const row = item.row;
+    const titleText = [row.asset, row.activity].map(v => (v || '').trim()).filter(Boolean).join(' - ');
+    const ev = document.createElement('div');
+    ev.className = 'wc-event' + (isPast ? ' past' : '');
+    const title = document.createElement('div');
+    title.className = 'wc-title';
+    title.textContent = titleText;
+    ev.appendChild(title);
+    const when = item.start !== undefined ? `${calFormatMins(item.start)} – ${calFormatMins(item.end)}` : '';
+    if (when) {
+        const t = document.createElement('div');
+        t.textContent = when;
+        ev.appendChild(t);
+    }
+    ev.title = [
+        titleText,
+        when || (row.duration ? `No time · ${row.duration}` : 'No time'),
+        row.place && `Place: ${row.place}`,
+        row.trade_partners && `Trade Partners: ${row.trade_partners}`,
+        row.people && `People: ${row.people}`,
+        row.notes && `Notes: ${row.notes}`
+    ].filter(Boolean).join('\n');
+    ev.onclick = () => jumpToScheduleRow(row);
+    return ev;
+}
+
+function jumpToScheduleRow(row) {
+    setScheduleCalendarMode(false);
+    if (!ensureWeekRenderedForDayLabel(row.day_label)) return;
+    const rowEl = document.getElementById(`row-wrapper-${row.id}`);
+    if (!rowEl) return;
+    revealElement(rowEl);
+    rowEl.classList.add('search-active-result');
+    setTimeout(() => rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    setTimeout(() => rowEl.classList.remove('search-active-result'), 2500);
+}
+
 function createSections() {
     const contentArea = document.getElementById('main-content-area');
     if (!contentArea) return;
+    applyCalendarModeClass();
 
     contentArea.innerHTML = '';
     __scheduleWeeksRendered = 0;
@@ -10423,9 +10728,10 @@ function applyViewFilter(viewId) {
     } else {
         // OVERALL SCHEDULE: ViewId 'view1' or default
         // Standard behavior: make sure everything is expanded or follows default state
-        expandAllWeeks(); 
+        expandAllWeeks();
     }
     autoCleanUI();
+    scheduleWeekCalendarRender();
 }
 
 async function switchView(viewId, buttonElement) {
@@ -10948,6 +11254,7 @@ function applyScheduleDataToDom(data) {
         if (deletingRows.has(parseInt(idStr, 10))) return;
         if (!liveIds.has(idStr)) clearRowElement(rowEl);
     });
+    scheduleWeekCalendarRender();
 }
 
 async function loadData(isSilent = false, preFetchedPromise = null) {
