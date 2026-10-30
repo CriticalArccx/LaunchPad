@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.6.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.5.1...v1.6.0) (2026-10-30)
+
+
+### Features
+
+* **ARC-183:** calendar starts off per project and updates on save; ARC-184 hide blank lines ([f0e3e59](https://github.com/CriticalArccx/LaunchPad/commit/f0e3e5943ac96f2c194f2316a81afd605978b725))
+* **ARC-183:** calendar starts off per project and updates on save; ARC-184 hide blank lines ([2a066cc](https://github.com/CriticalArccx/LaunchPad/commit/2a066ccdd54c6fa87e4b5af5e3eb934a31b27a42))
+
+
+### Bug Fixes
+
+* **ARC-185:** keep dropdown menus on screen instead of cut off at the bottom ([2ab36bc](https://github.com/CriticalArccx/LaunchPad/commit/2ab36bc3ba9cf7bf9e1807f972a53c1db02fc34d))
+* **ARC-185:** keep dropdown menus on screen instead of cut off at the bottom ([7960f61](https://github.com/CriticalArccx/LaunchPad/commit/7960f616ddac790d6790428ee0df248f52455003))
+* **ARC-187:** calendar sync keeps going when Batch Add lands many lines ([4c8f549](https://github.com/CriticalArccx/LaunchPad/commit/4c8f549a327ce6c9000bb36f28138f321a798173))
+* **ARC-187:** calendar sync keeps going when Batch Add lands many lines ([99af9cd](https://github.com/CriticalArccx/LaunchPad/commit/99af9cd5628eb813def34c25895e0b47262614c8))
+
 ## [1.5.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.5.0...v1.5.1) (2026-10-30)
 
 
