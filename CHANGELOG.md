@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.1.0...v1.2.0) (2026-10-30)
+
+
+### Features
+
+* **ARC-176:** make Schedule Duration a 0.5-8 hr dropdown, still auto-filled ([703dc1c](https://github.com/CriticalArccx/LaunchPad/commit/703dc1c1653e97906675c26db420afd1efdc6971))
+* **ARC-176:** make Schedule Duration a 0.5-8 hr dropdown, still auto-filled ([bd33c33](https://github.com/CriticalArccx/LaunchPad/commit/bd33c339071ffc4bd1e9f28ee10dbd60bcbdafc3))
+
 ## [1.1.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.0.0...v1.1.0) (2026-10-29)
 
 
