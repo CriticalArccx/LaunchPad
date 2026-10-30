@@ -5877,6 +5877,8 @@ function clearRowElement(rowEl) {
         }
         applyCellColor(el, "");
     });
+    rowEl.removeAttribute('data-user-added');
+    refreshRowVisibility(rowEl);
 }
 
 function initRealtimeSync() {
@@ -5888,14 +5890,9 @@ function initRealtimeSync() {
             schema: 'public',
             table: T('BackEndData')
         }, payload => {
-            // Keep the cached copy current for the Calendar view (ARC-180),
-            // which draws from it rather than from the row DOM.
-            if (__lastScheduleData) {
-                const changedId = String((payload.new && payload.new.id) || (payload.old && payload.old.id));
-                __lastScheduleData = __lastScheduleData.filter(r => String(r.id) !== changedId);
-                if (payload.eventType !== 'DELETE') __lastScheduleData.push(payload.new);
-                scheduleWeekCalendarRender();
-            }
+            // Keep the cached copy current for the Calendar view.
+            if (payload.eventType === 'DELETE') removeScheduleCacheRow(payload.old && payload.old.id);
+            else patchScheduleCacheRow(payload.new);
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                 const row = payload.new;
                 updateRowInUI(row);
@@ -6021,6 +6018,7 @@ function updateRowInUI(row) {
             applyCellColor(el, content);
         }
     }
+    refreshRowVisibility(rowEl);
 }
 
 async function handleForgotPin() {
@@ -7000,6 +6998,9 @@ try {
 // unchanged in substance, just pulled out so both the "resolved
 // immediately" and "resolved after picker click" paths can reach it.
 async function continueStartAppAfterProject(user) {
+    // Every project opens in the list view; Calendar is never carried over (ARC-183).
+    __scheduleCalendarMode = false;
+    closeCalEditPanel();
     const spinnerSection = document.getElementById('loading-spinner-section');
     const loader = document.getElementById('loading-overlay');
     const grantTarget = window.__grantTarget;
@@ -7950,24 +7951,27 @@ function generateNumericId(dateStr, index) {
     return (parseInt(numericDate) * 100) + index;
 }
 
-// Creates a permanent "+ Add 5 Rows" button that generates infinite rows
+// The "+ Add Line" button at the bottom of each day. Blank lines are never
+// shown on their own (ARC-184), so this opens exactly one: the first hidden
+// blank slot, or a newly built one if every slot is in use.
 function createAddRowsButton(rowsDiv, dayLabel) {
     const addBtn = document.createElement('button');
     addBtn.className = 'add-rows-btn';
-    addBtn.innerText = "+ Add 5 Rows";
+    addBtn.innerText = "+ Add Line";
     addBtn.onclick = (e) => {
         if (e) e.stopPropagation();
-        const hiddenRows = Array.from(rowsDiv.querySelectorAll('.cell-row')).filter(r => r.style.display === 'none');
-        
-        if (hiddenRows.length > 0) {
-            // Reveal up to 5 existing hidden rows
-            for (let i = 0; i < 5 && i < hiddenRows.length; i++) hiddenRows[i].style.display = 'flex';
-        } else {
-            // Generate 5 brand new rows dynamically
-            const currentCount = rowsDiv.querySelectorAll('.cell-row').length;
-            addRowsToContainer(rowsDiv, dayLabel, null, currentCount, 5);
+        const rows = Array.from(rowsDiv.querySelectorAll('.cell-row'));
+        let row = rows.find(r => r.style.display === 'none' && isRowReallyBlank(r));
+        if (!row) {
+            // Slot ids are YYYYMMDD*100 + index, so a day holds 99 at most.
+            if (rows.length >= 99) return alert('This day is full (99 lines).');
+            addRowsToContainer(rowsDiv, dayLabel, null, rows.length, 1);
             rowsDiv.appendChild(addBtn); // Keep button at the bottom
+            row = rowsDiv.querySelector(`.cell-row[data-row-index="${rows.length}"]`);
         }
+        if (!row) return;
+        row.setAttribute('data-user-added', 'true');
+        row.style.setProperty('display', 'flex', 'important');
     };
     return addBtn;
 }
@@ -8009,8 +8013,9 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
         rowDiv.setAttribute('data-date', dayLabel);
         rowDiv.setAttribute('data-row-index', r); // Helpful for ID lookups
         
-        // Hide initial overflow rows, but always show dynamically added ones
-        rowDiv.style.display = (r > 14 && startIdx === 0) ? 'none' : 'flex';
+        // Every slot starts hidden; refreshRowVisibility() shows it once it
+        // has data, and "+ Add Line" shows one blank slot on request (ARC-184).
+        rowDiv.style.display = 'none';
 
         // --- NEW DRAG AND DROP HANDLE ---
         const dragHandle = document.createElement('div');
@@ -8596,6 +8601,9 @@ function saveCell(cell, value, colIndex, isImmediate = false) {
         }
 
         if (!error && data && data[0]) {
+            // The upsert returns the whole saved row; update the Calendar
+            // view from it now rather than waiting for the realtime echo.
+            patchScheduleCacheRow(data[0]);
             row.setAttribute('data-occupied', 'true');
             document.getElementById('saveIndicator').innerText = `Saved at: ${new Date().toLocaleTimeString()}`;
             // This save may have just blanked the row (cleared its last
@@ -9174,6 +9182,9 @@ function compactDayRows(dayLabel) {
         if (sourceCols) targetRow.setAttribute('data-occupied', 'true');
         else targetRow.removeAttribute('data-occupied');
     }
+    // Content just moved between slots: show the ones that now hold a line,
+    // hide the ones left blank.
+    allRows.forEach(refreshRowVisibility);
     scheduleCriticalPathResync();
 }
 
@@ -9324,16 +9335,29 @@ function createWeekElement(baseDate, w) {
 // by Duration; no Time → "No time" strip. Clicking a block opens the edit
 // panel (ARC-181).
 // ---------------------------------------------------------------------------
-const CAL_VIEW_STORAGE_KEY = 'lp_schedule_calendar_view';
 const CAL_HOUR_PX = 48;
-let __scheduleCalendarMode = (() => {
-    try { return localStorage.getItem(CAL_VIEW_STORAGE_KEY) === '1'; } catch (e) { return false; }
-})();
+// Starts off and is reset on every project open (ARC-183).
+let __scheduleCalendarMode = false;
+
+// __lastScheduleData is what the calendar draws from. Saves, deletes and
+// realtime events all patch it here, then redraw (ARC-183).
+function patchScheduleCacheRow(row) {
+    if (!__lastScheduleData || !row || row.id === undefined) return;
+    const i = __lastScheduleData.findIndex(r => String(r.id) === String(row.id));
+    if (i >= 0) __lastScheduleData[i] = { ...__lastScheduleData[i], ...row };
+    else __lastScheduleData.push(row);
+    scheduleWeekCalendarRender();
+}
+
+function removeScheduleCacheRow(id) {
+    if (!__lastScheduleData || id === undefined || id === null) return;
+    __lastScheduleData = __lastScheduleData.filter(r => String(r.id) !== String(id));
+    scheduleWeekCalendarRender();
+}
 
 function setScheduleCalendarMode(on) {
     if (!on) closeCalEditPanel();
     __scheduleCalendarMode = !!on;
-    try { localStorage.setItem(CAL_VIEW_STORAGE_KEY, on ? '1' : '0'); } catch (e) {}
     applyCalendarModeClass();
     if (on) renderWeekCalendars();
 }
@@ -9581,6 +9605,7 @@ function openCalEditPanel(row) {
     __calEditPlaceholder = document.createComment('cal-edit-placeholder');
     rowEl.replaceWith(__calEditPlaceholder);
     __calEditRow = rowEl;
+    rowEl.style.removeProperty('display'); // a list filter may have hidden it; the panel's CSS shows it
 
     const names = {};
     scheduleColConfig.forEach(c => { names[c.id] = c.name; });
@@ -9625,6 +9650,7 @@ function closeCalEditPanel() {
     if (__calEditPlaceholder && __calEditPlaceholder.parentNode) __calEditPlaceholder.replaceWith(rowEl);
     __calEditRow = null;
     __calEditPlaceholder = null;
+    refreshRowVisibility(rowEl);
     document.querySelectorAll('.wc-event.selected').forEach(e => e.classList.remove('selected'));
     scheduleRowCompaction(rowEl.getAttribute('data-date'));
 }
@@ -10687,6 +10713,7 @@ async function deleteFullRow(wrapperId, bypassConfirm = false) {
         try {
             const { error } = await _supabase.from(T('BackEndData')).delete().eq('id', rowNumericId);
             if (error) throw error;
+            removeScheduleCacheRow(rowNumericId);
         } catch (err) {
             console.error("Delete error:", err.message);
             deletingRows.delete(rowNumericId);
@@ -10959,30 +10986,23 @@ function updateExpandCollapseButtons() {
 }
 
 function autoCleanUI() {
-    const now = new Date();
-    const todayStr = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-    const allRows = document.querySelectorAll('.cell-row');
-    if (allRows.length === 0) return;
-    const company = (window.userCompany || "").toLowerCase();
+    document.querySelectorAll('.cell-row').forEach(refreshRowVisibility);
+}
 
-    allRows.forEach(row => {
-        const rowDate = row.getAttribute('data-date');
-        const rowIndex = parseInt(row.getAttribute('data-row-index') || "0");
-        const isOccupied = row.getAttribute('data-occupied') === 'true';
+// Shows or hides one line per the rules below. Called for every row by
+// autoCleanUI(), and for single rows as their content changes (data load,
+// realtime, compaction, clear) so a hidden slot that just got data appears.
+function refreshRowVisibility(row) {
+        if (row === __calEditRow) return; // out in the Calendar edit panel
+        const company = (window.userCompany || "").toLowerCase();
         let shouldShow = true;
-        
-        // Hide past empty rows
-        if (rowDate < todayStr) {
-            if (!isOccupied) {
-                const col3 = row.querySelector('[data-col-index="3"]'); // Activity
-                const col4 = row.querySelector('[data-col-index="4"]'); // Asset
-                const val3 = col3?.value?.toLowerCase().trim() || "";
-                const val4 = col4?.value?.toLowerCase().trim() || "";
-                if ((val3 === "" || val3.includes("select")) && (val4 === "" || val4.includes("select"))) {
-                    shouldShow = false;
-                }
-            }
-        } else if (rowIndex > 14 && !isOccupied) {
+
+        // Blank lines are never shown (ARC-184), on any day — "+ Add Line"
+        // opens one at a time and marks it data-user-added so it stays put
+        // while being filled in. A line someone is typing in is never hidden.
+        if (row.getAttribute('data-user-added') !== 'true' &&
+            !row.contains(document.activeElement) &&
+            isRowReallyBlank(row)) {
             shouldShow = false;
         }
 
@@ -11042,7 +11062,6 @@ function autoCleanUI() {
         } else {
             row.style.setProperty('display', 'none', 'important');
         }
-    });
 }
 
 /**
@@ -11373,6 +11392,7 @@ function applyScheduleDataToDom(data) {
                 applyCellColor(el, content);
             }
         }
+        if (wrapper) refreshRowVisibility(wrapper);
     });
 
     // Reconcile: data is always a full-table fetch (or a cached copy of
@@ -12017,6 +12037,9 @@ async function commitBatchAdd() {
 
     if (previewRows.length === 0) return alert("No line items left to add — every row was removed.");
 
+    // The date's week may not be drawn yet (weeks render in batches as you
+    // scroll); build it rather than refusing (ARC-184).
+    ensureWeekRenderedForDayLabel(targetDate);
     let targetRowsDiv = document.getElementById(`rows-${targetDate}`);
     if (!targetRowsDiv) {
         return alert("The selected date is outside of the active schedule window.");
@@ -12087,6 +12110,7 @@ async function commitBatchAdd() {
         // which meant every other empty row got skipped and left blank
         // instead of used, leaving visible gaps in the grid.
         lookupColumn5Value(rowNum, targetDate, false);
+        refreshRowVisibility(emptyRow);
     });
 
     document.getElementById('saveIndicator').innerText = "Saved";
