@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.4.0...v1.5.0) (2026-10-30)
+
+
+### Features
+
+* **ARC-181:** calendar shows today through one week out, with an edit panel ([b9dbd0a](https://github.com/CriticalArccx/LaunchPad/commit/b9dbd0a190c4e0b15aed375b1742466a0f88e400))
+
 ## [1.4.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.3.0...v1.4.0) (2026-10-30)
 
 
