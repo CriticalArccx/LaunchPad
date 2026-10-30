@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.5.0...v1.5.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **ARC-182:** show the calendar per week again so it is not hidden by Look Ahead ([7578338](https://github.com/CriticalArccx/LaunchPad/commit/75783382e2dad9ca40f30f5415d11167855c2c69))
+
 ## [1.5.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.4.0...v1.5.0) (2026-10-30)
 
 
