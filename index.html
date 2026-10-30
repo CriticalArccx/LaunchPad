@@ -240,11 +240,14 @@
     .cal-toggle input:checked + .cal-toggle-slider { background: #2e7d32; }
     .cal-toggle input:checked + .cal-toggle-slider::after { transform: translateX(16px); }
 
-    .week-cal { display: none; padding: 10px 12px 14px; }
-    #schedule-view.cal-mode .week-cal { display: block; }
-    #schedule-view.cal-mode .week-content > .section-container,
+    .week-cal { padding: 10px 12px 14px; }
+    #schedule-calendar { display: none; }
+    #schedule-view.cal-mode #schedule-calendar { display: block; }
+    #schedule-view.cal-mode #main-content-area,
     #schedule-view.cal-mode .frozen-bar,
-    #schedule-view.cal-mode #btn-expand-days { display: none !important; }
+    #schedule-view.cal-mode #btn-expand-weeks,
+    #schedule-view.cal-mode #btn-expand-days,
+    #schedule-view.cal-mode #btn-reset { display: none !important; }
 
     .wc-head, .wc-allday, .wc-body { display: grid; }
     .wc-head { border-bottom: 1px solid #e0e0e0; }
@@ -271,6 +274,25 @@
     body.dark-mode .wc-col, body.dark-mode .wc-allday > div { border-color: #333; }
     body.dark-mode .wc-line { border-color: #2a2a2a; }
     body.dark-mode .wc-event { background: #1b3a1d; color: #c8e6c9; border-color: #4caf50; }
+    .wc-event.selected { box-shadow: 0 0 0 2px #0c44fa; z-index: 4; }
+    @media (min-width: 900px) { #schedule-view.cal-edit-open #schedule-calendar { margin-right: 400px; } }
+
+    #cal-edit-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,0.18); z-index: 2500; flex-direction: column; }
+    .cal-edit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px; background: #2e7d32; color: #fff; }
+    .cal-edit-title { font-weight: bold; font-size: 17px; overflow-wrap: anywhere; }
+    .cal-edit-date { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .cal-edit-close { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; }
+    .cal-edit-body { flex: 1; overflow-y: auto; padding: 6px 18px 18px; }
+    .cal-edit-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid #eee; }
+    #cal-edit-body .cell-row { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 4px; height: auto !important; border: none !important; padding: 0 !important; background: none !important; }
+    #cal-edit-body .cell-row > .drag-handle,
+    #cal-edit-body .cell-row > .row-checkbox,
+    #cal-edit-body .cell-row > .critical-path-icon { display: none !important; }
+    #cal-edit-body .cell-row > [data-col-index] { flex: none !important; width: 100% !important; min-height: 34px; box-sizing: border-box; }
+    #cal-edit-body .cell-row > textarea { min-height: 100px; }
+    .cal-edit-label { margin-top: 10px; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #777; }
+    body.dark-mode #cal-edit-panel { background: #1e1e1e; color: #e0e0e0; }
+    body.dark-mode .cal-edit-foot { border-color: #333; }
 
     .week-arrow {
         font-size: 16px;
@@ -1925,6 +1947,29 @@ body.help-docked #loading-overlay {
 </div>
 
         <div id="main-content-area"></div>
+
+        <!-- Calendar view (ARC-180/181): one grid, today through one week out -->
+        <div id="schedule-calendar" class="week-container">
+            <div class="week-header" style="cursor: default;"><span id="schedule-calendar-title"></span></div>
+            <div class="week-cal"></div>
+        </div>
+
+        <!-- Calendar view edit panel (ARC-181): holds the clicked line's own
+             list row while open, so every save/lookup rule still applies. -->
+        <div id="cal-edit-panel" style="display: none;">
+            <div class="cal-edit-head">
+                <div style="min-width: 0;">
+                    <div id="cal-edit-title" class="cal-edit-title"></div>
+                    <div id="cal-edit-date" class="cal-edit-date"></div>
+                </div>
+                <button class="cal-edit-close" onclick="closeCalEditPanel()" title="Close">✕</button>
+            </div>
+            <div id="cal-edit-body" class="cal-edit-body"></div>
+            <div class="cal-edit-foot">
+                <button class="tool-btn" onclick="showCalEditRowInList()">Show in list</button>
+                <button class="tool-btn" onclick="closeCalEditPanel()" style="background: #2e7d32; color: white; border-color: #2e7d32;">Done</button>
+            </div>
+        </div>
 
     </div> </div> <div id="loading-overlay">
     <div id="loading-spinner-section" style="text-align: center;">
@@ -9077,6 +9122,8 @@ function compactDayRows(dayLabel) {
     // Don't compact out from under someone actively editing in this day —
     // the next save in this container will just re-schedule this anyway.
     if (container.contains(document.activeElement)) { scheduleRowCompaction(dayLabel); return; }
+    // A row from this day is out in the Calendar edit panel (ARC-181).
+    if (__calEditRow && __calEditRow.getAttribute('data-date') === dayLabel) { scheduleRowCompaction(dayLabel); return; }
 
     const allRows = Array.from(container.querySelectorAll('.cell-row'));
     if (allRows.length < 2) return;
@@ -9268,22 +9315,17 @@ function createWeekElement(baseDate, w) {
         weekContent.appendChild(section);
     }
 
-    // Calendar view grid (ARC-180) — only shown while the Calendar slider
-    // is on; filled by renderWeekCalendars().
-    const weekCal = document.createElement('div');
-    weekCal.className = 'week-cal';
-    weekContent.appendChild(weekCal);
-
     weekDiv.appendChild(weekHeader);
     weekDiv.appendChild(weekContent);
     return weekDiv;
 }
 
 // ---------------------------------------------------------------------------
-// Calendar view (ARC-180). Read-only: each week's day lists are swapped for a
-// time grid built from __lastScheduleData (kept current by loadData() and
-// the realtime handler). Lines are placed by Time and sized by Duration;
-// no Time → all-day strip. Clicking a block jumps back to that line.
+// Calendar view (ARC-180/181). Read-only: the week list is swapped for one
+// time grid covering today through one week out, built from
+// __lastScheduleData (kept current by loadData() and the realtime handler).
+// Lines are placed by Time and sized by Duration; no Time → "No time" strip.
+// Clicking a block jumps back to that line.
 // ---------------------------------------------------------------------------
 const CAL_VIEW_STORAGE_KEY = 'lp_schedule_calendar_view';
 const CAL_HOUR_PX = 48;
@@ -9292,6 +9334,7 @@ let __scheduleCalendarMode = (() => {
 })();
 
 function setScheduleCalendarMode(on) {
+    if (!on) closeCalEditPanel();
     __scheduleCalendarMode = !!on;
     try { localStorage.setItem(CAL_VIEW_STORAGE_KEY, on ? '1' : '0'); } catch (e) {}
     applyCalendarModeClass();
@@ -9356,17 +9399,31 @@ function renderWeekCalendars() {
         if (!asset && !activity) return;
         (byDay[row.day_label] = byDay[row.day_label] || []).push(row);
     });
-    document.querySelectorAll('.week-cal').forEach(cal => renderOneWeekCalendar(cal, byDay));
+
+    // Today through today + 6, minus Included Days/Blackout Dates exclusions
+    // (so 5-7 columns).
+    const days = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+        const id = calLocalDateId(d);
+        if (isDateIncluded(id)) days.push(id);
+    }
+    const last = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 6);
+    const fmt = d => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const title = document.getElementById('schedule-calendar-title');
+    if (title) title.textContent = `${fmt(today)} - ${fmt(last)}`;
+
+    const cal = document.querySelector('#schedule-calendar .week-cal');
+    if (cal) renderOneWeekCalendar(cal, days, byDay);
 }
 
-function renderOneWeekCalendar(cal, byDay) {
-    // Same days the list shows: Included Days/Blackouts never get a section,
-    // and Look Ahead hides out-of-range sections inline.
-    const days = Array.from(cal.parentElement.querySelectorAll(':scope > .section-container'))
-        .filter(s => s.style.display !== 'none')
-        .map(s => s.querySelector('.rows-container').id.replace('rows-', ''));
+function renderOneWeekCalendar(cal, days, byDay) {
     cal.innerHTML = '';
-    if (days.length === 0) return;
+    if (days.length === 0) {
+        cal.innerHTML = '<div class="wc-empty">No working days in the next week.</div>';
+        return;
+    }
 
     const todayId = calLocalDateId(new Date());
     const timed = {}, allDay = {};
@@ -9508,9 +9565,100 @@ function createCalEvent(item, isPast) {
         row.people && `People: ${row.people}`,
         row.notes && `Notes: ${row.notes}`
     ].filter(Boolean).join('\n');
-    ev.onclick = () => jumpToScheduleRow(row);
+    ev.setAttribute('data-row-id', row.id);
+    if (__calEditRow && __calEditRow.id === `row-wrapper-${row.id}`) ev.classList.add('selected');
+    ev.onclick = () => openCalEditPanel(row);
     return ev;
 }
+
+// --- Edit panel (ARC-181) ---------------------------------------------------
+// The clicked line's real list row is moved into the panel (a placeholder
+// keeps its spot) and moved back on close, so saveCell(), the Asset→Place
+// autofill, the Status/Duration lookup, multi-selects and cell history all
+// behave exactly as in the list. compactDayRows() skips that day while open.
+let __calEditRow = null;
+let __calEditPlaceholder = null;
+
+function openCalEditPanel(row) {
+    closeCalEditPanel();
+    if (!ensureWeekRenderedForDayLabel(row.day_label)) {
+        alert('This day is not loaded in the current view. Switch to Overall Schedule and try again.');
+        return;
+    }
+    const rowsDiv = document.getElementById(`rows-${row.day_label}`);
+    if (rowsDiv && rowsDiv.innerHTML === '') {
+        addRowsToContainer(rowsDiv, row.day_label, createAddRowsButton(rowsDiv, row.day_label));
+    }
+    ensureRowSlotExists(rowsDiv, row.day_label, row.id);
+    const rowEl = document.getElementById(`row-wrapper-${row.id}`);
+    if (!rowEl) return;
+
+    __calEditPlaceholder = document.createComment('cal-edit-placeholder');
+    rowEl.replaceWith(__calEditPlaceholder);
+    __calEditRow = rowEl;
+
+    const names = {};
+    scheduleColConfig.forEach(c => { names[c.id] = c.name; });
+    Array.from(rowEl.querySelectorAll(':scope > [data-col-index]')).forEach(cell => {
+        const label = document.createElement('div');
+        label.className = 'cal-edit-label';
+        label.textContent = names[cell.getAttribute('data-col-index')] || '';
+        cell.before(label);
+    });
+
+    const body = document.getElementById('cal-edit-body');
+    body.innerHTML = '';
+    body.appendChild(rowEl);
+
+    const [y, m, d] = row.day_label.split('-').map(Number);
+    document.getElementById('cal-edit-date').textContent =
+        new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    refreshCalEditTitle();
+    document.getElementById('cal-edit-panel').style.display = 'flex';
+    document.getElementById('schedule-view').classList.add('cal-edit-open');
+    document.querySelectorAll('.wc-event').forEach(e => e.classList.toggle('selected', e.getAttribute('data-row-id') === String(row.id)));
+}
+
+function refreshCalEditTitle() {
+    if (!__calEditRow) return;
+    const val = col => {
+        const el = __calEditRow.querySelector(`[data-col-index="${col}"]`);
+        return el && el.value ? el.value.trim() : '';
+    };
+    document.getElementById('cal-edit-title').textContent = [val(4), val(3)].filter(Boolean).join(' - ') || 'Schedule line';
+}
+
+function closeCalEditPanel() {
+    const panel = document.getElementById('cal-edit-panel');
+    if (panel) panel.style.display = 'none';
+    document.getElementById('schedule-view')?.classList.remove('cal-edit-open');
+    if (!__calEditRow) return;
+    // Let a textarea/input in the panel save on blur before it moves back.
+    if (__calEditRow.contains(document.activeElement)) document.activeElement.blur();
+    const rowEl = __calEditRow;
+    rowEl.querySelectorAll('.cal-edit-label').forEach(l => l.remove());
+    if (__calEditPlaceholder && __calEditPlaceholder.parentNode) __calEditPlaceholder.replaceWith(rowEl);
+    __calEditRow = null;
+    __calEditPlaceholder = null;
+    document.querySelectorAll('.wc-event.selected').forEach(e => e.classList.remove('selected'));
+    scheduleRowCompaction(rowEl.getAttribute('data-date'));
+}
+
+function showCalEditRowInList() {
+    if (!__calEditRow) return;
+    const id = __calEditRow.id.replace('row-wrapper-', '');
+    const dayLabel = __calEditRow.getAttribute('data-date');
+    closeCalEditPanel();
+    jumpToScheduleRow({ id, day_label: dayLabel });
+}
+
+document.addEventListener('change', e => {
+    if (__calEditRow && __calEditRow.contains(e.target)) refreshCalEditTitle();
+});
+document.addEventListener('keydown', e => {
+    const menuOpen = ['single-select-menu', 'multi-select-menu'].some(id => document.getElementById(id)?.style.display === 'flex');
+    if (e.key === 'Escape' && __calEditRow && !menuOpen) closeCalEditPanel();
+});
 
 function jumpToScheduleRow(row) {
     setScheduleCalendarMode(false);
@@ -9526,6 +9674,7 @@ function jumpToScheduleRow(row) {
 function createSections() {
     const contentArea = document.getElementById('main-content-area');
     if (!contentArea) return;
+    closeCalEditPanel(); // its row must be back in the list before the list is rebuilt
     applyCalendarModeClass();
 
     contentArea.innerHTML = '';
