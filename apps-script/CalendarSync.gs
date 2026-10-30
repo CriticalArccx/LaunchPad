@@ -7,7 +7,7 @@
 // itself on one calendar. It never writes to Supabase.
 //
 // Mapping per Schedule line:
-//   title       = "Asset — Activity"
+//   title       = "Project - Asset - Activity" (project = LP_PROJECT_NAME, else the prefix)
 //   start       = day_label + time (24h "HHMM"/"HMM"); no time -> all-day
 //   length      = duration ("2.5 hrs"); blank -> 1 hr
 //   guests      = people (" | "-joined emails), added WITHOUT invite emails
@@ -18,6 +18,7 @@
 //        LP_SUPABASE_URL       https://rcnxetcomdrlxvlarqoc.supabase.co
 //        LP_SUPABASE_ANON_KEY  the public anon key (same one index.html uses)
 //        LP_TABLE_PREFIX       CASB
+//        LP_PROJECT_NAME       optional; first part of each title (defaults to the prefix)
 //   2. Run setupScheduleCalendar() and approve the Calendar permission.
 //      It creates the calendar, saves its id (LP_CALENDAR_ID) and adds a
 //      10-minute trigger for syncScheduleToCalendar().
@@ -69,9 +70,11 @@ function syncScheduleToCalendar() {
     const fromLabel = Utilities.formatDate(from, tz, 'yyyy-MM-dd');
     const toLabel = Utilities.formatDate(to, tz, 'yyyy-MM-dd');
 
+    const project = PropertiesService.getScriptProperties().getProperty('LP_PROJECT_NAME') ||
+      lpCalProp_('LP_TABLE_PREFIX');
     const wanted = {};
     lpCalFetchRows_(fromLabel, toLabel).forEach(row => {
-      const ev = lpCalEventFor_(row);
+      const ev = lpCalEventFor_(row, project);
       if (ev) wanted[String(row.id)] = ev;
     });
 
@@ -136,7 +139,7 @@ function lpCalFetchRows_(fromLabel, toLabel) {
 
 // --- Mapping -------------------------------------------------------------------
 
-function lpCalEventFor_(row) {
+function lpCalEventFor_(row, project) {
   const asset = (row.asset || '').trim();
   const activity = (row.activity || '').trim();
   if (!asset && !activity) return null; // blank slot
@@ -149,7 +152,7 @@ function lpCalEventFor_(row) {
   const guests = lpCalSplit_(row.people).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
 
   const ev = {
-    title: [asset, activity].filter(Boolean).join(' — '),
+    title: [project, asset, activity].filter(Boolean).join(' - '),
     allDay: !startTime,
     guests: guests
   };

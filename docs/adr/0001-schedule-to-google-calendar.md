@@ -5,7 +5,7 @@ Date: 2026-10-30   Status: Accepted
 ## Context
 
 The Sandbox (CASB) project wants its Schedule on a shared Google Calendar: one
-event per Schedule line, titled by asset and activity, lasting its Duration,
+event per Schedule line, titled "Project - Asset - Activity", lasting its Duration,
 with the line's People as guests and its Notes as the description. The
 Schedule (Supabase `{prefix}BackEndData`) is the system of record and must
 stay that way. Each project already has a Google Sheet with an Apps Script
