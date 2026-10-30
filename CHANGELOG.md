@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.3.0...v1.4.0) (2026-10-30)
+
+
+### Features
+
+* **ARC-180:** add Calendar view toggle to the week-by-week Schedule ([cd0f768](https://github.com/CriticalArccx/LaunchPad/commit/cd0f768f5eff9582816629713c13a0fe0665df8d))
+* **ARC-180:** add Calendar view toggle to the week-by-week Schedule ([34b0f9e](https://github.com/CriticalArccx/LaunchPad/commit/34b0f9e2b3809f825e0849146ba23bc1bd2afd41))
+
 ## [1.3.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.2.0...v1.3.0) (2026-10-30)
 
 
