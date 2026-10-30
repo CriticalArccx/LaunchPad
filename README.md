@@ -30,6 +30,11 @@ Google Sheet (per project) → Apps Script → GitHub Action (`sync/sync-equipme
 → Supabase → browser. See [DASHBOARD-README.md](DASHBOARD-README.md) for the dashboard's
 tables and fields.
 
+Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
+project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared
+calendar in step, one way. Setup steps are at the top of that file; see
+[ADR 0001](docs/adr/0001-schedule-to-google-calendar.md).
+
 ## 4. Run locally
 
 ```sh
