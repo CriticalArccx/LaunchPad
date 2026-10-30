@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.2.0...v1.3.0) (2026-10-30)
+
+
+### Features
+
+* **ARC-178:** sync the Sandbox Schedule to a shared Google Calendar ([7a48d5d](https://github.com/CriticalArccx/LaunchPad/commit/7a48d5d2fd2692d01e55961e15bd01c0d583a128))
+* **ARC-178:** sync the Sandbox Schedule to a shared Google Calendar ([f222f39](https://github.com/CriticalArccx/LaunchPad/commit/f222f3901f828c2bc6940dd960d2c90f1246a2a7))
+* **ARC-178:** title calendar events Project - Asset - Activity ([81ab99a](https://github.com/CriticalArccx/LaunchPad/commit/81ab99a80208610e19d3e9f5fd443d5342690e60))
+* **ARC-178:** title calendar events Project - Asset - Activity ([fadd0ec](https://github.com/CriticalArccx/LaunchPad/commit/fadd0ecd9bdec4cb08e705b37b2f9e0df7bbbf80))
+
 ## [1.2.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.1.0...v1.2.0) (2026-10-30)
 
 
