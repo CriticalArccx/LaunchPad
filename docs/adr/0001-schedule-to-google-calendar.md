@@ -35,6 +35,10 @@ lines from 30 days back to 180 days ahead are synced.
 - No Supabase schema change and no writes from the script.
 - Calendar quotas apply; each run makes at most 100 changes and continues
   on the next run.
+- Each line syncs on its own (ARC-187). If Google throttles the run, or it
+  passes 4.5 minutes, it stops and the rest go in the next run. A line that
+  fails for another reason is skipped and listed in a Failed execution.
+  A large Batch Add can therefore take a few runs to fully appear.
 - Other projects can opt in by adding the same file and Script Properties.
 
 Jira: ARC-178
