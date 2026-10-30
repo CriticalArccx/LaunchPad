@@ -240,14 +240,11 @@
     .cal-toggle input:checked + .cal-toggle-slider { background: #2e7d32; }
     .cal-toggle input:checked + .cal-toggle-slider::after { transform: translateX(16px); }
 
-    .week-cal { padding: 10px 12px 14px; }
-    #schedule-calendar { display: none; }
-    #schedule-view.cal-mode #schedule-calendar { display: block; }
-    #schedule-view.cal-mode #main-content-area,
+    .week-cal { display: none; padding: 10px 12px 14px; }
+    #schedule-view.cal-mode .week-cal { display: block; }
+    #schedule-view.cal-mode .week-content > .section-container,
     #schedule-view.cal-mode .frozen-bar,
-    #schedule-view.cal-mode #btn-expand-weeks,
-    #schedule-view.cal-mode #btn-expand-days,
-    #schedule-view.cal-mode #btn-reset { display: none !important; }
+    #schedule-view.cal-mode #btn-expand-days { display: none !important; }
 
     .wc-head, .wc-allday, .wc-body { display: grid; }
     .wc-head { border-bottom: 1px solid #e0e0e0; }
@@ -275,7 +272,7 @@
     body.dark-mode .wc-line { border-color: #2a2a2a; }
     body.dark-mode .wc-event { background: #1b3a1d; color: #c8e6c9; border-color: #4caf50; }
     .wc-event.selected { box-shadow: 0 0 0 2px #0c44fa; z-index: 4; }
-    @media (min-width: 900px) { #schedule-view.cal-edit-open #schedule-calendar { margin-right: 400px; } }
+    @media (min-width: 900px) { #schedule-view.cal-edit-open #main-content-area { margin-right: 400px; } }
 
     #cal-edit-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,0.18); z-index: 2500; flex-direction: column; }
     .cal-edit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px; background: #2e7d32; color: #fff; }
@@ -1947,12 +1944,6 @@ body.help-docked #loading-overlay {
 </div>
 
         <div id="main-content-area"></div>
-
-        <!-- Calendar view (ARC-180/181): one grid, today through one week out -->
-        <div id="schedule-calendar" class="week-container">
-            <div class="week-header" style="cursor: default;"><span id="schedule-calendar-title"></span></div>
-            <div class="week-cal"></div>
-        </div>
 
         <!-- Calendar view edit panel (ARC-181): holds the clicked line's own
              list row while open, so every save/lookup rule still applies. -->
@@ -9315,17 +9306,23 @@ function createWeekElement(baseDate, w) {
         weekContent.appendChild(section);
     }
 
+    // Calendar view grid — only shown while the Calendar slider is on;
+    // filled by renderWeekCalendars().
+    const weekCal = document.createElement('div');
+    weekCal.className = 'week-cal';
+    weekContent.appendChild(weekCal);
+
     weekDiv.appendChild(weekHeader);
     weekDiv.appendChild(weekContent);
     return weekDiv;
 }
 
 // ---------------------------------------------------------------------------
-// Calendar view (ARC-180/181). Read-only: the week list is swapped for one
-// time grid covering today through one week out, built from
-// __lastScheduleData (kept current by loadData() and the realtime handler).
-// Lines are placed by Time and sized by Duration; no Time → "No time" strip.
-// Clicking a block jumps back to that line.
+// Calendar view (ARC-180/182). Each expanded week shows a time grid instead
+// of its day lists, built from __lastScheduleData (kept current by
+// loadData() and the realtime handler). Lines are placed by Time and sized
+// by Duration; no Time → "No time" strip. Clicking a block opens the edit
+// panel (ARC-181).
 // ---------------------------------------------------------------------------
 const CAL_VIEW_STORAGE_KEY = 'lp_schedule_calendar_view';
 const CAL_HOUR_PX = 48;
@@ -9399,31 +9396,19 @@ function renderWeekCalendars() {
         if (!asset && !activity) return;
         (byDay[row.day_label] = byDay[row.day_label] || []).push(row);
     });
-
-    // Today through today + 6, minus Included Days/Blackout Dates exclusions
-    // (so 5-7 columns).
-    const days = [];
-    const today = new Date();
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-        const id = calLocalDateId(d);
-        if (isDateIncluded(id)) days.push(id);
-    }
-    const last = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 6);
-    const fmt = d => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    const title = document.getElementById('schedule-calendar-title');
-    if (title) title.textContent = `${fmt(today)} - ${fmt(last)}`;
-
-    const cal = document.querySelector('#schedule-calendar .week-cal');
-    if (cal) renderOneWeekCalendar(cal, days, byDay);
+    document.querySelectorAll('.week-cal').forEach(cal => {
+        // Same days the list shows: Included Days/Blackouts never get a
+        // section, and Look Ahead hides out-of-range sections inline.
+        const days = Array.from(cal.parentElement.querySelectorAll(':scope > .section-container'))
+            .filter(s => s.style.display !== 'none')
+            .map(s => s.querySelector('.rows-container').id.replace('rows-', ''));
+        renderOneWeekCalendar(cal, days, byDay);
+    });
 }
 
 function renderOneWeekCalendar(cal, days, byDay) {
     cal.innerHTML = '';
-    if (days.length === 0) {
-        cal.innerHTML = '<div class="wc-empty">No working days in the next week.</div>';
-        return;
-    }
+    if (days.length === 0) return;
 
     const todayId = calLocalDateId(new Date());
     const timed = {}, allDay = {};
