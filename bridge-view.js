@@ -4914,9 +4914,12 @@ export class BridgeView extends HTMLElement {
                 ${this.DATA.contractors.map(c => `<label><input type="checkbox" value="${escAttr(c.name)}" ${selected.has(c.name) ? 'checked' : ''} onchange="this.getRootNode().host.toggleBulkContractorPick(${i}, this.value, this.checked)"> ${escHtml(c.name)}</label>`).join('') || '<div style="color:#999; font-size:12px; padding:4px;">No contractors in this project\'s list yet.</div>'}
             </div>`;
         const rect = btn.getBoundingClientRect();
-        panel.style.top = `${rect.bottom + 4}px`;
         panel.style.left = `${Math.min(rect.left, window.innerWidth - 246)}px`;
         panel.classList.add('open');
+        // Open upward when it would run off the bottom of the screen (ARC-185).
+        const h = panel.offsetHeight;
+        const fitsBelow = rect.bottom + 4 + h <= window.innerHeight - 8;
+        panel.style.top = `${fitsBelow || rect.top < h ? rect.bottom + 4 : rect.top - 4 - h}px`;
     }
     toggleBulkContractorPick(i, name, checked) {
         const r = this.bulkPreviewRows[i];

@@ -3012,10 +3012,13 @@ async function showCellHistory(e, rowId, colIndex) {
     const menu = document.getElementById('history-menu');
     const content = document.getElementById('history-content');
     
-    // Position menu near cursor
+    // Position menu near cursor, kept on screen (ARC-185). The menu is
+    // position:fixed, so this uses viewport (client) coordinates.
     menu.style.display = 'block';
-    menu.style.left = Math.min(e.pageX, window.innerWidth - 300) + 'px';
-    menu.style.top = Math.min(e.pageY, window.innerHeight - 350) + 'px';
+    menu.style.maxHeight = `${window.innerHeight - 16}px`;
+    menu.style.overflowY = 'auto';
+    menu.style.left = Math.max(8, Math.min(e.clientX, window.innerWidth - 300)) + 'px';
+    menu.style.top = Math.max(8, Math.min(e.clientY, window.innerHeight - 350)) + 'px';
     
     content.innerHTML = '<p style="text-align:center; color:#666;">Loading history...</p>';
 
@@ -3614,19 +3617,41 @@ function openSearchableSingleSelect(cellElement, colIndex) {
     };
     
     renderOptions();
-    
+
     // Live update as the user types
     searchInput.oninput = (e) => renderOptions(e.target.value);
-    
-    // Position underneath the cell
+
+    placeMenuNearCell(menu, cellElement);
+
+    // Auto-focus the search bar immediately
+    setTimeout(() => searchInput.focus({ preventScroll: true }), 50);
+}
+
+// Opens a floating dropdown menu next to its cell without running off the
+// screen (ARC-185): below the cell when it fits, otherwise above; if neither
+// side fits, the roomier side with the height capped so the list scrolls
+// inside. Opening upward pins the height so typing in the search box doesn't
+// shrink the menu away from the cell. Menus are position:absolute on <body>.
+function placeMenuNearCell(menu, cellElement, maxHeight = 280) {
     const rect = cellElement.getBoundingClientRect();
-    menu.style.top = `${rect.bottom + window.scrollY + 2}px`;
-    menu.style.left = `${rect.left + window.scrollX}px`;
+    const gap = 2, margin = 8, minHeight = 120;
+    menu.style.height = '';
+    menu.style.maxHeight = `${maxHeight}px`;
     menu.style.width = `${Math.max(rect.width, 220)}px`;
     menu.style.display = 'flex';
-    
-    // Auto-focus the search bar immediately
-    setTimeout(() => searchInput.focus(), 50);
+
+    const wanted = menu.offsetHeight; // natural height, capped at maxHeight
+    const below = window.innerHeight - rect.bottom - gap - margin;
+    const above = rect.top - gap - margin;
+    const openUp = wanted > below && above > below;
+    const height = Math.max(Math.min(wanted, openUp ? above : below), minHeight);
+    menu.style.maxHeight = `${height}px`;
+    if (openUp) menu.style.height = `${height}px`;
+
+    const top = openUp ? rect.top - gap - height : rect.bottom + gap;
+    const left = Math.max(margin, Math.min(rect.left, window.innerWidth - menu.offsetWidth - margin));
+    menu.style.top = `${top + window.scrollY}px`;
+    menu.style.left = `${left + window.scrollX}px`;
 }
 
 function displayAssetDetails(assetObj, assetName) {
@@ -10185,15 +10210,10 @@ async function openMultiSelectMenu(cellElement, rowNum, dayLabel) {
     renderMultiOptions();
     searchInput.oninput = (e) => renderMultiOptions(e.target.value);
     
-    // Position the menu perfectly underneath the clicked cell
-    const rect = cellElement.getBoundingClientRect();
-    menu.style.top = `${rect.bottom + window.scrollY + 2}px`;
-    menu.style.left = `${rect.left + window.scrollX}px`;
-    menu.style.width = `${Math.max(rect.width, 220)}px`;
-    menu.style.display = 'flex'; // Use flex for layout inside
+    placeMenuNearCell(menu, cellElement);
 
-    // Auto-focus the search bar immediately 
-    setTimeout(() => searchInput.focus(), 50);
+    // Auto-focus the search bar immediately
+    setTimeout(() => searchInput.focus({ preventScroll: true }), 50);
 }
 
 // Bulk Selection State
