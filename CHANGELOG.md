@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.6.0...v1.7.0) (2026-10-31)
+
+
+### Features
+
+* **ARC-189:** apply ArcLab Design System foundations ([daa147b](https://github.com/CriticalArccx/LaunchPad/commit/daa147b8bd3311ec0d366aa00182987dca9cb728))
+* **ARC-189:** apply ArcLab Design System foundations (Roboto, Petrol, warm neutrals) ([b6f6189](https://github.com/CriticalArccx/LaunchPad/commit/b6f6189afe6cef548a8ed96e84b1de25fa541016))
+
 ## [1.6.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.5.1...v1.6.0) (2026-10-30)
 
 
