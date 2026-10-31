@@ -22,10 +22,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@100..900&display=swap">
 <link rel="stylesheet" href="css/arclab-tokens.css">
+<link rel="stylesheet" href="css/launchpad-theme.css">
 <style>
-    .drag-over-top { box-shadow: inset 0 3px 0 var(--Petrol, #0f5a60) !important; }
-    .drag-over-bottom { box-shadow: inset 0 -3px 0 var(--Petrol, #0f5a60) !important; }
-    .dragging { background-color: var(--Petrol-tint, #e3efef) !important; opacity: 0.8; }
+    .drag-over-top { box-shadow: inset 0 3px 0 var(--lp-action, #2f7a31) !important; }
+    .drag-over-bottom { box-shadow: inset 0 -3px 0 var(--lp-action, #2f7a31) !important; }
+    .dragging { background-color: var(--lp-action-tint, #eaf6ea) !important; opacity: 0.8; }
 
     .header {
         height: 80px;
@@ -55,7 +56,7 @@
     }
 
     .header-center span {
-        color: var(--Petrol, #0f5a60);
+        color: var(--lp-action, #2f7a31);
         font: var(--text-type\.display, 600 32px/1.5 'Roboto', sans-serif);
     }
 
@@ -66,7 +67,7 @@
 
     #saveIndicator {
         font-weight: bold;
-        color: var(--Petrol, #0f5a60);
+        color: var(--lp-action, #2f7a31);
         font-size: 14px;
     }
     .view-btn {
@@ -79,7 +80,7 @@
     border-bottom: 2px solid transparent;
 }
 .view-btn.active {
-    color: var(--Petrol, #0f5a60);
+    color: var(--lp-action, #2f7a31);
     border-bottom: 3px solid var(--Arc-Green, #4ebd4f);
 }
 .section-container {
@@ -95,7 +96,7 @@
         justify-content: space-between;
         align-items: center;
         font-weight: bold;
-        color: var(--Petrol, #0f5a60);
+        color: var(--lp-action, #2f7a31);
         border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
     }
 
@@ -131,15 +132,15 @@
         margin: 10px 0 20px 10px;
         padding: 5px 15px;
         background-color: #ffffff;
-        border: 1px dashed var(--Petrol, #0f5a60);
-        color: var(--Petrol, #0f5a60);
+        border: 1px dashed var(--lp-action, #2f7a31);
+        color: var(--lp-action, #2f7a31);
         cursor: pointer;
         border-radius: 4px;
         font-size: 12px;
     }
 
     .add-rows-btn:hover {
-        background-color: var(--Petrol-tint, #e3efef);
+        background-color: var(--lp-action-tint, #eaf6ea);
     }
 
 .cell-row {
@@ -183,7 +184,7 @@
     }
 
     .tool-btn {
-        background-color: var(--Petrol, #0f5a60); /* Solid green for visibility */
+        background-color: var(--lp-action, #2f7a31); /* Solid green for visibility */
         color: white;
         border: none;
         padding: 8px 16px;
@@ -195,25 +196,25 @@
     }
 
     .tool-btn:hover {
-        background-color: var(--Petrol-tint, #e3efef);
+        background-color: var(--lp-action-tint, #eaf6ea);
     }
 
     #saveIndicator {
         font-size: 13px;
         font-weight: bold;
-        color: var(--Petrol, #0f5a60);
+        color: var(--lp-action, #2f7a31);
     }
     .week-container {
         margin: 20px auto;
         width: 95%;
-        border: 2px solid var(--Petrol, #0f5a60);
+        border: 2px solid var(--lp-action, #2f7a31);
         border-radius: 8px;
         background: #ffffff;
         overflow: hidden;
     }
 
     .week-header {
-        background-color: var(--Petrol, #0f5a60);
+        background-color: var(--lp-action, #2f7a31);
         border-bottom: 3px solid var(--Arc-Green, #4ebd4f);
         color: white;
         padding: 15px 25px;
@@ -237,7 +238,7 @@
 
     /* Calendar view (ARC-180): on/off slider next to Batch Add swaps each
        week's day lists for a time grid. */
-    .cal-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; cursor: pointer; user-select: none; font-size: 13px; font-weight: bold; color: var(--Petrol, #0f5a60); }
+    .cal-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; cursor: pointer; user-select: none; font-size: 13px; font-weight: bold; color: var(--lp-action, #2f7a31); }
     .cal-toggle input { display: none; }
     .cal-toggle-slider { position: relative; width: 36px; height: 20px; background: #bdbdbd; border-radius: 10px; transition: background 0.2s; }
     .cal-toggle-slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
@@ -275,11 +276,11 @@
     body.dark-mode .wc-col, body.dark-mode .wc-allday > div { border-color: #333; }
     body.dark-mode .wc-line { border-color: #2a2a2a; }
     body.dark-mode .wc-event { background: #1b3a1d; color: #c8e6c9; border-color: #4caf50; }
-    .wc-event.selected { box-shadow: 0 0 0 2px var(--Petrol, #0f5a60); z-index: 4; }
+    .wc-event.selected { box-shadow: 0 0 0 2px var(--neutrals-lightmode-light-mode-Textprimary, #141718); z-index: 4; }
     @media (min-width: 900px) { #schedule-view.cal-edit-open #main-content-area { margin-right: 400px; } }
 
     #cal-edit-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,0.18); z-index: 2500; flex-direction: column; }
-    .cal-edit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px; background: var(--Petrol, #0f5a60); color: #fff; }
+    .cal-edit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px; background: var(--lp-action, #2f7a31); color: #fff; }
     .cal-edit-title { font-weight: bold; font-size: 17px; overflow-wrap: anywhere; }
     .cal-edit-date { font-size: 13px; opacity: 0.85; margin-top: 2px; }
     .cal-edit-close { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; }
@@ -302,9 +303,9 @@
    .tool-btn {
         padding: 8px 16px; /* Increased padding for better text clearance */
         font-size: 13px;
-        border: 1px solid var(--Petrol, #0f5a60);
+        border: 1px solid var(--lp-action, #2f7a31);
         background: white;
-        color: var(--Petrol, #0f5a60);
+        color: var(--lp-action, #2f7a31);
         cursor: pointer;
         border-radius: var(--radius\.md, 6px);
         font-weight: 600;
@@ -341,7 +342,7 @@
     position: sticky;
     top: 50px;      /* Adjust to match your subheader height */
     z-index: 999;
-    background-color: var(--Petrol, #0f5a60);
+    background-color: var(--lp-action, #2f7a31);
     color: rgb(255, 255, 255);
     height: 28px;   /* Slightly increased height to look cleaner with dividers */
     display: flex;
@@ -435,7 +436,7 @@
 
     /* Styling the dropdown when it is focused */
     .cell-row select:focus {
-        border-color: var(--Petrol, #0f5a60);
+        border-color: var(--lp-action, #2f7a31);
         outline: none;
     }
     
@@ -451,7 +452,7 @@
     .cell-row input:focus, 
     .cell-row select:focus {
         background-color: #ffffff; /* Turns white only when active */
-        border-color: var(--Petrol, #0f5a60);     /* Green border when typing */
+        border-color: var(--lp-action, #2f7a31);     /* Green border when typing */
         outline: none;
     }
     /* Color for cells that have information but no specific status */
@@ -528,7 +529,7 @@
 }
 .iframe-loading-overlay p { color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 14px; margin: 0; }
 .iframe-spinner {
-    width: 36px; height: 36px; border: 4px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-top-color: var(--Petrol, #0f5a60);
+    width: 36px; height: 36px; border: 4px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-top-color: var(--lp-action, #2f7a31);
     border-radius: 50%; animation: iframe-spin 0.8s linear infinite;
 }
 @keyframes iframe-spin { to { transform: rotate(360deg); } }
@@ -823,12 +824,12 @@
 
 .nav-item:hover {
     background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
-    color: var(--Petrol, #0f5a60);
+    color: var(--lp-action, #2f7a31);
 }
 
 .nav-item.active {
     background-color: var(--Arc-Green-tint, #eaf6ea);
-    color: var(--Petrol, #0f5a60);
+    color: var(--lp-action, #2f7a31);
     border-left: 4px solid var(--Arc-Green, #4ebd4f);
 }
 
@@ -1191,7 +1192,7 @@ body:not(.dark-mode) .cell-row:has(.row-checkbox:checked) {
     .week-container {
         margin: 10px auto !important; /* Reduced gap between weeks */
         width: 95% !important;
-        border: 2px solid var(--Petrol, #0f5a60) !important;
+        border: 2px solid var(--lp-action, #2f7a31) !important;
         border-radius: 8px !important;
         background: #ffffff !important;
         overflow: hidden !important; /* Prevents internal horizontal scrolling */
@@ -1202,7 +1203,7 @@ body:not(.dark-mode) .cell-row:has(.row-checkbox:checked) {
         position: sticky;
         top: 50px;
         z-index: 999;
-        background-color: var(--Petrol, #0f5a60);
+        background-color: var(--lp-action, #2f7a31);
         color: rgb(255, 255, 255);
         height: 28px;
         display: flex;
@@ -1624,7 +1625,7 @@ body.help-docked #loading-overlay {
             </button>
             <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
                 <button class="tool-btn" onclick="orderChronologically()" style="background: #ffffff; color: #fe8c0a; border-color: #fe8c0a; font-weight: bold;">Order</button>
-                <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: var(--Petrol-hover, #0b4a4f); border-color: var(--Petrol-hover, #0b4a4f); font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
+                <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: var(--lp-action-hover, #276629); border-color: var(--lp-action-hover, #276629); font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
             </div>
             <div class="search-container" style="display: inline-flex; align-items: center; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-radius: 4px; padding: 2px 8px; margin-right: 18px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
                     <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 14px; width: 100px; font-size: 13px;">
@@ -1668,7 +1669,7 @@ body.help-docked #loading-overlay {
             </div>
 
             <div style="flex: 1.2; border-left: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-left: 30px;">
-                <h2 style="color: var(--Petrol, #0f5a60); margin-top: 0;">System Data</h2>
+                <h2 style="color: var(--lp-action, #2f7a31); margin-top: 0;">System Data</h2>
                 <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Manage dropdown options and categories across the system.</p>
                 <div id="settings-container"></div>
             </div>
@@ -1694,15 +1695,15 @@ body.help-docked #loading-overlay {
             
             <div style="display: flex; gap: 20px;">
                 <div style="flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <h3 style="margin-top: 0; font-size: 14px; color: var(--Petrol, #0f5a60); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L2 Activities</h3>
+                    <h3 style="margin-top: 0; font-size: 14px; color: var(--lp-action, #2f7a31); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L2 Activities</h3>
                     <div id="eq-act-L2-list" style="max-height: 120px; overflow-y: auto; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; padding: 5px;"></div>
                 </div>
                 <div style="flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <h3 style="margin-top: 0; font-size: 14px; color: var(--Petrol, #0f5a60); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L3 Activities</h3>
+                    <h3 style="margin-top: 0; font-size: 14px; color: var(--lp-action, #2f7a31); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L3 Activities</h3>
                     <div id="eq-act-L3-list" style="max-height: 120px; overflow-y: auto; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; padding: 5px;"></div>
                 </div>
                 <div style="flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <h3 style="margin-top: 0; font-size: 14px; color: var(--Petrol, #0f5a60); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L4 Activities</h3>
+                    <h3 style="margin-top: 0; font-size: 14px; color: var(--lp-action, #2f7a31); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L4 Activities</h3>
                     <div id="eq-act-L4-list" style="max-height: 120px; overflow-y: auto; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; padding: 5px;"></div>
                 </div>
             </div>
@@ -1725,7 +1726,7 @@ body.help-docked #loading-overlay {
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Specific one-off dates that aren't active schedule days — holidays, planned shutdowns, etc. — on top of the recurring Included Days pattern above.</p>
             <div style="display:flex; gap:10px; margin-bottom:12px;">
                 <input type="date" id="blackout-date-input" style="padding:8px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px;">
-                <button onclick="addBlackoutDate()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed var(--Petrol, #0f5a60); background: white; color: var(--Petrol, #0f5a60); border-radius:4px;">+ Add Date</button>
+                <button onclick="addBlackoutDate()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31); border-radius:4px;">+ Add Date</button>
             </div>
             <div id="blackout-dates-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); min-height: 20px;"></div>
         </div>
@@ -1747,7 +1748,7 @@ body.help-docked #loading-overlay {
                     </select>
                 </label>
                 <input type="time" id="status-refresh-time-input" style="padding:8px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px;">
-                <button onclick="addStatusRefreshTime()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed var(--Petrol, #0f5a60); background: white; color: var(--Petrol, #0f5a60); border-radius:4px;">+ Add Time</button>
+                <button onclick="addStatusRefreshTime()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31); border-radius:4px;">+ Add Time</button>
             </div>
             <div id="status-refresh-times-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); min-height: 20px;"></div>
         </div>
@@ -1756,7 +1757,7 @@ body.help-docked #loading-overlay {
             <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Status Colors</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Colors Status/Result cells use for matching keywords, checked top to bottom — the first rule whose keywords match wins. "Default" covers anything that doesn't match a rule above it.</p>
             <div id="status-color-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
-            <button onclick="addStatusColorRule()" style="padding: 5px 10px; cursor: pointer; border: 1px dashed var(--Petrol, #0f5a60); background: white; color: var(--Petrol, #0f5a60);">+ Add Rule</button>
+            <button onclick="addStatusColorRule()" style="padding: 5px 10px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31);">+ Add Rule</button>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px;">
@@ -1779,14 +1780,14 @@ body.help-docked #loading-overlay {
                     </tbody>
                 </table>
             </div>
-            <button onclick="addPhaseRuleRow()" style="margin-top: 10px; padding: 5px 10px; cursor: pointer; border: 1px dashed var(--Petrol, #0f5a60); background: white; color: var(--Petrol, #0f5a60);">+ Add Rule</button>
+            <button onclick="addPhaseRuleRow()" style="margin-top: 10px; padding: 5px 10px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31);">+ Add Rule</button>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top: 20px; margin-top: 20px;">
             <button onclick="enterLayoutEditMode()" style="padding: 8px 15px; background: #0c44fa; color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Change Layout</button>
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('schedule-config-modal').style.display='none'" style="padding: 8px 15px; cursor: pointer; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Cancel</button>
-                <button onclick="saveAllSettings(this)" style="padding: 8px 15px; background: var(--Petrol, #0f5a60); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Save All Settings</button>
+                <button onclick="saveAllSettings(this)" style="padding: 8px 15px; background: var(--lp-action, #2f7a31); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Save All Settings</button>
             </div>
         </div>
     </div>
@@ -1805,7 +1806,7 @@ body.help-docked #loading-overlay {
         <div id="reschedule-preview" style="font-size: 12.5px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); background: #fffde7; border: 1px solid #fff59d; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto;"></div>
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button onclick="closeRescheduleModal()" style="padding: 8px 15px; cursor: pointer; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Cancel</button>
-            <button id="reschedule-confirm-btn" onclick="confirmReschedule()" disabled style="padding: 8px 15px; background: var(--Petrol, #0f5a60); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; opacity: 0.5; cursor: not-allowed;">Schedule It</button>
+            <button id="reschedule-confirm-btn" onclick="confirmReschedule()" disabled style="padding: 8px 15px; background: var(--lp-action, #2f7a31); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; opacity: 0.5; cursor: not-allowed;">Schedule It</button>
         </div>
     </div>
 </div>
@@ -1813,12 +1814,12 @@ body.help-docked #loading-overlay {
 <div id="scanner-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
     <div style="background: white; width: 450px; max-width: 95%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
         <div style="padding: 15px 20px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); display: flex; justify-content: space-between; align-items: center; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);">
-            <h2 id="scanner-modal-title" style="margin: 0; color: var(--Petrol, #0f5a60); font-size: 18px;">Scanner</h2>
+            <h2 id="scanner-modal-title" style="margin: 0; color: var(--lp-action, #2f7a31); font-size: 18px;">Scanner</h2>
             <button onclick="stopScanner()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); line-height: 1;">&times;</button>
         </div>
         <div style="padding: 20px;">
             <div id="scanner-mode-toggles" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button onclick="initQRCodeScanner()" style="flex: 1; padding: 12px; background: var(--Petrol, #0f5a60); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🔳 Scan QR Code</button>
+                <button onclick="initQRCodeScanner()" style="flex: 1; padding: 12px; background: var(--lp-action, #2f7a31); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🔳 Scan QR Code</button>
                 <button onclick="initTextScanner()" style="flex: 1; padding: 12px; background: #f57c00; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">📝 Scan Text</button>
             </div>
             
@@ -1865,7 +1866,7 @@ body.help-docked #loading-overlay {
 
 <div id="sealform-view" style="display: none; height: 100%; width: 100%; flex-direction: column; position: relative;">
     <div style="padding: 12px 20px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <strong style="color: var(--Petrol, #0f5a60); font-size: 13px;">Seal Form Preview</strong>
+        <strong style="color: var(--lp-action, #2f7a31); font-size: 13px;">Seal Form Preview</strong>
         <span style="color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 12px;">This is exactly what someone scanning this project's QR code would see — no LaunchPad login involved.</span>
         <button class="tool-btn" style="margin-left: auto; border-color: #1565c0; color: #1565c0;" onclick="openSealFormQrModal()">🔗 QR Code</button>
     </div>
@@ -1895,9 +1896,9 @@ body.help-docked #loading-overlay {
 
 <div id="attributes-view" style="display: none; height: 100%; width: 100%; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);">
     <div style="width: 320px; border-right: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); background: white; display: flex; flex-direction: column; height: 100%;">
-        <div style="padding: 15px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); font-weight: bold; color: var(--Petrol, #0f5a60); display: flex; justify-content: space-between; align-items: center;">
+        <div style="padding: 15px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); font-weight: bold; color: var(--lp-action, #2f7a31); display: flex; justify-content: space-between; align-items: center;">
             <span>Asset Directory</span>
-            <button onclick="fetchAssetAttributes(true)" style="background: none; border: none; cursor: pointer; color: var(--Petrol, #0f5a60);" title="Refresh Data">🔄</button>
+            <button onclick="fetchAssetAttributes(true)" style="background: none; border: none; cursor: pointer; color: var(--lp-action, #2f7a31);" title="Refresh Data">🔄</button>
         </div>
         <div style="padding: 10px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
             <input type="text" id="attr-search" placeholder="Search assets..." oninput="filterAssetDirectory()" style="width: 100%; padding: 10px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; box-sizing: border-box; font-size: 13px;">
@@ -1912,7 +1913,7 @@ body.help-docked #loading-overlay {
         </div>
         
         <div id="attr-details-card" style="display: none; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: 8px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <h2 id="attr-title" style="margin-top: 0; color: var(--Petrol, #0f5a60); border-bottom: 2px solid var(--Petrol, #0f5a60); padding-bottom: 10px; font-size: 24px;"></h2>
+            <h2 id="attr-title" style="margin-top: 0; color: var(--lp-action, #2f7a31); border-bottom: 2px solid var(--lp-action, #2f7a31); padding-bottom: 10px; font-size: 24px;"></h2>
             <div id="attr-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px;">
                 </div>
         </div>
@@ -1955,7 +1956,7 @@ body.help-docked #loading-overlay {
                 <span id="saveIndicator">Saved</span>
                 
                 <!-- NEW: Refresh Button -->
-                <button class="tool-btn" onclick="refreshScheduleData(this)" style="background: var(--Petrol-tint, #e3efef); color: var(--Petrol, #0f5a60); border-color: var(--Petrol, #0f5a60); margin-left: 5px; font-weight: bold;" title="Sync Data">🔄 Refresh</button>
+                <button class="tool-btn" onclick="refreshScheduleData(this)" style="background: var(--lp-action-tint, #eaf6ea); color: var(--lp-action, #2f7a31); border-color: var(--lp-action, #2f7a31); margin-left: 5px; font-weight: bold;" title="Sync Data">🔄 Refresh</button>
                 
                 <button class="tool-btn" onclick="exportToPDF()" style="background: #ffffff; color: #d6281c; border-color: #d6281c; margin-left: 5px; font-weight: bold;">PDF</button>
             </div>
@@ -1981,7 +1982,7 @@ body.help-docked #loading-overlay {
             <div id="cal-edit-body" class="cal-edit-body"></div>
             <div class="cal-edit-foot">
                 <button class="tool-btn" onclick="showCalEditRowInList()">Show in list</button>
-                <button class="tool-btn" onclick="closeCalEditPanel()" style="background: var(--Petrol, #0f5a60); color: white; border-color: var(--Petrol, #0f5a60);">Done</button>
+                <button class="tool-btn" onclick="closeCalEditPanel()" style="background: var(--lp-action, #2f7a31); color: white; border-color: var(--lp-action, #2f7a31);">Done</button>
             </div>
         </div>
 
@@ -1992,20 +1993,20 @@ body.help-docked #loading-overlay {
         </div>
         <p class="loading-text">Refueling QCx Rocket...</p>
     </div>
-    <div id="admin-grant-prompt" class="card" style="display: none; max-width: 400px; margin: 100px auto; text-align: center; padding: 30px; border-top: 5px solid var(--Petrol, #0f5a60);">
-    <h2 style="color: var(--Petrol, #0f5a60); margin-top: 0;">Grant Access?</h2>
+    <div id="admin-grant-prompt" class="card" style="display: none; max-width: 400px; margin: 100px auto; text-align: center; padding: 30px; border-top: 5px solid var(--lp-action, #2f7a31);">
+    <h2 style="color: var(--lp-action, #2f7a31); margin-top: 0;">Grant Access?</h2>
     <p id="grant-email-display" style="font-weight: bold; font-size: 1.1em; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 20px 0;"></p>
     <p style="font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Clicking confirm will add this email to the authorized editors list.</p>
     
     <div style="display: flex; gap: 10px; justify-content: center; margin-top: 25px;">
-        <button onclick="processGrantAccess()" id="grant-confirm-btn" style="padding: 10px 20px; background: var(--Petrol, #0f5a60); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Confirm & Add</button>
+        <button onclick="processGrantAccess()" id="grant-confirm-btn" style="padding: 10px 20px; background: var(--lp-action, #2f7a31); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Confirm & Add</button>
         <button onclick="window.location.href=window.location.origin + window.location.pathname" style="padding: 10px 20px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: 4px; cursor: pointer;">Cancel</button>
     </div>
     <p id="grant-status" style="margin-top: 15px; font-size: 14px; display: none;"></p>
 </div>
 
 <div id="project-picker" style="display: none; flex-direction: column; text-align: center; background: white; padding: 0; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); max-width: 600px; max-height: 88vh; margin: 0 20px; width: 100%; overflow: hidden;">
-    <div style="position: relative; background: var(--Petrol, #0f5a60); padding: 34px 28px 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; overflow: hidden;">
+    <div style="position: relative; background: var(--lp-action, #2f7a31); padding: 34px 28px 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; overflow: hidden;">
         <img src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); height: 260%; width: auto; opacity: 0.14; filter: brightness(0) invert(1); pointer-events: none;">
         <!-- Always visible regardless of how many projects are in the
              scrollable list below — someone who doesn't want any of the
@@ -2040,7 +2041,7 @@ body.help-docked #loading-overlay {
 <div id="auth-prompt" style="display: none; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); max-width: 400px; margin: 0 20px;">
     
     <div id="auth-login-view">
-        <h2 id="auth-title" style="margin-top: 0; color: var(--Petrol, #0f5a60); font-size: 26px;">Sign In</h2>
+        <h2 id="auth-title" style="margin-top: 0; color: var(--lp-action, #2f7a31); font-size: 26px;">Sign In</h2>
         <p id="auth-subtitle" style="margin-bottom: 25px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Enter your credentials to access LaunchPad.</p>
         
         <input type="email" id="user-email-input" placeholder="Email Address" 
@@ -2050,19 +2051,19 @@ body.help-docked #loading-overlay {
                style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom: 20px; box-sizing: border-box; font-size: 16px; text-align: center; letter-spacing: 4px;">
         
         <button id="auth-btn" onclick="handleAuthAction()" 
-                style="background: var(--Petrol, #0f5a60); color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
+                style="background: var(--lp-action, #2f7a31); color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;">
             Login
         </button>
 
         <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
-            <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: var(--Petrol, #0f5a60); text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
+            <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: var(--lp-action, #2f7a31); text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
             <span style="color: #d33b3b;">|</span>
             <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
         </div>
     </div>
 
     <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
-    <p id="auth-success" style="color: var(--Petrol, #0f5a60); margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
+    <p id="auth-success" style="color: var(--lp-action, #2f7a31); margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
 </div>
 </div>
 
@@ -2106,14 +2107,14 @@ body.help-docked #loading-overlay {
     <button id="schedule-help-btn" onclick="openScheduleHelpModal()"
         onmouseover="document.getElementById('schedule-help-tooltip').style.opacity='1'; this.style.transform='scale(1.08)';"
         onmouseout="document.getElementById('schedule-help-tooltip').style.opacity='0'; this.style.transform='scale(1)';"
-        style="width: 50px; height: 50px; border-radius: 50%; background: var(--Petrol, #0f5a60); color: white; border: none; font-size: 24px; font-weight: bold; font-family: Roboto, 'Segoe UI', sans-serif; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.3); transition: transform 0.15s; display: flex; align-items: center; justify-content: center;"
+        style="width: 50px; height: 50px; border-radius: 50%; background: var(--lp-action, #2f7a31); color: white; border: none; font-size: 24px; font-weight: bold; font-family: Roboto, 'Segoe UI', sans-serif; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.3); transition: transform 0.15s; display: flex; align-items: center; justify-content: center;"
         aria-label="Help" title="Help">?</button>
 </div>
 
 <div id="schedule-help-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10002; align-items: center; justify-content: center;">
     <div class="help-modal-panel" style="background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); width: 900px; max-width: 95vw; height: 85vh; display: flex; flex-direction: column; overflow: hidden;">
         <div class="help-dock-resize-handle" onmousedown="startHelpDockResize(event, 'schedule-help-modal')" title="Drag to resize"></div>
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); background: var(--Petrol, #0f5a60); color: white; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); background: var(--lp-action, #2f7a31); color: white; flex-shrink: 0;">
             <h3 id="schedule-help-title" style="margin: 0; font-size: 18px;">Schedule Help &amp; Training</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button id="schedule-help-dock-btn" onclick="toggleHelpDock('schedule-help-modal', 'schedule-help-dock-btn')" title="Dock to the side so you can use LaunchPad while following along" style="background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.4); color: white; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">⇥ Dock</button>
@@ -2122,7 +2123,7 @@ body.help-docked #loading-overlay {
         </div>
 
         <div id="schedule-help-menu" style="flex: 1; overflow-y: auto; padding: 0;">
-            <div style="padding: 26px 28px; background: var(--Petrol, #0f5a60); color: white;">
+            <div style="padding: 26px 28px; background: var(--lp-action, #2f7a31); color: white;">
                 <p style="margin: 0 0 16px; font-size: 19px; font-weight: 700; line-height: 1.35; letter-spacing: 0.2px;">The centralized source of truth for quality control and commissioning (QCx) activities.</p>
                 <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                     <span style="background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.35); color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">📝 Individual or Bulk Add</span>
@@ -2136,25 +2137,25 @@ body.help-docked #loading-overlay {
 
                 <div style="margin: 0 0 6px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Tracked Per Activity</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 20px;">
-                    <span style="background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; color: var(--Petrol-hover, #0b4a4f); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Time</span>
-                    <span style="background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; color: var(--Petrol-hover, #0b4a4f); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Area</span>
-                    <span style="background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; color: var(--Petrol-hover, #0b4a4f); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Trade Partners</span>
-                    <span style="background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; color: var(--Petrol-hover, #0b4a4f); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Associated Info</span>
+                    <span style="background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; color: var(--lp-action-hover, #276629); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Time</span>
+                    <span style="background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; color: var(--lp-action-hover, #276629); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Area</span>
+                    <span style="background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; color: var(--lp-action-hover, #276629); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Trade Partners</span>
+                    <span style="background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; color: var(--lp-action-hover, #276629); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Associated Info</span>
                 </div>
 
-                <p style="margin: 0; padding: 14px 16px; background: var(--Petrol-tint, #e3efef); border-left: 3px solid var(--Petrol, #0f5a60); border-radius: 4px; color: var(--Petrol-hover, #0b4a4f); font-size: 13.5px; font-style: italic; line-height: 1.6;">The platform evaluates and displays the readiness status of QCx activities by utilizing data derived from the commissioning software in accordance with site specifications.</p>
+                <p style="margin: 0; padding: 14px 16px; background: var(--lp-action-tint, #eaf6ea); border-left: 3px solid var(--lp-action, #2f7a31); border-radius: 4px; color: var(--lp-action-hover, #276629); font-size: 13.5px; font-style: italic; line-height: 1.6;">The platform evaluates and displays the readiness status of QCx activities by utilizing data derived from the commissioning software in accordance with site specifications.</p>
             </div>
 
             <div style="padding: 0 28px 24px;">
-                <h4 style="margin: 0 0 10px; color: var(--Petrol, #0f5a60); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Trainings</h4>
+                <h4 style="margin: 0 0 10px; color: var(--lp-action, #2f7a31); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Trainings</h4>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button class="schedule-help-guide-btn" onclick="openScheduleHelpGuide('https://scribehow.com/embed-preview/Managing_Critical_Arc_Launchpad_Schedule_Views__D7BwZdnwRUGOUQpxiErMQw?as=slides&size=flexible', 'How to Navigate Schedule')" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='var(--Petrol-tint, #e3efef)'" style="text-align: left; padding: 14px 16px; background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--Petrol-hover, #0b4a4f); display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
+                    <button class="schedule-help-guide-btn" onclick="openScheduleHelpGuide('https://scribehow.com/embed-preview/Managing_Critical_Arc_Launchpad_Schedule_Views__D7BwZdnwRUGOUQpxiErMQw?as=slides&size=flexible', 'How to Navigate Schedule')" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='var(--lp-action-tint, #eaf6ea)'" style="text-align: left; padding: 14px 16px; background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--lp-action-hover, #276629); display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
                         How to navigate schedule <span style="opacity:0.6;">▸</span>
                     </button>
-                    <button class="schedule-help-guide-btn" onclick="openScheduleHelpGuide('https://scribehow.com/embed-preview/Managing_Daily_Schedule_Activities_and_Asset_Assignments__pTzsOTWJTsm2jCAdlAU4HA?as=slides&size=flexible', 'How to Add Activities')" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='var(--Petrol-tint, #e3efef)'" style="text-align: left; padding: 14px 16px; background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--Petrol-hover, #0b4a4f); display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
+                    <button class="schedule-help-guide-btn" onclick="openScheduleHelpGuide('https://scribehow.com/embed-preview/Managing_Daily_Schedule_Activities_and_Asset_Assignments__pTzsOTWJTsm2jCAdlAU4HA?as=slides&size=flexible', 'How to Add Activities')" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='var(--lp-action-tint, #eaf6ea)'" style="text-align: left; padding: 14px 16px; background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--lp-action-hover, #276629); display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
                         How to add activities <span style="opacity:0.6;">▸</span>
                     </button>
-                    <button class="schedule-help-guide-btn" onclick="openScheduleHelpGuide('https://scribehow.com/embed-preview/How_to_Export_Launchpad_Activity_Reports__lP7sBefDSAe8Zkgx7eU6iA?as=slides&size=flexible', 'How to Access Filters/Reports')" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='var(--Petrol-tint, #e3efef)'" style="text-align: left; padding: 14px 16px; background: var(--Petrol-tint, #e3efef); border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--Petrol-hover, #0b4a4f); display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
+                    <button class="schedule-help-guide-btn" onclick="openScheduleHelpGuide('https://scribehow.com/embed-preview/How_to_Export_Launchpad_Activity_Reports__lP7sBefDSAe8Zkgx7eU6iA?as=slides&size=flexible', 'How to Access Filters/Reports')" onmouseover="this.style.background='#c8e6c9'" onmouseout="this.style.background='var(--lp-action-tint, #eaf6ea)'" style="text-align: left; padding: 14px 16px; background: var(--lp-action-tint, #eaf6ea); border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--lp-action-hover, #276629); display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;">
                         How to access filters/reports <span style="opacity:0.6;">▸</span>
                     </button>
                 </div>
@@ -2163,7 +2164,7 @@ body.help-docked #loading-overlay {
 
         <div id="schedule-help-guide-view" style="display: none; flex: 1; flex-direction: column; overflow: hidden;">
             <div style="padding: 10px 20px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); flex-shrink: 0;">
-                <button onclick="backToScheduleHelpMenu()" style="background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--Petrol, #0f5a60); padding: 4px 0;">← Back to overview</button>
+                <button onclick="backToScheduleHelpMenu()" style="background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--lp-action, #2f7a31); padding: 4px 0;">← Back to overview</button>
             </div>
             <div class="help-guide-frame-wrap">
                 <iframe id="schedule-help-guide-iframe" src="about:blank" allow="fullscreen"></iframe>
@@ -2345,11 +2346,11 @@ body.help-docked #loading-overlay {
 <div id="admin-panel" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2000; align-items: center; justify-content: center;">
     <div style="background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); width: 480px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <h3 style="margin: 0; color: var(--Petrol, #0f5a60);">Manage Access</h3>
+            <h3 style="margin: 0; color: var(--lp-action, #2f7a31);">Manage Access</h3>
             <button onclick="toggleAdminPanel()" style="background: none; border: none; cursor: pointer; font-size: 22px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">&times;</button>
         </div>
         <div style="display: flex; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <button id="admin-tab-requests" onclick="switchAdminTab('requests')" style="flex:1; padding:12px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom: 3px solid var(--Petrol, #0f5a60);">Pending Requests</button>
+            <button id="admin-tab-requests" onclick="switchAdminTab('requests')" style="flex:1; padding:12px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom: 3px solid var(--lp-action, #2f7a31);">Pending Requests</button>
             <button id="admin-tab-members" onclick="switchAdminTab('members')" style="flex:1; padding:12px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom: 3px solid transparent;">Members</button>
         </div>
         <div style="padding: 16px 20px; overflow-y: auto;">
@@ -2374,13 +2375,13 @@ body.help-docked #loading-overlay {
     <div id="ready-action-bar" style="display: none; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top: 10px;">
         <label style="font-size: 12px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); display: block; margin-bottom: 5px;">Move to Date:</label>
         <input type="date" id="ready-target-date" style="width: 100%; padding: 8px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; box-sizing: border-box; margin-bottom: 10px;">
-        <button id="ready-add-btn" onclick="addSelectedReadyItems()" style="width: 100%; background: var(--Petrol, #0f5a60); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s;">
+        <button id="ready-add-btn" onclick="addSelectedReadyItems()" style="width: 100%; background: var(--lp-action, #2f7a31); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s;">
             Add to Schedule
         </button>
     </div>
 </div>
 <div id="history-menu" style="display:none; position:fixed; background:white; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:9999; width:280px; padding:0; border-radius:8px; overflow:hidden; font-family: Roboto, 'Segoe UI', sans-serif;">
-    <div style="background:var(--Petrol, #0f5a60); color:white; padding:10px; font-size:14px; font-weight:bold; display:flex; justify-content:space-between;">
+    <div style="background:var(--lp-action, #2f7a31); color:white; padding:10px; font-size:14px; font-weight:bold; display:flex; justify-content:space-between;">
         <span>Cell Edit History</span>
         <span onclick="document.getElementById('history-menu').style.display='none'" style="cursor:pointer;">×</span>
     </div>
@@ -2925,7 +2926,7 @@ function renderReadyList() {
     
     listContainer.innerHTML = filteredItems.map(item => `
         <label style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor: pointer; transition: background 0.2s;" 
-               onmouseover="this.style.backgroundColor='var(--Petrol-tint, #e3efef)'" 
+               onmouseover="this.style.backgroundColor='var(--lp-action-tint, #eaf6ea)'" 
                onmouseout="this.style.backgroundColor='transparent'">
             <input type="checkbox" style="margin-right: 12px; transform: scale(1.2); cursor: pointer;" 
                    ${selectedReadyItems.has(item.id) ? 'checked' : ''} 
@@ -3060,12 +3061,12 @@ async function showCellHistory(e, rowId, colIndex) {
 
     content.innerHTML = data.map(h => `
         <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <div style="color:var(--Petrol, #0f5a60); font-weight:bold; margin-bottom:2px;">${new Date(h.changed_at).toLocaleString()}</div>
+            <div style="color:var(--lp-action, #2f7a31); font-weight:bold; margin-bottom:2px;">${new Date(h.changed_at).toLocaleString()}</div>
             <div style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">User: ${h.changed_by}</div>
             <div style="display:flex; gap:5px; align-items:center;">
                 <span style="color:#d32f2f; text-decoration:line-through; background:#ffebee; padding:2px 4px; border-radius:2px;">${h.old_value || '(empty)'}</span>
                 <span>➔</span>
-                <span style="color:var(--Petrol, #0f5a60); background:var(--Petrol-tint, #e3efef); padding:2px 4px; border-radius:2px; font-weight:bold;">${h.new_value || '(empty)'}</span>
+                <span style="color:var(--lp-action, #2f7a31); background:var(--lp-action-tint, #eaf6ea); padding:2px 4px; border-radius:2px; font-weight:bold;">${h.new_value || '(empty)'}</span>
             </div>
         </div>
     `).join('');
@@ -3518,7 +3519,7 @@ function renderAssetDirectory(assets) {
         
         btn.innerText = assetName;
         
-        btn.onmouseover = () => btn.style.backgroundColor = 'var(--Petrol-tint, #e3efef)';
+        btn.onmouseover = () => btn.style.backgroundColor = 'var(--lp-action-tint, #eaf6ea)';
         btn.onmouseout = () => { if(!btn.classList.contains('active-asset')) btn.style.backgroundColor = 'white'; };
         
         btn.onclick = () => {
@@ -3529,8 +3530,8 @@ function renderAssetDirectory(assets) {
                 b.style.borderColor = 'var(--neutrals-lightmode-light-mode-Subtle, #e7e5df)';
             });
             btn.classList.add('active-asset');
-            btn.style.backgroundColor = 'var(--Petrol-tint, #e3efef)';
-            btn.style.borderColor = 'var(--Petrol, #0f5a60)';
+            btn.style.backgroundColor = 'var(--lp-action-tint, #eaf6ea)';
+            btn.style.borderColor = 'var(--lp-action, #2f7a31)';
             
             displayAssetDetails(assetObj, assetName);
         };
@@ -3688,7 +3689,7 @@ function displayAssetDetails(assetObj, assetName) {
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 24px;">${assetName}</span>
             </div>
-            <button id="attr-save-btn" onclick="saveAttributeChanges('${assetName.replace(/'/g, "\\'")}')" style="background: var(--Petrol, #0f5a60); color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.2s; display: none;">Save Changes</button>
+            <button id="attr-save-btn" onclick="saveAttributeChanges('${assetName.replace(/'/g, "\\'")}')" style="background: var(--lp-action, #2f7a31); color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.2s; display: none;">Save Changes</button>
         </div>
     `;
     
@@ -3743,9 +3744,9 @@ function displayAssetDetails(assetObj, assetName) {
         // 1. QR Button
         const groupQRBtn = document.createElement('button');
         groupQRBtn.innerHTML = `<span style="font-size: 14px;">🔳</span> Scan QR`;
-        groupQRBtn.style.cssText = "background: var(--Petrol-tint, #e3efef); color: var(--Petrol, #0f5a60); border: 1px solid var(--Petrol, #0f5a60); cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 4px; font-weight: bold; transition: all 0.2s; display: flex; align-items: center; gap: 4px;";
-        groupQRBtn.onmouseover = () => { groupQRBtn.style.background='var(--Petrol, #0f5a60)'; groupQRBtn.style.color='white'; };
-        groupQRBtn.onmouseout = () => { groupQRBtn.style.background='var(--Petrol-tint, #e3efef)'; groupQRBtn.style.color='var(--Petrol, #0f5a60)'; };
+        groupQRBtn.style.cssText = "background: var(--lp-action-tint, #eaf6ea); color: var(--lp-action, #2f7a31); border: 1px solid var(--lp-action, #2f7a31); cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 4px; font-weight: bold; transition: all 0.2s; display: flex; align-items: center; gap: 4px;";
+        groupQRBtn.onmouseover = () => { groupQRBtn.style.background='var(--lp-action, #2f7a31)'; groupQRBtn.style.color='white'; };
+        groupQRBtn.onmouseout = () => { groupQRBtn.style.background='var(--lp-action-tint, #eaf6ea)'; groupQRBtn.style.color='var(--lp-action, #2f7a31)'; };
         groupQRBtn.onclick = () => startQRScanner(safeAsset, safeGroup);
 
         // 2. Photo Button
@@ -3815,7 +3816,7 @@ function displayAssetDetails(assetObj, assetName) {
             
             inputField.addEventListener('focus', () => { 
                 inputField.style.borderBottomStyle = 'solid'; 
-                inputField.style.borderBottomColor = 'var(--Petrol, #0f5a60)'; 
+                inputField.style.borderBottomColor = 'var(--lp-action, #2f7a31)'; 
             });
             
             inputField.addEventListener('blur', () => { 
@@ -3911,8 +3912,8 @@ function createMappingRow(label, idPrefix, value, optionsHtml) {
                 <input type="text" id="${idPrefix}-val" value="${value.replace(/"/g, '&quot;')}" style="width:100%; padding:6px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:12px; box-sizing:border-box;">
             </div>
             <div style="flex:1; min-width:0;">
-                <div style="font-size:11px; color:var(--Petrol, #0f5a60); font-weight:bold; text-transform:uppercase; margin-bottom:4px;">Assign To</div>
-                <select class="qr-mapping-select" data-val-id="${idPrefix}-val" style="width:100%; padding:6px; border:1px solid var(--Petrol, #0f5a60); background:var(--Petrol-tint, #e3efef); border-radius:4px; font-size:12px; box-sizing:border-box; cursor:pointer;">
+                <div style="font-size:11px; color:var(--lp-action, #2f7a31); font-weight:bold; text-transform:uppercase; margin-bottom:4px;">Assign To</div>
+                <select class="qr-mapping-select" data-val-id="${idPrefix}-val" style="width:100%; padding:6px; border:1px solid var(--lp-action, #2f7a31); background:var(--lp-action-tint, #eaf6ea); border-radius:4px; font-size:12px; box-sizing:border-box; cursor:pointer;">
                     ${optionsHtml}
                 </select>
             </div>
@@ -4033,7 +4034,7 @@ function showQRMappingUI(decodedText) {
     const viewport = document.getElementById('scanner-viewport');
     viewport.innerHTML = `
         <div style="padding: 15px; width: 100%; box-sizing: border-box; background:#fff;">
-            <h3 style="margin-top:0; color:var(--Petrol, #0f5a60); font-size:16px;">Map QR Data</h3>
+            <h3 style="margin-top:0; color:var(--lp-action, #2f7a31); font-size:16px;">Map QR Data</h3>
             <div style="font-size:11px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); word-break:break-all; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding:8px; border-radius:4px; margin-bottom:15px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); max-height: 60px; overflow-y:auto;">
                 <strong>Raw Scanned Text:</strong><br> ${decodedText}
             </div>
@@ -4047,7 +4048,7 @@ function showQRMappingUI(decodedText) {
             
             <div style="display:flex; gap:10px; margin-top:20px;">
                 <button onclick="stopScanner()" style="flex:1; padding:12px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; font-weight:bold; cursor:pointer;">Cancel</button>
-                <button onclick="applyQRMapping()" style="flex:2; padding:12px; background:var(--Petrol, #0f5a60); color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Apply to Attributes</button>
+                <button onclick="applyQRMapping()" style="flex:2; padding:12px; background:var(--lp-action, #2f7a31); color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Apply to Attributes</button>
             </div>
         </div>
     `;
@@ -4250,7 +4251,7 @@ function renderMultiCropperUI(img) {
         
         <div style="display:flex; gap:10px; margin-top:12px; flex-shrink: 0; flex-wrap: wrap;">
             <button onclick="clearMultiBoxes()" style="flex:1; padding: 12px; background: #f44336; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px;">Clear</button>
-            <button id="ocr-process-btn" onclick="processMultiCropAndRead()" style="flex:2; padding: 12px; background: var(--Petrol, #0f5a60); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px;">✅ Process <span id="box-count-badge">0</span></button>
+            <button id="ocr-process-btn" onclick="processMultiCropAndRead()" style="flex:2; padding: 12px; background: var(--lp-action, #2f7a31); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px;">✅ Process <span id="box-count-badge">0</span></button>
         </div>
         <p id="ocr-status-text" style="text-align:center; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin-top:6px; margin-bottom:0; flex-shrink: 0; min-height: 15px;"></p>
     `;
@@ -5458,7 +5459,7 @@ function switchAdminTab(tab) {
     const requestsList = document.getElementById('request-list');
     const membersList = document.getElementById('members-list');
 
-    const activeStyle = 'flex:1; padding:12px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom: 3px solid var(--Petrol, #0f5a60);';
+    const activeStyle = 'flex:1; padding:12px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom: 3px solid var(--lp-action, #2f7a31);';
     const inactiveStyle = 'flex:1; padding:12px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom: 3px solid transparent;';
 
     if (tab === 'requests') {
@@ -5699,7 +5700,7 @@ async function refreshRequestList() {
 
     const bulkBar = `
         <div style="display: flex; gap: 8px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <button onclick="admitAllUsers()" style="flex: 1; background: var(--Petrol, #0f5a60); color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
+            <button onclick="admitAllUsers()" style="flex: 1; background: var(--lp-action, #2f7a31); color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
                 Admit All (${data.length})
             </button>
             <button onclick="declineAllUsers()" style="flex: 1; background: #d32f2f; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
@@ -5721,7 +5722,7 @@ async function refreshRequestList() {
             </select>
             <div style="display: flex; gap: 5px;">
                 <button onclick="admitUser('${req.email}', getCurrentCompanyValue('req-${req.id}'), ${req.id}, document.getElementById('admit-role-${req.id}').value)"
-                        style="background: var(--Petrol, #0f5a60); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
+                        style="background: var(--lp-action, #2f7a31); color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">
                     Admit
                 </button>
                 <button onclick="declineUser('${req.email}', ${req.id})"
@@ -6424,7 +6425,7 @@ function renderProjectPicker(projects, opts) {
 
     const projectButton = (p) => `
         <button class="tool-btn" style="display:flex; align-items:stretch; gap:0; width:100%; margin-bottom:0; padding:0; font-size:15px; text-align:left; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:10px; background:#fafafa; overflow:hidden; transition: background 0.15s, border-color 0.15s;"
-            onmouseover="this.style.background='var(--Petrol-tint, #e3efef)'; this.style.borderColor='var(--Petrol, #0f5a60)';"
+            onmouseover="this.style.background='var(--lp-action-tint, #eaf6ea)'; this.style.borderColor='var(--lp-action, #2f7a31)';"
             onmouseout="this.style.background='#fafafa'; this.style.borderColor='var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';"
             onclick="chooseProject('${p.project_key}')">
             <span style="font-weight:600; color:#1b1b1b; padding: 10px 14px; display:flex; align-items:center; flex:1; min-width:0;">${p.project_name || p.project_key}: <span id="access-code-display-${p.project_key}" style="letter-spacing:1px; margin-left:5px;">${p.access_code || '——————'}</span></span>
@@ -6435,7 +6436,7 @@ function renderProjectPicker(projects, opts) {
 
     const projectsHtml = projects.length
         ? Object.entries(groups).map(([clientName, group], idx) => `
-            <div style="text-align:left; font-size:13px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:var(--Petrol, #0f5a60); margin: ${idx === 0 ? '0' : '18px'} 0 10px; padding-top: ${idx === 0 ? '0' : '10px'}; border-top: ${idx === 0 ? 'none' : '1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df)'};">${clientName}</div>
+            <div style="text-align:left; font-size:13px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:var(--lp-action, #2f7a31); margin: ${idx === 0 ? '0' : '18px'} 0 10px; padding-top: ${idx === 0 ? '0' : '10px'}; border-top: ${idx === 0 ? 'none' : '1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df)'};">${clientName}</div>
             ${group.map(projectButton).join('')}
         `).join('')
         : `<p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:14px; text-align:left; margin: 4px 0 8px;">Enter the access code your admin gave you to request access to a project.</p>`;
@@ -6447,7 +6448,7 @@ function renderProjectPicker(projects, opts) {
 
     const requestAccessSection = opts.showRequestAccess === false ? '' : `
         <div style="text-align:left;">
-            <a href="javascript:void(0)" onclick="toggleAccessRequestForm()" id="access-request-toggle" style="color:var(--Petrol, #0f5a60); font-weight:600; font-size:14px; text-decoration:none;">${projects.length ? '+ Request access to another project' : '+ Enter access code'}</a>
+            <a href="javascript:void(0)" onclick="toggleAccessRequestForm()" id="access-request-toggle" style="color:var(--lp-action, #2f7a31); font-weight:600; font-size:14px; text-decoration:none;">${projects.length ? '+ Request access to another project' : '+ Enter access code'}</a>
             <div id="access-request-form" style="display:${projects.length ? 'none' : 'block'}; margin-top:14px;">
                 <input type="text" id="access-code-input" placeholder="6-digit access code" maxlength="6" inputmode="numeric" oninput="handleAccessCodeInput()" style="padding:12px; width:100%; border-radius:6px; border:2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom:6px; box-sizing:border-box; font-size:15px; text-align:center; letter-spacing:3px;">
                 <p id="access-code-status" style="font-size:12.5px; margin:0 0 10px; min-height:16px;"></p>
@@ -6461,9 +6462,9 @@ function renderProjectPicker(projects, opts) {
                     <label style="margin-right:20px; cursor:pointer;"><input type="radio" name="access-request-role" value="viewer" checked style="margin-right:5px;">Viewer <span style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px;">(view only)</span></label>
                     <label style="cursor:pointer;"><input type="radio" name="access-request-role" value="editor" style="margin-right:5px;">Editor <span style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px;">(can edit)</span></label>
                 </div>
-                <button id="access-request-submit-btn" onclick="submitAccessRequest()" style="background:var(--Petrol, #0f5a60); color:white; border:none; padding:12px; border-radius:6px; cursor:pointer; width:100%; font-weight:bold; font-size:15px;">Submit Request</button>
+                <button id="access-request-submit-btn" onclick="submitAccessRequest()" style="background:var(--lp-action, #2f7a31); color:white; border:none; padding:12px; border-radius:6px; cursor:pointer; width:100%; font-weight:bold; font-size:15px;">Submit Request</button>
                 <p id="access-request-error" style="color:#d32f2f; display:none; font-size:13px; margin-top:10px; font-weight:600;"></p>
-                <p id="access-request-success" style="color:var(--Petrol, #0f5a60); display:none; font-size:13px; margin-top:10px; font-weight:600;"></p>
+                <p id="access-request-success" style="color:var(--lp-action, #2f7a31); display:none; font-size:13px; margin-top:10px; font-weight:600;"></p>
             </div>
         </div>
     `;
@@ -6563,7 +6564,7 @@ function renderPickerAccessRequests() {
         </summary>
         <div style="padding:10px 12px 4px;">
         <div style="display:flex; gap:8px; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <button id="picker-admit-all-btn" onclick="pickerAdmitAllRequests()" style="flex:1; background:var(--Petrol, #0f5a60); color:white; border:none; padding:8px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">
+            <button id="picker-admit-all-btn" onclick="pickerAdmitAllRequests()" style="flex:1; background:var(--lp-action, #2f7a31); color:white; border:none; padding:8px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">
                 Admit All (${reqs.length})
             </button>
             <button id="picker-decline-all-btn" onclick="pickerDeclineAllRequests()" style="flex:1; background:#d32f2f; color:white; border:none; padding:8px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">
@@ -6574,7 +6575,7 @@ function renderPickerAccessRequests() {
             <div style="text-align:left; padding:10px 12px; margin-bottom:8px; border:1px solid #f3c7c7; border-radius:10px; background:#fff8f8;">
                 <div style="font-size:14px; font-weight:700; color:#1b1b1b; word-break:break-all;">${esc(req.email)}</div>
                 <div style="font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin:3px 0 6px;">
-                    Requested <strong style="color:var(--Petrol, #0f5a60);">${esc(req.projectName)}</strong>
+                    Requested <strong style="color:var(--lp-action, #2f7a31);">${esc(req.projectName)}</strong>
                     · ${req.requested_role === 'viewer' ? 'Viewer' : 'Editor'}
                 </div>
                 <div style="font-size:11px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:8px; display:flex; align-items:center; gap:4px;">
@@ -6586,7 +6587,7 @@ function renderPickerAccessRequests() {
                         <option value="editor" ${req.requested_role === 'editor' || !req.requested_role ? 'selected' : ''}>Editor</option>
                         <option value="admin">Admin</option>
                     </select>
-                    <button id="picker-admit-btn-${i}" onclick="pickerAdmitRequest(${i})" style="background:var(--Petrol, #0f5a60); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">Admit</button>
+                    <button id="picker-admit-btn-${i}" onclick="pickerAdmitRequest(${i})" style="background:var(--lp-action, #2f7a31); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">Admit</button>
                     <button id="picker-decline-btn-${i}" onclick="pickerDeclineRequest(${i})" style="background:#d32f2f; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">Decline</button>
                 </div>
             </div>
@@ -6794,7 +6795,7 @@ function showViewerUpsell() {
             <div style="font-size:36px; margin-bottom:10px;">🔒</div>
             <h3 style="margin:0 0 8px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">View-Only Access</h3>
             <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:14px; margin-bottom:20px;">You have viewer access to this project and can't make changes here. Want to request editor access?</p>
-            <button onclick="requestHigherAccess()" style="background:var(--Petrol, #0f5a60); color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-bottom:8px;">Request Editor Access</button>
+            <button onclick="requestHigherAccess()" style="background:var(--lp-action, #2f7a31); color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-bottom:8px;">Request Editor Access</button>
             <button onclick="document.getElementById('viewer-upsell-modal').remove()" style="background:none; border:none; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); cursor:pointer; font-size:13px;">Cancel</button>
         </div>
     `;
@@ -6867,7 +6868,7 @@ async function toggleSwitchProjectPopover(event) {
     popover.innerHTML = `
         <div style="padding:6px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); flex-shrink:0;">
             <button onclick="location.reload();" style="width:100%; display:flex; align-items:center; gap:6px; text-align:left; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:7px; padding:8px 10px; font-size:13px; font-weight:600; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); cursor:pointer;"
-                onmouseover="this.style.background='var(--Petrol-tint, #e3efef)'; this.style.borderColor='var(--Petrol, #0f5a60)';"
+                onmouseover="this.style.background='var(--lp-action-tint, #eaf6ea)'; this.style.borderColor='var(--lp-action, #2f7a31)';"
                 onmouseout="this.style.background='var(--neutrals-lightmode-light-mode-Page, #f3f2ee)'; this.style.borderColor='var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';">
                 <span>←</span> Return to Site Selector
             </button>
@@ -6904,7 +6905,7 @@ async function toggleSwitchProjectPopover(event) {
 
         popoverList.innerHTML = (projects || []).map(p => `
             <div onclick="switchToProjectDirect('${p.project_key}')" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:7px; cursor:pointer; font-size:14px; font-weight:600; color:#1b1b1b;"
-                 onmouseover="this.style.background='var(--Petrol-tint, #e3efef)'" onmouseout="this.style.background='transparent'">
+                 onmouseover="this.style.background='var(--lp-action-tint, #eaf6ea)'" onmouseout="this.style.background='transparent'">
                 ${p.logo_url ? `<img src="${p.logo_url}" style="height:24px; width:24px; object-fit:cover; border-radius:4px; flex-shrink:0;">` : '<span style="font-size:18px;">📁</span>'}
                 <span>${p.project_name || p.project_key}: <span style="letter-spacing:1px; font-weight:700;">${p.access_code || '——————'}</span></span>
             </div>
@@ -7275,7 +7276,7 @@ async function processGrantAccess() {
         if (error) throw error;
 
         status.innerText = "Successfully Authorized!";
-        status.style.color = "var(--Petrol, #0f5a60)";
+        status.style.color = "var(--lp-action, #2f7a31)";
         
         // Wait 2 seconds and then enter the app
         setTimeout(() => {
@@ -7436,7 +7437,7 @@ function openScheduleConfigModal() {
         
         item.addEventListener('dragover', (e) => {
             e.preventDefault(); 
-            item.style.border = '2px dashed var(--Petrol, #0f5a60)'; 
+            item.style.border = '2px dashed var(--lp-action, #2f7a31)'; 
         });
         
         item.addEventListener('dragleave', () => {
@@ -7460,7 +7461,7 @@ function openScheduleConfigModal() {
             <input type="checkbox" id="cfg-col-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:12px; cursor: pointer; transform: scale(1.2);" title="Show/Hide">
             <input type="text" id="cfg-name-${col.id}" value="${col.name}" 
                 style="font-weight:bold; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); border: 1px solid transparent; background: transparent; padding: 4px 8px; flex: 1; border-radius: 3px; outline: none; transition: 0.2s; font-size: 14px;" 
-                onfocus="this.style.border='1px solid var(--Petrol, #0f5a60)'; this.style.background='#fff'" 
+                onfocus="this.style.border='1px solid var(--lp-action, #2f7a31)'; this.style.background='#fff'" 
                 onblur="this.style.border='1px solid transparent'; this.style.background='transparent'" 
                 onmousedown="this.focus(); event.stopPropagation();"
                 title="Click to Edit Column Name">
@@ -11212,7 +11213,7 @@ function handleAccessCodeInput() {
         }
 
         window.__resolvedAccessRequestProject = project;
-        statusEl.style.color = 'var(--Petrol, #0f5a60)';
+        statusEl.style.color = 'var(--lp-action, #2f7a31)';
         statusEl.innerText = `✓ ${project.project_name || project.project_key}`;
 
         // Pull that project's own Trade Partners (col6) list, same source
@@ -12219,7 +12220,7 @@ function filterBatchList(listId, query) {
     </script>
     <div id="bulk-date-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
     <div style="background:white; padding:30px; border-radius:8px; width:350px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-        <h2 id="bulk-modal-title" style="margin-top:0; color:var(--Petrol, #0f5a60);">Select Date</h2>
+        <h2 id="bulk-modal-title" style="margin-top:0; color:var(--lp-action, #2f7a31);">Select Date</h2>
         <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:14px; margin-bottom:20px;">Choose the destination date for the selected items.</p>
         
         <input type="date" id="bulk-date-input" oninput="onBulkDateChanged()" style="padding:12px; width:100%; box-sizing:border-box; border:2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius:6px; margin-bottom:15px; font-size:16px;">
@@ -12228,7 +12229,7 @@ function filterBatchList(listId, query) {
 
         <div style="display:flex; justify-content:space-between; gap:10px;">
             <button onclick="closeBulkDateModal()" style="flex:1; padding:12px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-radius:4px; cursor:pointer; font-weight:bold;">Cancel</button>
-            <button id="bulk-confirm-btn" onclick="confirmBulkAction()" style="flex:1; padding:12px; background:var(--Petrol, #0f5a60); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Confirm</button>
+            <button id="bulk-confirm-btn" onclick="confirmBulkAction()" style="flex:1; padding:12px; background:var(--lp-action, #2f7a31); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Confirm</button>
         </div>
     </div>
 </div>
@@ -12245,7 +12246,7 @@ function filterBatchList(listId, query) {
 <div class="modal-overlay" id="batch-add-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
     <div style="background:white; padding:30px; border-radius:8px; width:950px; max-width:95%; max-height:90vh; display:flex; flex-direction:column; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-bottom:15px; margin-bottom:15px;">
-            <h2 style="margin:0; color:var(--Petrol, #0f5a60);">Batch Add Line Items</h2>
+            <h2 style="margin:0; color:var(--lp-action, #2f7a31);">Batch Add Line Items</h2>
             <button onclick="closeBatchAddModal()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">×</button>
         </div>
 
@@ -12303,7 +12304,7 @@ function filterBatchList(listId, query) {
 
         <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top:15px;">
             <button onclick="closeBatchAddModal()" style="padding:10px 15px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; cursor:pointer; font-weight:bold;">Cancel</button>
-            <button onclick="generateBatchPreview()" style="padding:10px 15px; background:var(--Petrol, #0f5a60); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Generate Preview →</button>
+            <button onclick="generateBatchPreview()" style="padding:10px 15px; background:var(--lp-action, #2f7a31); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Generate Preview →</button>
         </div>
         </div>
 
@@ -12328,7 +12329,7 @@ function filterBatchList(listId, query) {
             </div>
             <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top:15px;">
                 <button onclick="backToBatchStep1()" style="padding:10px 15px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; cursor:pointer; font-weight:bold;">← Back</button>
-                <button onclick="commitBatchAdd()" style="padding:10px 15px; background:var(--Petrol, #0f5a60); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Add to Schedule</button>
+                <button onclick="commitBatchAdd()" style="padding:10px 15px; background:var(--lp-action, #2f7a31); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Add to Schedule</button>
             </div>
         </div>
     </div>

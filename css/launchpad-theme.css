@@ -1,0 +1,12 @@
+/* LaunchPad theme layer (ARC-191). Loaded after arclab-tokens.css.
+ * LaunchPad uses Arc Green as its action colour instead of the design
+ * system's Petrol. Every page refers to these aliases, so changing the
+ * action colour is an edit to this file only.
+ * Not design-system tokens (flagged to Arc Lab): #2f7a31 is Arc-Green-ink
+ * darkened just enough for AA text on Arc-Green-tint (4.8:1; 5.3:1 on
+ * white); #276629 is its hover. */
+:root {
+  --lp-action: #2f7a31;                             /* buttons, bars, titles, links */
+  --lp-action-hover: #276629;                       /* hover/pressed on --lp-action */
+  --lp-action-tint: var(--Arc-Green-tint, #eaf6ea); /* light fills: secondary buttons, chips, hovers */
+}

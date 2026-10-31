@@ -282,7 +282,7 @@ const STYLE = `
            of trying to match its numbers more precisely. */
         .asset-container { margin-bottom: 10px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); }
         .asset-header {
-            background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color: var(--Petrol, #0f5a60); padding: 10px 30px;
+            background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color: var(--lp-action, #2f7a31); padding: 10px 30px;
             cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold;
             border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
         }
@@ -340,7 +340,7 @@ const STYLE = `
         .bg-red { background-color: #ffcdd2 !important; color: #b71c1c !important; }
         .bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
 
-        #saveIndicator { font-size: 13px; font-weight: bold; color: var(--Petrol-hover, #0b4a4f); margin-right: 15px; }
+        #saveIndicator { font-size: 13px; font-weight: bold; color: var(--lp-action-hover, #276629); margin-right: 15px; }
 
         /* Updated Header Layout */
 .header-left {
@@ -841,7 +841,7 @@ const MARKUP = `
     <div style="display: flex; align-items: center;">
         <button class="tool-btn" onclick="this.getRootNode().host.expandAllZones()">Expand All Zones</button>
         <button class="tool-btn" onclick="this.getRootNode().host.expandAll()">Expand All Assets</button>
-        <button class="tool-btn" style="border-color:var(--Petrol-hover, #0b4a4f); color:var(--Petrol-hover, #0b4a4f);" onclick="this.getRootNode().host.collapseAll()">Collapse All</button>
+        <button class="tool-btn" style="border-color:var(--lp-action-hover, #276629); color:var(--lp-action-hover, #276629);" onclick="this.getRootNode().host.collapseAll()">Collapse All</button>
 
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="Search entries..." oninput="this.getRootNode().host.handleSearch(this.value)">
@@ -855,9 +855,9 @@ const MARKUP = `
 
     <div>
     <div id="ts-normal-toolbar-buttons" style="display:inline;">
-    <button class="tool-btn" style="background-color: #ffffff; color: rgb(0, 0, 0); border-color: var(--Petrol-hover, #0b4a4f); margin-right: 10px;" onclick="this.getRootNode().host.fetchHierarchyData(true)">Refresh</button>
+    <button class="tool-btn" style="background-color: #ffffff; color: rgb(0, 0, 0); border-color: var(--lp-action-hover, #276629); margin-right: 10px;" onclick="this.getRootNode().host.fetchHierarchyData(true)">Refresh</button>
     <button id="duplicateBtn" class="tool-btn" style="background-color: #ffffff; color: #d32f2f; border-color: #d32f2f; margin-right: 10px;" onclick="this.getRootNode().host.findDuplicates()">Find Duplicates</button>
-    <button id="addBtn" class="tool-btn" style="background-color: var(--Petrol-hover, #0b4a4f); color: white; border-color: var(--Petrol-hover, #0b4a4f); margin-right: 10px;" onclick="this.getRootNode().host.showAddModal()">+ Add Seals</button>
+    <button id="addBtn" class="tool-btn" style="background-color: var(--lp-action-hover, #276629); color: white; border-color: var(--lp-action-hover, #276629); margin-right: 10px;" onclick="this.getRootNode().host.showAddModal()">+ Add Seals</button>
     <button id="editBtn" class="tool-btn" onclick="this.getRootNode().host.toggleEditMode()" style="margin-right: 10px;">Edit</button>
 
     <button id="cancelBtn" class="tool-btn" style="display:none; border-color:#757575; color:#757575; margin-right: 10px;" onclick="this.getRootNode().host.cancelEditMode()">Cancel Changes</button>
@@ -904,7 +904,7 @@ const MARKUP = `
                 <div style="grid-column: span 2;"><label>Inspection Notes</label><input type="text" id="newNotes"></div>
             </div>
             <div class="modal-btns">
-                <button class="tool-btn" style="background: var(--Petrol-hover, #0b4a4f); color: white;" onclick="this.getRootNode().host.generatePreview()">Generate Preview</button>
+                <button class="tool-btn" style="background: var(--lp-action-hover, #276629); color: white;" onclick="this.getRootNode().host.generatePreview()">Generate Preview</button>
                 <button class="tool-btn" onclick="this.getRootNode().host.showAddModal()">Back</button>
             </div>
         </div>
@@ -922,7 +922,7 @@ const MARKUP = `
     </div>
 
     <div class="modal-btns" style="padding: 20px 0;">
-        <button id="reinspectNextBtn" class="tool-btn" style="background: var(--Petrol-hover, #0b4a4f); color: white; display:none;" onclick="this.getRootNode().host.proceedToStandardForm()">Next</button>
+        <button id="reinspectNextBtn" class="tool-btn" style="background: var(--lp-action-hover, #276629); color: white; display:none;" onclick="this.getRootNode().host.proceedToStandardForm()">Next</button>
         <button class="tool-btn" onclick="this.getRootNode().host.showAddModal()">Back</button>
     </div>
 </div>
@@ -945,7 +945,7 @@ const MARKUP = `
     <div class="modal-content" style="max-width: 960px; width: 92%;">
         <h3>Tamper Seal Settings</h3>
         <div style="display: flex; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom: 16px;">
-            <button id="ts-tab-columns" onclick="this.getRootNode().host.switchTsSettingsTab('columns')" style="flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom:3px solid var(--Petrol, #0f5a60);">Columns</button>
+            <button id="ts-tab-columns" onclick="this.getRootNode().host.switchTsSettingsTab('columns')" style="flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom:3px solid var(--lp-action, #2f7a31);">Columns</button>
             <button id="ts-tab-statusflow" onclick="this.getRootNode().host.switchTsSettingsTab('statusflow')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Status Flow</button>
             <button id="ts-tab-statusorder" onclick="this.getRootNode().host.switchTsSettingsTab('statusorder')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Status Order</button>
         </div>
@@ -1012,7 +1012,7 @@ const MARKUP = `
         </div>
 
         <div class="modal-btns">
-            <button class="tool-btn" style="background-color:var(--Petrol-hover, #0b4a4f); color:white; border-color:var(--Petrol-hover, #0b4a4f);" onclick="this.getRootNode().host.saveTsSettings()">Save</button>
+            <button class="tool-btn" style="background-color:var(--lp-action-hover, #276629); color:white; border-color:var(--lp-action-hover, #276629);" onclick="this.getRootNode().host.saveTsSettings()">Save</button>
             <button class="tool-btn" style="border-color:#757575; color:#757575;" onclick="this.getRootNode().host.closeColumnSettingsModal()">Cancel</button>
         </div>
     </div>
@@ -1617,7 +1617,7 @@ export class TamperSealView extends HTMLElement {
         const colPanel = this.$('ts-panel-columns');
         const flowPanel = this.$('ts-panel-statusflow');
         const orderPanel = this.$('ts-panel-statusorder');
-        const active = 'flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom:3px solid var(--Petrol, #0f5a60);';
+        const active = 'flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom:3px solid var(--lp-action, #2f7a31);';
         const inactive = 'flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;';
 
         [colTab, flowTab, orderTab].forEach(t => t.style.cssText = inactive);
@@ -1672,7 +1672,7 @@ export class TamperSealView extends HTMLElement {
             });
             item.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                item.style.border = '2px dashed var(--Petrol, #0f5a60)';
+                item.style.border = '2px dashed var(--lp-action, #2f7a31)';
             });
             item.addEventListener('dragleave', () => {
                 item.style.border = '1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';
@@ -1732,7 +1732,7 @@ export class TamperSealView extends HTMLElement {
             });
             item.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                item.style.border = '2px dashed var(--Petrol, #0f5a60)';
+                item.style.border = '2px dashed var(--lp-action, #2f7a31)';
             });
             item.addEventListener('dragleave', () => {
                 item.style.border = '1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';
@@ -1781,7 +1781,7 @@ export class TamperSealView extends HTMLElement {
             </select>
             <button class="tool-btn" style="padding:8px 12px; font-size:13px;" onclick="this.getRootNode().host.addWorkflow()">+ New</button>
             <button class="tool-btn" style="padding:8px 12px; font-size:13px;" onclick="this.getRootNode().host.renameWorkflow()">Rename</button>
-            <button class="tool-btn" style="padding:8px 12px; font-size:13px; ${wf.active ? 'background-color:var(--Petrol-hover, #0b4a4f); color:white; border-color:var(--Petrol-hover, #0b4a4f);' : 'border-color:var(--Petrol-hover, #0b4a4f); color:var(--Petrol-hover, #0b4a4f);'}" onclick="this.getRootNode().host.setActiveWorkflow()">${wf.active ? '✓ Active' : 'Set Active'}</button>
+            <button class="tool-btn" style="padding:8px 12px; font-size:13px; ${wf.active ? 'background-color:var(--lp-action-hover, #276629); color:white; border-color:var(--lp-action-hover, #276629);' : 'border-color:var(--lp-action-hover, #276629); color:var(--lp-action-hover, #276629);'}" onclick="this.getRootNode().host.setActiveWorkflow()">${wf.active ? '✓ Active' : 'Set Active'}</button>
             <button class="tool-btn" style="padding:8px 12px; font-size:13px; border-color:#d32f2f; color:#d32f2f; ${this.workflows.length <= 1 ? 'opacity:0.5; cursor:default;' : ''}" ${this.workflows.length <= 1 ? 'disabled' : ''} onclick="this.getRootNode().host.deleteWorkflow()">Delete</button>
         `;
     }
@@ -2121,7 +2121,7 @@ export class TamperSealView extends HTMLElement {
             });
         });
 
-        let html = `<div onclick="this.getRootNode().host.addFlowStatus(); this.getRootNode().host.toggleAddStatusMenu();" style="padding:10px 14px; cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);" onmouseover="this.style.background='var(--neutrals-lightmode-light-mode-Page, #f3f2ee)'" onmouseout="this.style.background='transparent'">+ Blank Status</div>`;
+        let html = `<div onclick="this.getRootNode().host.addFlowStatus(); this.getRootNode().host.toggleAddStatusMenu();" style="padding:10px 14px; cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);" onmouseover="this.style.background='var(--neutrals-lightmode-light-mode-Page, #f3f2ee)'" onmouseout="this.style.background='transparent'">+ Blank Status</div>`;
 
         if (reusable.length > 0) {
             html += `<div style="padding:8px 14px 4px; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">From other workflows</div>`;
@@ -3482,7 +3482,7 @@ export class TamperSealView extends HTMLElement {
             <div class="preview-banner">
                 <h2>Review New Entries (${entries.length} rows)</h2>
                 <p>You can edit any cell below before saving. These items have not been added to the database yet.</p>
-                <button class="tool-btn" style="background-color: var(--Petrol-hover, #0b4a4f); color: white; padding: 10px 20px;" onclick="this.getRootNode().host.saveNewEntries()">Confirm & Save to Database</button>
+                <button class="tool-btn" style="background-color: var(--lp-action-hover, #276629); color: white; padding: 10px 20px;" onclick="this.getRootNode().host.saveNewEntries()">Confirm & Save to Database</button>
                 <button class="tool-btn" style="margin-left:10px;" onclick="this.getRootNode().host.discardPreview()">Cancel & Discard</button>
             </div>
             <div id="preview-rows-container"></div>

@@ -78,7 +78,7 @@ function buildResultMessage(result, successMessage) {
 const STYLE = `
 <style>
     :host { display: block; font-family: Roboto, 'Segoe UI', sans-serif; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color: #222; }
-    .header { background: var(--Petrol-hover, #0b4a4f); color: white; padding: 22px 20px; text-align: center; }
+    .header { background: var(--lp-action-hover, #276629); color: white; padding: 22px 20px; text-align: center; }
     .header h1 { margin: 0; font-size: 20px; }
     .header p { margin: 4px 0 0; font-size: 13px; opacity: 0.9; }
     .container { max-width: 500px; margin: 0 auto; padding: 20px; }
@@ -90,7 +90,7 @@ const STYLE = `
     }
     textarea { min-height: 80px; resize: vertical; }
     button.submit-btn {
-        width: 100%; padding: 16px; background: var(--Petrol-hover, #0b4a4f); color: white; border: none; border-radius: 8px;
+        width: 100%; padding: 16px; background: var(--lp-action-hover, #276629); color: white; border: none; border-radius: 8px;
         font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer;
     }
     button.submit-btn:disabled { background: #aaa; }
@@ -104,7 +104,7 @@ const STYLE = `
         padding: 12px 14px; font-size: 13px; font-weight: 600; margin-bottom: 16px; line-height: 1.4;
     }
     .form-explainer {
-        background: var(--Petrol-tint, #e3efef); border-left: 3px solid var(--Petrol, #0f5a60); padding: 10px 12px; border-radius: 4px;
+        background: var(--lp-action-tint, #eaf6ea); border-left: 3px solid var(--lp-action, #2f7a31); padding: 10px 12px; border-radius: 4px;
         font-size: 13px; color: #33513a; margin-bottom: 16px; line-height: 1.4;
     }
 
@@ -116,7 +116,7 @@ const STYLE = `
     .action-break-request { background: #1976d2; }
     .action-break-seals { background: #c62828; }
     .action-work-completed { background: #ef6c00; }
-    .back-link { display: inline-block; margin-bottom: 12px; color: var(--Petrol-hover, #0b4a4f); font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
+    .back-link { display: inline-block; margin-bottom: 12px; color: var(--lp-action-hover, #276629); font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
 
     .multiselect-dropdown { position: relative; margin-bottom: 4px; }
     .multiselect-toggle {
