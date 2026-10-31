@@ -1,0 +1,305 @@
+/* LaunchPad phone layout (ARC-192). Loaded only at max-width 768px (see the
+ * <link media> in index.html), after the main <style> block. The desktop
+ * rules use a lot of !important and the per-column widths are injected later
+ * by applyColumnWidths(), so these rules use !important and an id in the
+ * selector to win.
+ *
+ * Phase 1: the shell (header, bottom nav, filter sheet, toolbar) and the
+ * Schedule. Schedule lines become cards; tapping one opens the full-screen
+ * editor (the Calendar edit panel), so every save/lookup rule is reused.
+ * Other views are reachable and scroll, but are not redesigned yet. */
+
+:root {
+  --lp-m-nav: 60px;                                   /* bottom nav height */
+  --lp-m-safe-b: env(safe-area-inset-bottom, 0px);
+  --lp-m-safe-t: env(safe-area-inset-top, 0px);
+}
+
+.mobile-only { display: inline-flex !important; }
+
+/* ---------- Shell: header on top, content fills the rest ---------- */
+html, body { height: 100dvh !important; }
+body {
+  display: flex !important;
+  flex-direction: column !important;
+  -webkit-text-size-adjust: 100%;
+}
+
+.header {
+  flex: none;
+  height: auto !important;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: calc(6px + var(--lp-m-safe-t)) 12px 6px !important;
+  box-shadow: none !important;
+}
+.header-left { flex: none !important; }
+.header-left img { height: 36px !important; }
+.header-center { flex: 1 1 auto !important; }
+.header-center span { font-size: 20px !important; }
+/* Second header row: view tabs (and dark mode), scrolling sideways. */
+.header-right {
+  order: 3;
+  flex: 1 0 100% !important;
+  justify-content: flex-start !important;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.header-right::-webkit-scrollbar { display: none; }
+#dark-mode-toggle { margin-right: 4px !important; min-height: 40px; }
+#schedule-header-controls { gap: 4px !important; }
+#schedule-header-controls .view-btn { white-space: nowrap; padding: 6px 10px; font-size: 14px !important; min-height: 40px; }
+#alternate-header-img { height: 32px !important; }
+
+#app-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+  width: 100% !important;
+  margin: 0 !important;
+  top: 0 !important;
+  padding-bottom: calc(var(--lp-m-nav) + var(--lp-m-safe-b));
+  box-sizing: border-box;
+}
+#sidebar:hover ~ #app-body { margin-left: 0 !important; }
+
+/* ---------- Left sidebar -> bottom nav bar ---------- */
+#sidebar {
+  top: auto !important;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100% !important;
+  height: calc(var(--lp-m-nav) + var(--lp-m-safe-b)) !important;
+  padding-bottom: var(--lp-m-safe-b);
+  box-sizing: border-box;
+  flex-direction: row !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  border-right: none !important;
+  border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.06) !important;
+  scrollbar-width: none;
+}
+#sidebar::-webkit-scrollbar { display: none; }
+#sidebar:hover { width: 100% !important; }
+#sidebar > div[style*="margin-top: auto"] { display: contents !important; }
+#sidebar .nav-item {
+  flex: 0 0 auto;
+  min-width: 68px;
+  flex-direction: column;
+  justify-content: center !important;
+  gap: 2px;
+  padding: 6px 6px !important;
+  border-left: none !important;
+  border-top: 3px solid transparent !important;
+  white-space: nowrap;
+}
+#sidebar .nav-item.active { border-top-color: var(--Arc-Green, #4ebd4f) !important; }
+#sidebar .nav-icon { font-size: 20px !important; margin: 0 !important; }
+#sidebar .nav-text {
+  display: block !important;
+  opacity: 1 !important;
+  font-size: 10px !important;
+  margin: 0 !important;
+  width: auto !important;
+}
+
+/* ---------- Right filter bar -> full-screen sheet ---------- */
+#filter-sidebar {
+  top: 0 !important;
+  left: 0;
+  right: 0;
+  width: 100% !important;
+  height: 100dvh !important;
+  z-index: 3000 !important;
+  visibility: hidden;
+  transform: translateX(100%);
+  transition: transform 0.25s ease, visibility 0.25s !important;
+}
+#filter-sidebar.mobile-open { visibility: visible; transform: none; }
+#filter-sidebar:hover { width: 100% !important; }
+#filter-collapsed { display: none !important; }
+#filter-expanded {
+  width: 100% !important;
+  opacity: 1 !important;
+  visibility: inherit !important;
+  padding-top: var(--lp-m-safe-t);
+  box-sizing: border-box;
+}
+/* On desktop the content only shows on :hover, which phones don't have. */
+#filter-sidebar .filter-content {
+  display: flex !important;
+  opacity: 1 !important;
+  padding: 16px 16px calc(24px + var(--lp-m-safe-b)) !important;
+}
+#filter-sidebar .search-container { margin-right: 0 !important; width: 100%; box-sizing: border-box; }
+#app-search-input { flex: 1; width: auto !important; }
+#mobile-filter-close { margin-left: auto; }
+
+/* ---------- Schedule toolbar: one row that scrolls sideways ---------- */
+.subheader {
+  height: auto !important;
+  padding: 8px 12px !important;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.subheader::-webkit-scrollbar { display: none; }
+.subheader .subheader-item { display: flex !important; flex-wrap: nowrap; align-items: center; gap: 6px; flex: none; }
+.subheader .tool-btn {
+  min-width: 0 !important;
+  min-height: 40px;
+  padding: 8px 12px !important;
+  margin-left: 0 !important;
+  white-space: nowrap;
+}
+#presence-list { display: none !important; }
+/* The 7-day calendar grid needs a wide screen; phones use the list. */
+.cal-toggle { display: none !important; }
+#saveIndicator { font-size: 12px !important; white-space: nowrap; }
+
+/* ---------- Weeks and days ---------- */
+.frozen-bar { display: none !important; }
+.week-container {
+  width: auto !important;
+  margin: 8px !important;
+  border-width: 1px !important;
+  border-radius: var(--radius\.xl, 12px) !important;
+}
+.week-header { font-size: 16px !important; padding: 12px 14px !important; }
+.date-header { padding: 12px 14px !important; }
+#main-content-area .rows-container { padding: 8px !important; }
+.add-rows-btn { margin: 4px 0 8px !important; min-height: 44px; width: 100%; font-size: 14px !important; }
+
+/* ---------- Schedule lines -> cards ---------- */
+/* Rows are shown with an inline `display:flex !important`, so the card is a
+ * wrapping flex box: Time | Activity | Status on the first line, then Asset
+ * and Place. The rest of the fields live in the editor. */
+#main-content-area .cell-row {
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 2px 8px !important;
+  padding: 10px 12px !important;
+  margin: 0 0 8px !important;
+  height: auto !important;
+  overflow: visible !important;
+  border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb) !important;
+  border-radius: var(--radius\.lg, 8px);
+  background: #ffffff;
+  cursor: pointer;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+#main-content-area .cell-row:active { background: var(--lp-action-tint, #eaf6ea); }
+#main-content-area .cell-row > .drag-handle,
+#main-content-area .cell-row > .row-checkbox,
+#main-content-area .cell-row > .delete-btn,
+#main-content-area .cell-row > [data-col-index] { display: none !important; }
+/* Cards are read-only; the tap goes to the card, which opens the editor. */
+#main-content-area .cell-row > [data-col-index] {
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none !important;
+  background-color: transparent;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  font-size: 14px !important;
+  line-height: 1.4;
+  color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#main-content-area .cell-row > [data-col-index="1"],
+#main-content-area .cell-row > [data-col-index="2"],
+#main-content-area .cell-row > [data-col-index="3"],
+#main-content-area .cell-row > [data-col-index="4"],
+#main-content-area .cell-row > [data-col-index="5"] { display: block !important; }
+/* applyCellColor() paints every cell with an inline !important background and
+ * colour (the Status Colour rules), which no stylesheet can override. On a
+ * card that's noise, so clip the background to the glyphs and draw the text
+ * with -webkit-text-fill-color instead. The Status pill keeps its colours. */
+#main-content-area .cell-row > [data-col-index]:not([data-col-index="5"]) {
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);
+}
+/* Line 1: Time | Activity | Status. The ::after item forces line 2: Asset | Place. */
+#main-content-area .cell-row::after { content: ''; order: 4; flex: 0 0 100%; height: 0; }
+#main-content-area .cell-row > [data-col-index="1"] { order: 1; flex: 0 0 auto !important; font-weight: 600; font-variant-numeric: tabular-nums; }
+#main-content-area .cell-row > [data-col-index="3"] { order: 2; flex: 1 1 0% !important; min-width: 0 !important; font-weight: 600; }
+#main-content-area .cell-row > [data-col-index="5"] {
+  order: 3;
+  flex: 0 1 auto !important;
+  max-width: 40% !important;
+  padding: 2px 10px !important;
+  border-radius: var(--radius\.full, 9999px);
+  font-size: 12px !important;
+  font-weight: 600;
+}
+#main-content-area .cell-row > [data-col-index="4"] { order: 5; flex: 1 1 0% !important; min-width: 0 !important; }
+#main-content-area .cell-row > [data-col-index="2"] {
+  order: 6;
+  flex: 0 1 auto !important;
+  max-width: 45% !important;
+  font-size: 12px !important;
+  -webkit-text-fill-color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);
+}
+/* An empty select still reads "Select..."; keep its space but hide the text. */
+#main-content-area .cell-row > select[data-col-index]:has(> option:checked[value=""]) { visibility: hidden; }
+#main-content-area .cell-row > .critical-path-icon { position: static !important; transform: none !important; order: 0; }
+
+/* ---------- Full-screen line editor (Calendar edit panel) ---------- */
+#cal-edit-panel {
+  width: 100% !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  z-index: 3000 !important;
+  padding-top: var(--lp-m-safe-t);
+  box-sizing: border-box;
+}
+.cal-edit-foot { padding-bottom: calc(12px + var(--lp-m-safe-b)) !important; }
+.cal-edit-foot .tool-btn { min-height: 44px; flex: 1; }
+#cal-edit-body .cell-row > [data-col-index] { min-height: 44px !important; font-size: 16px !important; }
+
+/* ---------- Floating help buttons sit above the bottom nav ---------- */
+#launchpad-help-widget,
+#schedule-help-widget,
+#equipment-help-widget,
+#dashboard-help-widget {
+  bottom: calc(var(--lp-m-nav) + var(--lp-m-safe-b) + 12px) !important;
+  right: 12px !important;
+}
+/* ...and get out of the way of the full-screen editor and filter sheet. */
+body:has(#filter-sidebar.mobile-open) #schedule-help-widget,
+body:has(#schedule-view.cal-edit-open) #schedule-help-widget { display: none !important; }
+#launchpad-help-btn, #schedule-help-btn, #equipment-help-btn, #dashboard-help-btn {
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 20px !important;
+}
+
+/* ---------- Modals: use the full width ---------- */
+.modal-overlay > div,
+#bulk-date-modal > div {
+  width: 100% !important;
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100dvh - 16px) !important;
+  padding: 16px !important;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* ---------- Dark mode: keep cards dark ---------- */
+body.dark-mode #main-content-area .cell-row { background: #1e1e1e !important; border-color: #333 !important; }
+body.dark-mode #main-content-area .cell-row > [data-col-index]:not([data-col-index="5"]) { -webkit-text-fill-color: #e0e0e0; }
+body.dark-mode #main-content-area .cell-row > [data-col-index="2"] { -webkit-text-fill-color: #aaaaaa; }
+body.dark-mode #main-content-area .cell-row:active { background: #2c2c2c !important; }
