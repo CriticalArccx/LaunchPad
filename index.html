@@ -16,7 +16,7 @@
 
 <link rel="apple-touch-icon" href="your-icon.png">
 
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
 <!-- ArcLab Design System (ARC-189): Roboto + shared tokens -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -915,6 +915,8 @@ button, input, select, textarea { font-family: inherit; }
     outline: 2px solid var(--Arc-Green, #4ebd4f);
     outline-offset: 2px;
 }
+/* Controls that only exist in the phone layout (css/launchpad-mobile.css). */
+.mobile-only { display: none !important; }
 /* Arc Green for selection (ARC-190): checked boxes, and selected Schedule
    lines get the DataTable treatment (tint + left marker). */
 input[type="checkbox"], input[type="radio"] { accent-color: var(--Arc-Green, #4ebd4f); }
@@ -1524,6 +1526,8 @@ body.help-docked #loading-overlay {
 #picker-access-requests summary::-webkit-details-marker { display: none; }
 #picker-access-requests details[open] .picker-req-arrow { transform: rotate(90deg); }
 </style>
+<!-- Phone layout (ARC-192): only applies on narrow screens. -->
+<link rel="stylesheet" href="css/launchpad-mobile.css" media="(max-width: 768px)">
 </head>
 <body>
 <div class="header">
@@ -1617,6 +1621,7 @@ body.help-docked #loading-overlay {
         <div style="display: flex; align-items: center; padding: 15px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
             <span class="nav-icon" style="font-size: 16px; margin-right: 10px;">🔍</span>
             <span style="font-size: 14px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); letter-spacing: 1px;">FILTER</span>
+            <button id="mobile-filter-close" class="tool-btn mobile-only" onclick="toggleMobileFilters(false)">Done</button>
         </div>
         
         <div class="filter-content">
@@ -1924,6 +1929,7 @@ body.help-docked #loading-overlay {
 
         <div class="subheader">
             <div class="subheader-item">
+                <button class="tool-btn mobile-only" id="mobile-filter-btn" onclick="toggleMobileFilters(true)">🔍 Filters</button>
                 <button class="tool-btn" id="btn-expand-weeks" onclick="expandAllWeeks()">Expand Weeks</button>
                 <button class="tool-btn" id="btn-expand-days" onclick="expandAllDays()">Expand Days</button>
                 <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
@@ -8021,6 +8027,7 @@ function createAddRowsButton(rowsDiv, dayLabel) {
         if (!row) return;
         row.setAttribute('data-user-added', 'true');
         row.style.setProperty('display', 'flex', 'important');
+        if (isMobileLayout()) openScheduleRowEditor(row); // phones edit in the full-screen panel
     };
     return addBtn;
 }
@@ -9703,6 +9710,32 @@ function closeCalEditPanel() {
     document.querySelectorAll('.wc-event.selected').forEach(e => e.classList.remove('selected'));
     scheduleRowCompaction(rowEl.getAttribute('data-date'));
 }
+
+// Phone layout (ARC-192). css/launchpad-mobile.css turns Schedule lines into
+// read-only cards; tapping one opens it in the full-screen edit panel above,
+// so saving, lookups and autofill work exactly as in the list.
+const lpMobileQuery = window.matchMedia('(max-width: 768px)');
+function isMobileLayout() { return lpMobileQuery.matches; }
+
+function openScheduleRowEditor(rowEl) {
+    openCalEditPanel({ id: Number(rowEl.id.replace('row-wrapper-', '')), day_label: rowEl.getAttribute('data-date') });
+}
+
+function toggleMobileFilters(open) {
+    document.getElementById('filter-sidebar')?.classList.toggle('mobile-open', open);
+}
+
+document.addEventListener('click', e => {
+    if (!isMobileLayout()) return;
+    const rowEl = e.target.closest('#main-content-area .cell-row');
+    if (rowEl) openScheduleRowEditor(rowEl);
+});
+
+lpMobileQuery.addEventListener('change', e => {
+    // The 7-day calendar grid isn't offered on phones (its toggle is hidden).
+    if (e.matches && __scheduleCalendarMode) setScheduleCalendarMode(false);
+    if (!e.matches) toggleMobileFilters(false);
+});
 
 function showCalEditRowInList() {
     if (!__calEditRow) return;
