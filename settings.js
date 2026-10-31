@@ -12,12 +12,12 @@ const Settings = {
     renderShell(container) {
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); grid-column: span 2;">
-                    <h3 style="margin-top:0; font-size:16px; color:#333;">📋 Dropdown Management</h3>
+                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); box-shadow: 0 2px 5px rgba(0,0,0,0.05); grid-column: span 2;">
+                    <h3 style="margin-top:0; font-size:16px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">📋 Dropdown Management</h3>
                     
                     <div style="margin-bottom: 15px;">
                         <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">Category:</label>
-                        <select id="setting-category-select" onchange="Settings.switchCategory(this.value)" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <select id="setting-category-select" onchange="Settings.switchCategory(this.value)" style="width: 100%; padding: 10px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-size: 14px;">
                             <option value="Times">Times (Col 1)</option>
                             <option value="Places">Places (Col 2)</option>
                             <option value="Activities">Activities (Col 3)</option>
@@ -27,18 +27,18 @@ const Settings = {
                         </select>
                     </div>
 
-                    <div id="items-list-wrapper" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; background: #fafafa;">
+                    <div id="items-list-wrapper" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; background: #fafafa;">
                         <div id="dropdown-items-list" style="padding: 10px;"></div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 10px;">
-                        <input type="text" id="new-option-input" placeholder="New entry name..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <button id="add-opt-btn" onclick="Settings.addOption()" style="background: #2e7d32; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
+                        <input type="text" id="new-option-input" placeholder="New entry name..." style="flex: 1; padding: 10px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: 4px;">
+                        <button id="add-opt-btn" onclick="Settings.addOption()" style="background: var(--Petrol, #0f5a60); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
                     </div>
                 </div>
 
-                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                    <h3 style="margin-top:0; font-size:16px; color:#333;">🧹 Maintenance</h3>
+                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top:0; font-size:16px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">🧹 Maintenance</h3>
                     <button onclick="Settings.cleanup(this)" style="background: #616161; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 10px;">Clear Empty Database Rows</button>
                 </div>
             </div>
@@ -62,13 +62,13 @@ const Settings = {
         const options = window.dropdownData[dataKey] || [];
 
         if (options.length === 0) {
-            listDiv.innerHTML = '<p style="color:#999; text-align:center; padding:20px;">No entries found.</p>';
+            listDiv.innerHTML = '<p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); text-align:center; padding:20px;">No entries found.</p>';
             return;
         }
 
         listDiv.innerHTML = options.map(opt => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 5px; border-bottom:1px solid #eee;">
-                <span style="font-size:13px; color:#333;">${opt}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 5px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
+                <span style="font-size:13px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">${opt}</span>
                 <button onclick="Settings.deleteOption('${opt.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#d32f2f; cursor:pointer; font-size:20px; padding:0 5px;">&times;</button>
             </div>
         `).join('');

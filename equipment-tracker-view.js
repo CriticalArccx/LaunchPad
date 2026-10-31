@@ -118,11 +118,11 @@ function generateIssHeaderHTML(max) {
 // actually needs are injected once into a real <head> stylesheet instead.
 const FILTER_DROPDOWN_GLOBAL_STYLE_ID = 'equipment-tracker-view-filter-dropdown-styles';
 const FILTER_DROPDOWN_STYLE = `
-.filter-dropdown { position: absolute; background: white; border: 1px solid #ccc; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 10px; z-index: 2000; border-radius: 4px; color: #333; font-size: 13px; min-width: 180px; max-height: 350px; display: flex; flex-direction: column; }
-.filter-search-input { width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 13px; }
-.filter-actions { margin-top: 10px; display: flex; justify-content: space-between; border-top: 1px solid #eee; padding-top: 10px; }
-.filter-btn { background: #2e7d32; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; flex: 1; margin-left: 5px;}
-.filter-btn.clear { background: #f5f5f5; color: #333; border: 1px solid #ccc; margin-left: 0; margin-right: 5px;}
+.filter-dropdown { position: absolute; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 10px; z-index: 2000; border-radius: 4px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-size: 13px; min-width: 180px; max-height: 350px; display: flex; flex-direction: column; }
+.filter-search-input { width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 3px; font-size: 13px; }
+.filter-actions { margin-top: 10px; display: flex; justify-content: space-between; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top: 10px; }
+.filter-btn { background: var(--Petrol, #0f5a60); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; flex: 1; margin-left: 5px;}
+.filter-btn.clear { background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); margin-left: 0; margin-right: 5px;}
 `;
 
 const STYLE = `
@@ -146,22 +146,22 @@ const STYLE = `
        component fills whatever container it's placed in, the same way the
        old iframe naturally filled its own box — see the file-header
        comment for why 100vh/position:fixed can't be used here. */
-    :host { display: block; position: relative; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; overflow: hidden; height: 100%; }
+    :host { display: block; position: relative; font-family: Roboto, 'Segoe UI', sans-serif; background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); overflow: hidden; height: 100%; }
     * { box-sizing: border-box; }
-    .header { height: 90px; background-color: #ffffff; border-bottom: 1px solid #dcdcdc; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .header { height: 90px; background-color: #ffffff; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
     .header-left { display: flex; align-items: center; }
     .header-right { display: flex; align-items: center; }
 
     .app-logo { height: 70px; object-fit: contain; }
     .app-logo2 { height: 100px; object-fit: contain; }
 
-    .setup-btn { background: #f1f3f4; border: 1px solid #dcdcdc; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; color: #555; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
-    .setup-btn:hover { background: #e0e0e0; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .setup-btn { background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+    .setup-btn:hover { background: var(--neutrals-lightmode-light-mode-Border, #d6d3cb); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
 
-    #app-body { display: flex; flex-direction: column; height: 100%; width: 100%; background: #f8f9fa;}
+    #app-body { display: flex; flex-direction: column; height: 100%; width: 100%; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);}
 
     /* RESPONSIVE SUBHEADER */
-    .subheader { flex: 0 0 auto; min-height: 50px; background-color: #f1f3f4; display: flex; align-items: center; padding: 10px 30px; border-bottom: 1px solid #dcdcdc; justify-content: space-between; z-index: 1000; flex-wrap: wrap; gap: 10px; }
+    .subheader { flex: 0 0 auto; min-height: 50px; background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); display: flex; align-items: center; padding: 10px 30px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); justify-content: space-between; z-index: 1000; flex-wrap: wrap; gap: 10px; }
     .subheader-left { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
     .subheader-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
@@ -172,17 +172,17 @@ const STYLE = `
     .gears-wrapper { display: flex; align-items: center; justify-content: center; position: relative; width: 120px; height: 100px; margin-bottom: 15px; }
     .gear-big { font-size: 70px; position: absolute; left: 0; animation: spin 4s linear infinite; line-height: 1; filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.1)); }
     .gear-small { font-size: 45px; position: absolute; right: 0; top: 32px; animation: spin-reverse 4s linear infinite; line-height: 1; filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.1)); }
-    .loading-status { font-size: 22px; font-weight: bold; color: #2e7d32; letter-spacing: 0.5px; }
-    .loading-subtext { margin-top: 8px; font-size: 14px; color: #777; font-weight: 500; }
+    .loading-status { font-size: 22px; font-weight: bold; color: var(--Petrol, #0f5a60); letter-spacing: 0.5px; }
+    .loading-subtext { margin-top: 8px; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-weight: 500; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
     @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
 
     /* --- SEARCH BAR STYLES --- */
-    .global-search-wrapper { display: flex; align-items: center; background: white; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; height: 30px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+    .global-search-wrapper { display: flex; align-items: center; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; overflow: hidden; height: 30px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
     .global-search-wrapper input { border: none; outline: none; padding: 0 10px; font-size: 13px; width: 160px; }
-    #search-counter { font-size: 11px; color: #777; padding: 0 8px; background: #fff; display: flex; align-items: center; border-left: 1px solid #eee; height: 100%; font-weight: bold; }
-    .search-nav-btn { background: #f1f3f4; border: none; border-left: 1px solid #ccc; padding: 0 10px; cursor: pointer; color: #555; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
-    .search-nav-btn:hover { background: #e0e0e0; }
+    #search-counter { font-size: 11px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); padding: 0 8px; background: #fff; display: flex; align-items: center; border-left: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); height: 100%; font-weight: bold; }
+    .search-nav-btn { background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: none; border-left: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding: 0 10px; cursor: pointer; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+    .search-nav-btn:hover { background: var(--neutrals-lightmode-light-mode-Border, #d6d3cb); }
 
     .cell-row.highlight-search { background-color: #fffde7 !important; outline: 2px solid #fbc02d; outline-offset: -2px; z-index: 9; position: relative; }
     .cell-row.highlight-search .frozen-combined { background-color: #fff9c4 !important; }
@@ -192,30 +192,30 @@ const STYLE = `
        defined for light mode — Refresh Data (the only .tool-btn in this
        file) was falling back to bare, unstyled button chrome instead of
        matching its pill-button siblings (.pdf-btn/.clear-filters-btn). */
-    .tool-btn { background: #ffffff; color: #2e7d32; border: 1px solid #2e7d32; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s; }
-    .tool-btn:hover { background: #e8f5e9; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .tool-btn { background: #ffffff; color: var(--Petrol, #0f5a60); border: 1px solid var(--Petrol, #0f5a60); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s; }
+    .tool-btn:hover { background: var(--Petrol-tint, #e3efef); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
 
-    .pdf-btn { background: #2e7d32; color: white; border: 1px solid #1b5e20; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }
-    .pdf-btn:hover { background: #1b5e20; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .pdf-btn { background: var(--Petrol, #0f5a60); color: white; border: 1px solid var(--Petrol-hover, #0b4a4f); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }
+    .pdf-btn:hover { background: var(--Petrol-hover, #0b4a4f); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
 
-    .clear-filters-btn { background: #ffffff; color: #555; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s; }
-    .clear-filters-btn:hover { background: #f1f3f4; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .clear-filters-btn { background: #ffffff; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s; }
+    .clear-filters-btn:hover { background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
 
     /* --- HYPERLINK STYLES --- */
-    .asset-link { color: #1b5e20; text-decoration: none; border-bottom: 1px dotted #1b5e20; }
+    .asset-link { color: var(--Petrol-hover, #0b4a4f); text-decoration: none; border-bottom: 1px dotted var(--Petrol-hover, #0b4a4f); }
     .asset-link:hover { color: #0d3b10; text-decoration: underline; border-bottom: none; }
     .chk-link { color: inherit; text-decoration: underline; font-weight: bold; padding-bottom: 1px; pointer-events: auto; cursor: pointer;}
     .chk-link:hover { opacity: 0.7; }
 
     /* --- EQUIPMENT TRACKER GRID --- */
-    .tracker-container { flex: 1; margin: 0; width: 100%; border: none; border-top: 1px solid #dcdcdc; background: #ffffff; overflow: auto; min-height: 0; }
+    .tracker-container { flex: 1; margin: 0; width: 100%; border: none; border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); background: #ffffff; overflow: auto; min-height: 0; }
 
     .tracker-header-wrapper { position: sticky; top: 0; z-index: 999; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 100%; width: max-content; background: #ffffff;}
     .rows-container { min-width: 100%; width: max-content; padding-top: 0; padding-bottom: 50px; }
 
-    .frozen-group-bar { background-color: #2e7d32; color: white; height: 30px; display: flex; align-items: stretch; border-bottom: 1px solid #0d3b10; width: max-content; }
-    .frozen-col-bar { background-color: #2e7d32; color: white; height: 38px; display: flex; align-items: stretch; border-bottom: 2px solid #1b5e20; width: max-content; }
-    .cell-row { display: flex; align-items: stretch; border-bottom: 1px solid #ccc; gap: 0; width: max-content; }
+    .frozen-group-bar { background-color: var(--Petrol, #0f5a60); color: white; height: 30px; display: flex; align-items: stretch; border-bottom: 1px solid #0d3b10; width: max-content; }
+    .frozen-col-bar { background-color: var(--Petrol, #0f5a60); color: white; height: 38px; display: flex; align-items: stretch; border-bottom: 2px solid var(--Petrol-hover, #0b4a4f); width: max-content; }
+    .cell-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); gap: 0; width: max-content; }
     .cell-row:hover { background-color: rgba(0,0,0,0.02); }
 
     /* --- FLAWLESS COLUMN ALIGNMENT SYSTEM --- */
@@ -307,12 +307,12 @@ const STYLE = `
         text-align: center;
     }
 
-    .cell-row .asset-part { justify-content: center; text-align: center; font-weight: bold; font-size: 13px; color: #333; }
-    .cell-row .area-part { justify-content: center; text-align: center; font-size: 12px; color: #555; font-weight: bold; }
+    .cell-row .asset-part { justify-content: center; text-align: center; font-weight: bold; font-size: 13px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); }
+    .cell-row .area-part { justify-content: center; text-align: center; font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-weight: bold; }
 
-    .frozen-group-bar .frozen-combined, .frozen-group-bar .group-header, .frozen-group-bar .group-issues { background-color: #2e7d32; border-right: 1px solid #0d3b10 !important; justify-content: center; align-items: center;}
-    .frozen-col-bar .frozen-combined { background-color: #2e7d32; border-right: none !important; }
-    .cell-row .frozen-combined { background-color: #e8eaed !important; border-right: none !important; }
+    .frozen-group-bar .frozen-combined, .frozen-group-bar .group-header, .frozen-group-bar .group-issues { background-color: var(--Petrol, #0f5a60); border-right: 1px solid #0d3b10 !important; justify-content: center; align-items: center;}
+    .frozen-col-bar .frozen-combined { background-color: var(--Petrol, #0f5a60); border-right: none !important; }
+    .cell-row .frozen-combined { background-color: var(--neutrals-lightmode-light-mode-Subtle, #e7e5df) !important; border-right: none !important; }
 
     /* GLOBALLY CENTERS ALL WRAPPERS */
     .title-wrap { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; width: 100%; justify-content: center; text-align: center; }
@@ -337,21 +337,21 @@ const STYLE = `
     .summary-cell { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 13px; font-weight: 600; line-height: 1.3; padding: 4px 6px; white-space: normal; word-break: break-word; }
 
     .stacked-cell { display: flex; flex-direction: column; background: #fff;}
-    .checklist-header { flex: 1; background-color: #f1f3f4; color: #333; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 4px; border-bottom: none !important; text-align: center;}
+    .checklist-header { flex: 1; background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 4px; border-bottom: none !important; text-align: center;}
     .checklist-status { flex: 1; font-size: 10px; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; justify-content: center; padding: 4px; text-align: center; white-space: normal; word-break: break-word; line-height: 1.1; }
 
     .header-cell.iss-cell { font-size: 10px !important; justify-content: center; }
 
     .expand-btn {
         cursor: pointer; color: white; background: #4caf50;
-        border: 1px solid #1b5e20; border-radius: 3px;
+        border: 1px solid var(--Petrol-hover, #0b4a4f); border-radius: 3px;
         padding: 1px 4px; font-weight: bold; font-size: 11px;
         margin-left: 4px; user-select: none;
         display: flex; align-items: center; justify-content: center;
         position: relative; z-index: 20; pointer-events: auto;
         min-width: 20px;
     }
-    .expand-btn:hover { background: #1b5e20; }
+    .expand-btn:hover { background: var(--Petrol-hover, #0b4a4f); }
 
     .divider-right { border-right: 3px solid #000000 !important; }
     .frozen-group-bar .divider-right, .frozen-col-bar .divider-right { border-right: 3px solid #4caf50 !important; }
@@ -377,41 +377,41 @@ const STYLE = `
     .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 3000; display: none; align-items: center; justify-content: center; }
     .modal-overlay.active { display: flex; }
     .modal-box { background: white; border-radius: 8px; width: 1350px; max-width: 98%; max-height: 90%; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-    .modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-    .modal-header h2 { margin: 0; color: #2e7d32; }
-    .close-btn { cursor: pointer; font-size: 20px; color: #999; border: none; background: none; }
+    .modal-header { padding: 20px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h2 { margin: 0; color: var(--Petrol, #0f5a60); }
+    .close-btn { cursor: pointer; font-size: 20px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border: none; background: none; }
     .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px; }
 
-    .global-config-wrap { padding: 15px; background: #e8f5e9; border-radius: 6px; border: 1px solid #c8e6c9; display: flex; align-items: flex-start; gap: 15px; flex-wrap: wrap; }
-    .global-config-wrap h3 { margin: 0; color: #1b5e20; font-size: 16px; }
+    .global-config-wrap { padding: 15px; background: var(--Petrol-tint, #e3efef); border-radius: 6px; border: 1px solid #c8e6c9; display: flex; align-items: flex-start; gap: 15px; flex-wrap: wrap; }
+    .global-config-wrap h3 { margin: 0; color: var(--Petrol-hover, #0b4a4f); font-size: 16px; }
 
     .status-config-wrap { display: flex; gap: 20px; }
-    .settings-col { flex: 1; background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #eee;}
-    .settings-col h3 { margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #2e7d32; padding-bottom: 5px; color: #333; text-align: center; }
+    .settings-col { flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);}
+    .settings-col h3 { margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid var(--Petrol, #0f5a60); padding-bottom: 5px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); text-align: center; }
     .status-group { margin-bottom: 25px; }
-    .status-group h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; }
+    .status-group h4 { margin: 0 0 10px 0; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); }
     .status-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .status-row input[type="text"] { flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+    .status-row input[type="text"] { flex: 1; padding: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-size: 12px; }
     .status-row input[type="color"] { width: 35px; height: 28px; padding: 0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
     .btn-del { background: #ffcdd2; color: #b71c1c; padding: 6px 10px; border-radius: 4px; font-weight: bold; border: none; cursor: pointer;}
     .btn-add { background: #e3f2fd; color: #0277bd; margin-top: 5px; width: 100%; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: bold;}
 
-    .checkbox-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 13px; color: #333; cursor: pointer; font-weight: bold;}
+    .checkbox-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 13px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); cursor: pointer; font-weight: bold;}
     .checkbox-row input { margin: 0 8px 0 0; cursor: pointer; width: 16px; height: 16px;}
 
-    .rules-section { border-top: 2px solid #eee; padding-top: 20px; }
-    .rules-section h3 { margin-top: 0; color: #2e7d32; }
+    .rules-section { border-top: 2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top: 20px; }
+    .rules-section h3 { margin-top: 0; color: var(--Petrol, #0f5a60); }
     .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 10px; }
     #phase-rules-table { width: 100%; border-collapse: collapse; min-width: 900px; }
-    #phase-rules-table th { background: #f1f3f4; padding: 8px; text-align: left; font-size: 11px; color: #555; }
-    #phase-rules-table td { padding: 6px; border-bottom: 1px solid #eee; }
-    #phase-rules-table input[type="text"], #phase-rules-table select { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+    #phase-rules-table th { background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 8px; text-align: left; font-size: 11px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); }
+    #phase-rules-table td { padding: 6px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); }
+    #phase-rules-table input[type="text"], #phase-rules-table select { width: 100%; padding: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-size: 12px; }
     #phase-rules-table input[type="color"] { width: 35px; height: 28px; padding: 0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
 
-    .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; background: #f1f3f4; border-radius: 0 0 8px 8px;}
+    .modal-footer { padding: 15px 20px; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); display: flex; justify-content: flex-end; gap: 10px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-radius: 0 0 8px 8px;}
     .btn { padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; border: none; }
-    .btn-save { background: #2e7d32; color: white; }
-    .btn-cancel { background: #ccc; color: #333; }
+    .btn-save { background: var(--Petrol, #0f5a60); color: white; }
+    .btn-cancel { background: var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); }
 
     /* --- SEARCH FILTER ARCHITECTURE --- */
     .filter-icon { cursor: pointer; font-size: 10px; color: #a5d6a7; padding: 2px; }
@@ -620,7 +620,7 @@ const STYLE = `
         background-color: #121212 !important;
     }
 
-    /* The frozen ASSET/PHASE columns (previously a light grey #e8eaed) */
+    /* The frozen ASSET/PHASE columns (previously a light grey var(--neutrals-lightmode-light-mode-Subtle, #e7e5df)) */
     :host(.dark-mode) .cell-row .frozen-combined {
         background-color: #1e1e1e !important;
     }
@@ -630,13 +630,13 @@ const STYLE = `
         background-color: #1e1e1e !important;
     }
 
-    /* The small "QA 1 / QA 2" sub-labels (previously light grey #f1f3f4) */
+    /* The small "QA 1 / QA 2" sub-labels (previously light grey var(--neutrals-lightmode-light-mode-Page, #f3f2ee)) */
     :host(.dark-mode) .checklist-header {
         background-color: #252525 !important;
         color: #aaa !important;
     }
 
-    /* Default/empty status cells (dashes, "no rule matched", etc. previously light grey #f5f5f5) */
+    /* Default/empty status cells (dashes, "no rule matched", etc. previously light grey var(--neutrals-lightmode-light-mode-Page, #f3f2ee)) */
     :host(.dark-mode) [style*="background-color:#f5f5f5"] {
         background-color: #2c2c2c !important;
         color: #999999 !important;
@@ -683,9 +683,9 @@ const MARKUP = `
 <div id="app-body">
     <div class="subheader">
         <div class="subheader-left">
-            <div style="font-weight: bold; color: #555; white-space: nowrap;"><span id="zone-title-display">Site</span> • Equipment Status Tracker</div>
+            <div style="font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); white-space: nowrap;"><span id="zone-title-display">Site</span> • Equipment Status Tracker</div>
             <div class="global-search-wrapper">
-                <span style="padding-left: 8px; color: #999;">🔍</span>
+                <span style="padding-left: 8px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">🔍</span>
                 <input type="text" id="global-search-input" placeholder="Find instance..." oninput="this.getRootNode().host.debouncedGlobalSearch()">
                 <div id="search-counter">0/0</div>
                 <button class="search-nav-btn" onclick="this.getRootNode().host.navigateSearch(-1)">▲</button>
@@ -694,7 +694,7 @@ const MARKUP = `
         </div>
 
         <div class="subheader-right">
-            <div style="font-size: 13px; color: #2e7d32; font-weight: bold; margin-right: 5px; white-space: nowrap;" id="sync-status">Connecting Backend...</div>
+            <div style="font-size: 13px; color: var(--Petrol, #0f5a60); font-weight: bold; margin-right: 5px; white-space: nowrap;" id="sync-status">Connecting Backend...</div>
             <button onclick="this.getRootNode().host.fetchTrackerData(false)" class="tool-btn" title="Reload the latest data from the backend">🔄 Refresh Data</button>
             <button id="setup-config-btn" class="setup-btn" style="display: none;" onclick="this.getRootNode().host.openSettingsModal()">⚙️ Setup Config</button>
             <button onclick="this.getRootNode().host.clearAllFilters()" class="clear-filters-btn">
@@ -781,7 +781,7 @@ const MARKUP = `
             <button class="close-btn" onclick="this.getRootNode().host.closePdfModal()">×</button>
         </div>
         <div class="modal-body">
-            <h3 style="margin-top: 0; color: #555; font-size: 14px; border-bottom: 2px solid #eee; padding-bottom: 8px;">Select columns to include in PDF:</h3>
+            <h3 style="margin-top: 0; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 14px; border-bottom: 2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-bottom: 8px;">Select columns to include in PDF:</h3>
             <div id="pdf-column-list" style="display: flex; flex-direction: column; gap: 8px;">
                 </div>
         </div>
@@ -807,11 +807,11 @@ const MARKUP = `
                 </div>
                 <div style="flex: 1 1 30%; border-left: 2px solid #c8e6c9; padding-left: 15px; display: flex; flex-direction: column; gap: 8px;">
                     <h3 style="margin: 0;">Site</h3>
-                    <input type="text" id="cust-zone-title" disabled title="Site name now comes from the project record and can't be edited here." style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 90%; background: #eee; color: #777;">
+                    <input type="text" id="cust-zone-title" disabled title="Site name now comes from the project record and can't be edited here." style="padding: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-size: 14px; width: 90%; background: var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">
                 </div>
                 <div style="flex: 1 1 30%; border-left: 2px solid #c8e6c9; padding-left: 15px; display: flex; flex-direction: column; gap: 8px;">
                     <h3 style="margin: 0;">Area Header Prefix</h3>
-                    <input type="text" id="cust-area-prefix" placeholder="e.g. Area" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 90%;">
+                    <input type="text" id="cust-area-prefix" placeholder="e.g. Area" style="padding: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-size: 14px; width: 90%;">
                 </div>
             </div>
 
@@ -1979,12 +1979,12 @@ export class EquipmentTrackerView extends HTMLElement {
 
         dropdown.innerHTML = `
             <input type="text" id="filter-search" class="filter-search-input" placeholder="Search values..." autocomplete="off">
-            <label style="font-weight:bold; border-bottom:1px solid #ddd; padding-bottom:8px; margin-bottom:8px; cursor:pointer; display:block;">
+            <label style="font-weight:bold; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-bottom:8px; margin-bottom:8px; cursor:pointer; display:block;">
                 <input type="checkbox" id="filter-select-all" checked style="margin-right:8px; cursor:pointer;"> (Select All)
             </label>
-            <div id="filter-loading" style="padding: 10px; font-size: 12px; color: #777; text-align: center;">Loading...</div>
+            <div id="filter-loading" style="padding: 10px; font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); text-align: center;">Loading...</div>
             <div id="val-container" style="overflow-y: auto; flex: 1; display: none;"></div>
-            <div class="filter-actions" style="margin-top: 10px; display: flex; justify-content: space-between; border-top: 1px solid #eee; padding-top: 10px;">
+            <div class="filter-actions" style="margin-top: 10px; display: flex; justify-content: space-between; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top: 10px;">
                 <button class="filter-btn clear" id="filter-clear-btn">Clear</button>
                 <button class="filter-btn" id="filter-ok-btn">OK</button>
             </div>
@@ -2148,7 +2148,7 @@ export class EquipmentTrackerView extends HTMLElement {
     // --- PDF EXPORT LOGIC WITH CLICKABLE HYPERLINKS ---
     openPdfModal() {
         const listContainer = this.$('pdf-column-list');
-        listContainer.innerHTML = '<label class="checkbox-row" style="border-bottom: 1px solid #ccc; padding-bottom: 8px; margin-bottom: 8px;"><input type="checkbox" id="pdf-select-all" checked onchange="this.getRootNode().host.toggleAllPdfCols(this)"> Select All</label>';
+        listContainer.innerHTML = '<label class="checkbox-row" style="border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 8px; margin-bottom: 8px;"><input type="checkbox" id="pdf-select-all" checked onchange="this.getRootNode().host.toggleAllPdfCols(this)"> Select All</label>';
 
         let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
         PDF_OPTIONS.forEach((opt, index) => {
@@ -2275,7 +2275,7 @@ export class EquipmentTrackerView extends HTMLElement {
         <base target="_blank">
         <style>
             @page { size: landscape; margin: 10mm; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; font-size: 10px; }
+            body { font-family: Roboto, 'Segoe UI', sans-serif; margin: 0; font-size: 10px; }
             .page-logo { position: fixed; top: 0; right: 0; height: 34px; object-fit: contain; }
             .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; }
             h2 { color: #2e7d32; margin: 0; font-size: 18px; text-transform: uppercase; text-align: center; }

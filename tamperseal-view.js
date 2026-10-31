@@ -146,11 +146,11 @@ const STYLE = `
        embedded directly in the shell instead. */
     height: 100%;
     overflow: hidden;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Roboto, 'Segoe UI', sans-serif;
     min-width: 1300px;
     margin: 0;
     padding: 0;
-    background-color: #f8f9fa; /* Restores a light background color */
+    background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); /* Restores a light background color */
 }
 /* The subheader/header stay fixed size (normal flex children); this is
    the one flex child allowed to grow and scroll. min-height:0 overrides
@@ -163,10 +163,10 @@ const STYLE = `
 }
         /* Styling for all cells except the Status column */
 .cell-row textarea {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* You can change the typeface here */
+    font-family: Roboto, 'Segoe UI', sans-serif; /* You can change the typeface here */
     font-size: 14px;      /* Adjust the size as needed */
     font-weight: 500;      /* Options: 400 (Normal), 600 (Semi-bold), 700 (Bold) */
-    color: #333333;       /* Standard text color */
+    color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);       /* Standard text color */
 }
 
 /* Ensure centering is preserved while changing fonts */
@@ -179,7 +179,7 @@ const STYLE = `
 }
 
         .header {
-            min-height: 48px; padding: 8px 30px; background-color: #ffffff; border-bottom: 1px solid #dcdcdc;
+            min-height: 48px; padding: 8px 30px; background-color: #ffffff; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
             display: flex; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         }
         .header-center { flex: 1; text-align: center; }
@@ -189,12 +189,12 @@ const STYLE = `
     position: sticky;
     top: 0;
     z-index: 1000;
-    background-color: #f1f3f4; /* Standard Grey */
+    background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); /* Standard Grey */
     height: 50px;
     display: flex;
     align-items: center;
     padding: 0 30px;
-    border-bottom: 1px solid #dcdcdc;
+    border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
     justify-content: space-between;
     width: 100%; /* Changed from 1300px to 100% */
     min-width: 1300px; /* Ensures buttons don't move closer on iPad */
@@ -280,13 +280,13 @@ const STYLE = `
            from asset-container adding its own extra width/margin/border
            on top of area-container's — removing that layer here instead
            of trying to match its numbers more precisely. */
-        .asset-container { margin-bottom: 10px; border-bottom: 1px solid #ddd; }
+        .asset-container { margin-bottom: 10px; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); }
         .asset-header {
-            background-color: #f1f3f4; color: #2e7d32; padding: 10px 30px;
+            background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); color: var(--Petrol, #0f5a60); padding: 10px 30px;
             cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
         }
-        .asset-header:hover { background-color: #e8eaed; }
+        .asset-header:hover { background-color: var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); }
 
         .rows-container { padding: 10px 20px; display: block; }
         .rows-container.hidden { display: none; }
@@ -297,8 +297,8 @@ const STYLE = `
 .status-cell {
     flex: 1;
     border: none !important;
-    border-right: 1px solid #ccc !important;
-    background-color: #f9f9f9;
+    border-right: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4) !important;
+    background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
     padding: 12px 8px;    /* Increased vertical padding to assist vertical centering */
     font-size: 13px;
     min-height: 40px;
@@ -340,7 +340,7 @@ const STYLE = `
         .bg-red { background-color: #ffcdd2 !important; color: #b71c1c !important; }
         .bg-yellow { background-color: #fff9c4 !important; color: #f57f17 !important; }
 
-        #saveIndicator { font-size: 13px; font-weight: bold; color: #1b5e20; margin-right: 15px; }
+        #saveIndicator { font-size: 13px; font-weight: bold; color: var(--Petrol-hover, #0b4a4f); margin-right: 15px; }
 
         /* Updated Header Layout */
 .header-left {
@@ -393,12 +393,12 @@ const STYLE = `
 }
 
 .row-removed {
-    background-color: #f5f5f5 !important; /* Grey */
+    background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee) !important; /* Grey */
     text-decoration: line-through;
     color: #757575 !important;
 }
 .row-removed textarea, .row-removed select {
-    background-color: #f5f5f5 !important;
+    background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee) !important;
     color: #000000 !important;
     text-decoration: line-through;
 }
@@ -435,14 +435,14 @@ const STYLE = `
 .area-container {
     margin: 20px auto;
     width: 95%;
-    border: 2px solid #333;
+    border: 2px solid var(--neutrals-lightmode-light-mode-Textprimary, #141718);
     border-radius: 8px;
-    background: #f1f3f4;
+    background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
     overflow: hidden;
 }
 
 .area-header {
-    background-color: #333;
+    background-color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);
     color: white;
     padding: 15px 25px;
     cursor: pointer;
@@ -494,7 +494,7 @@ const STYLE = `
 .filter-label {
     font-size: 10px;
     font-weight: bold;
-    color: #888;
+    color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -503,7 +503,7 @@ const STYLE = `
 .filter-btn {
     padding: 3px 10px;
     font-size: 11px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);
     background: white;
     border-radius: 12px;
     cursor: pointer;
@@ -512,7 +512,7 @@ const STYLE = `
 }
 
 .filter-btn:hover {
-    background: #f5f5f5;
+    background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
 }
 
 .filter-btn.active {
@@ -524,8 +524,8 @@ const STYLE = `
 
 /* Location-specific active color */
 .filter-btn.active.loc-filter {
-    background: #333;
-    border-color: #333;
+    background: var(--neutrals-lightmode-light-mode-Textprimary, #141718);
+    border-color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);
 }
 
 /* Export Modal Styles */
@@ -541,7 +541,7 @@ const STYLE = `
     overflow-y: auto;
     box-sizing: border-box;
 }
-.modal-content h3 { margin-top: 0; color: #333; font-size: 20px; }
+.modal-content h3 { margin-top: 0; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-size: 20px; }
 .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
 
 /* Search Bar Styling */
@@ -560,7 +560,7 @@ const STYLE = `
 }
 
 .search-container i {
-    color: #888;
+    color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);
     font-size: 14px;
 }
 /* Search Bar & Navigation Layout */
@@ -574,7 +574,7 @@ const STYLE = `
     display: flex;
     align-items: center;
     background: white;
-    border: 1px solid #ccc;
+    border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);
     border-radius: 4px;
     padding: 0 8px;
     width: 320px; /* Increased for buttons */
@@ -583,7 +583,7 @@ const STYLE = `
 .search-nav-btns {
     display: flex;
     gap: 2px;
-    border-left: 1px solid #eee;
+    border-left: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);
     padding-left: 5px;
     margin-left: 5px;
 }
@@ -600,12 +600,12 @@ const STYLE = `
 }
 
 .search-nav-btn:disabled {
-    color: #ccc;
+    color: var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);
 }
 
 .match-counter {
     font-size: 11px;
-    color: #666;
+    color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);
     margin-right: 5px;
     white-space: nowrap;
 }
@@ -626,7 +626,7 @@ const STYLE = `
     display: none !important; /* Hidden by default */
     justify-content: center;
     align-items: center;
-    border-right: 1px solid #ccc;
+    border-right: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);
     box-sizing: border-box;
 }
 
@@ -688,7 +688,7 @@ input:not([type="checkbox"]), textarea, select {
 #addModal h3 {
     margin: 0;
     padding: 25px 50px;
-    border-bottom: 1px solid #dcdcdc;
+    border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
     font-size: 24px;
     color: #d32f2f;
     text-align: left;
@@ -723,14 +723,14 @@ input:not([type="checkbox"]), textarea, select {
     height: 55px;
     padding: 15px;
     font-size: 15px;
-    border: 2px solid #ccc;
+    border: 2px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);
     border-radius: 6px;
     box-sizing: border-box;
 }
 
 #addModal .modal-btns {
     padding: 20px 50px;
-    border-top: 1px solid #dcdcdc;
+    border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
     display: flex;
     flex-direction: row;
     gap: 10px;
@@ -744,7 +744,7 @@ input:not([type="checkbox"]), textarea, select {
 /* Update your existing .bulk-add-grid input selector or add this */
 .bulk-add-grid input[type="file"] {
     height: auto;
-    border: 2px dashed #ccc; /* Visual cue for upload area */
+    border: 2px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); /* Visual cue for upload area */
     background: #fafafa;
     cursor: pointer;
 }
@@ -841,7 +841,7 @@ const MARKUP = `
     <div style="display: flex; align-items: center;">
         <button class="tool-btn" onclick="this.getRootNode().host.expandAllZones()">Expand All Zones</button>
         <button class="tool-btn" onclick="this.getRootNode().host.expandAll()">Expand All Assets</button>
-        <button class="tool-btn" style="border-color:#1b5e20; color:#1b5e20;" onclick="this.getRootNode().host.collapseAll()">Collapse All</button>
+        <button class="tool-btn" style="border-color:var(--Petrol-hover, #0b4a4f); color:var(--Petrol-hover, #0b4a4f);" onclick="this.getRootNode().host.collapseAll()">Collapse All</button>
 
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="Search entries..." oninput="this.getRootNode().host.handleSearch(this.value)">
@@ -855,9 +855,9 @@ const MARKUP = `
 
     <div>
     <div id="ts-normal-toolbar-buttons" style="display:inline;">
-    <button class="tool-btn" style="background-color: #ffffff; color: rgb(0, 0, 0); border-color: #1b5e20; margin-right: 10px;" onclick="this.getRootNode().host.fetchHierarchyData(true)">Refresh</button>
+    <button class="tool-btn" style="background-color: #ffffff; color: rgb(0, 0, 0); border-color: var(--Petrol-hover, #0b4a4f); margin-right: 10px;" onclick="this.getRootNode().host.fetchHierarchyData(true)">Refresh</button>
     <button id="duplicateBtn" class="tool-btn" style="background-color: #ffffff; color: #d32f2f; border-color: #d32f2f; margin-right: 10px;" onclick="this.getRootNode().host.findDuplicates()">Find Duplicates</button>
-    <button id="addBtn" class="tool-btn" style="background-color: #1b5e20; color: white; border-color: #1b5e20; margin-right: 10px;" onclick="this.getRootNode().host.showAddModal()">+ Add Seals</button>
+    <button id="addBtn" class="tool-btn" style="background-color: var(--Petrol-hover, #0b4a4f); color: white; border-color: var(--Petrol-hover, #0b4a4f); margin-right: 10px;" onclick="this.getRootNode().host.showAddModal()">+ Add Seals</button>
     <button id="editBtn" class="tool-btn" onclick="this.getRootNode().host.toggleEditMode()" style="margin-right: 10px;">Edit</button>
 
     <button id="cancelBtn" class="tool-btn" style="display:none; border-color:#757575; color:#757575; margin-right: 10px;" onclick="this.getRootNode().host.cancelEditMode()">Cancel Changes</button>
@@ -866,7 +866,7 @@ const MARKUP = `
     <button id="exportBtn" class="tool-btn" onclick="this.getRootNode().host.showExportOptions()">Export</button>
     </div>
     <div id="ts-layout-edit-toolbar">
-        <span style="font-size:13px; color:#555; margin-right:6px;">Drag the edges of a column header to resize it.</span>
+        <span style="font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-right:6px;">Drag the edges of a column header to resize it.</span>
         <button class="tool-btn" style="background:#1565c0; color:white; border-color:#1565c0;" onclick="this.getRootNode().host.saveTamperSealLayout()">💾 Save Layout</button>
         <button class="tool-btn" style="border-color:#757575; color:#757575;" onclick="this.getRootNode().host.cancelTsLayoutEditMode()">Cancel</button>
     </div>
@@ -904,7 +904,7 @@ const MARKUP = `
                 <div style="grid-column: span 2;"><label>Inspection Notes</label><input type="text" id="newNotes"></div>
             </div>
             <div class="modal-btns">
-                <button class="tool-btn" style="background: #1b5e20; color: white;" onclick="this.getRootNode().host.generatePreview()">Generate Preview</button>
+                <button class="tool-btn" style="background: var(--Petrol-hover, #0b4a4f); color: white;" onclick="this.getRootNode().host.generatePreview()">Generate Preview</button>
                 <button class="tool-btn" onclick="this.getRootNode().host.showAddModal()">Back</button>
             </div>
         </div>
@@ -916,13 +916,13 @@ const MARKUP = `
             <option value="">Loading assets...</option>
         </select>
     </div>
-    <div id="brokenSealsContainer" style="margin-bottom: 20px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; display:none;">
+    <div id="brokenSealsContainer" style="margin-bottom: 20px; max-height: 200px; overflow-y: auto; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding: 10px; display:none;">
         <label style="font-weight:bold; margin-bottom:10px; display:block;">Select Seals to Replace:</label>
         <div id="sealCheckboxList"></div>
     </div>
 
     <div class="modal-btns" style="padding: 20px 0;">
-        <button id="reinspectNextBtn" class="tool-btn" style="background: #1b5e20; color: white; display:none;" onclick="this.getRootNode().host.proceedToStandardForm()">Next</button>
+        <button id="reinspectNextBtn" class="tool-btn" style="background: var(--Petrol-hover, #0b4a4f); color: white; display:none;" onclick="this.getRootNode().host.proceedToStandardForm()">Next</button>
         <button class="tool-btn" onclick="this.getRootNode().host.showAddModal()">Back</button>
     </div>
 </div>
@@ -944,75 +944,75 @@ const MARKUP = `
 <div id="colSettingsModal" class="modal-overlay">
     <div class="modal-content" style="max-width: 960px; width: 92%;">
         <h3>Tamper Seal Settings</h3>
-        <div style="display: flex; border-bottom: 1px solid #eee; margin-bottom: 16px;">
-            <button id="ts-tab-columns" onclick="this.getRootNode().host.switchTsSettingsTab('columns')" style="flex:1; padding:10px; border:none; background:#f5f5f5; cursor:pointer; font-weight:600; font-size:13px; color:#2e7d32; border-bottom:3px solid #2e7d32;">Columns</button>
-            <button id="ts-tab-statusflow" onclick="this.getRootNode().host.switchTsSettingsTab('statusflow')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:#888; border-bottom:3px solid transparent;">Status Flow</button>
-            <button id="ts-tab-statusorder" onclick="this.getRootNode().host.switchTsSettingsTab('statusorder')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:#888; border-bottom:3px solid transparent;">Status Order</button>
+        <div style="display: flex; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom: 16px;">
+            <button id="ts-tab-columns" onclick="this.getRootNode().host.switchTsSettingsTab('columns')" style="flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom:3px solid var(--Petrol, #0f5a60);">Columns</button>
+            <button id="ts-tab-statusflow" onclick="this.getRootNode().host.switchTsSettingsTab('statusflow')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Status Flow</button>
+            <button id="ts-tab-statusorder" onclick="this.getRootNode().host.switchTsSettingsTab('statusorder')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Status Order</button>
         </div>
 
         <div id="ts-panel-columns">
-            <p style="color:#666; font-size:13px; margin-top:-8px;">Drag to reorder, uncheck to hide. Saved for everyone on this project.</p>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:-8px;">Drag to reorder, uncheck to hide. Saved for everyone on this project.</p>
             <div id="col-settings-list" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; margin-bottom:16px;"></div>
-            <div style="border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Column Widths</div>
-                <p style="color:#888; font-size:12px; margin:0 0 8px;">Closes this window and lets you drag the edges of a column header on the live log to resize it.</p>
+            <div style="border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Column Widths</div>
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:0 0 8px;">Closes this window and lets you drag the edges of a column header on the live log to resize it.</p>
                 <button class="btn btn-add" onclick="this.getRootNode().host.startColumnWidthEditing()">📐 Edit Column Widths</button>
             </div>
         </div>
 
         <div id="ts-panel-statusflow" style="display:none;">
-            <p style="color:#666; font-size:13px; margin-top:-8px;">Define the seal statuses, then build the triggers that move a seal between them — each trigger can require any of several previous statuses and optionally fire automatically when a specific form is submitted.</p>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:-8px;">Define the seal statuses, then build the triggers that move a seal between them — each trigger can require any of several previous statuses and optionally fire automatically when a specific form is submitted.</p>
             <div id="workflow-selector-wrap" style="display:flex; gap:8px; margin-bottom:14px;"></div>
-            <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:8px;">Statuses</div>
+            <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:8px;">Statuses</div>
             <div id="status-flow-editor" style="max-height:220px; overflow-y:auto; margin-bottom:12px; display:flex; flex-direction:column; gap:10px;"></div>
             <div style="position:relative; display:inline-block; margin-bottom:16px;">
                 <button id="add-status-menu-btn" class="btn btn-add" onclick="this.getRootNode().host.toggleAddStatusMenu()">+ Add Status ▾</button>
-                <div id="add-status-menu" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:white; border:1px solid #ddd; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15); z-index:50; min-width:240px; max-height:260px; overflow-y:auto;"></div>
+                <div id="add-status-menu" style="display:none; position:absolute; top:100%; left:0; margin-top:4px; background:white; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15); z-index:50; min-width:240px; max-height:260px; overflow-y:auto;"></div>
             </div>
 
-            <div style="border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:8px;">Triggers</div>
+            <div style="border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:8px;">Triggers</div>
                 <div id="triggers-list" style="max-height:280px; overflow-y:auto; margin-bottom:12px;"></div>
                 <button class="btn btn-add" onclick="this.getRootNode().host.addTrigger()">+ Add Trigger</button>
             </div>
 
-            <div style="margin-top:16px; border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Reinspection Eligibility</div>
-                <p style="color:#888; font-size:12px; margin:0 0 8px;">Which statuses should make a seal show up on the field Reinspection form. This is separate from Triggers — it only controls which seals appear, not what they transition to.</p>
+            <div style="margin-top:16px; border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Reinspection Eligibility</div>
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:0 0 8px;">Which statuses should make a seal show up on the field Reinspection form. This is separate from Triggers — it only controls which seals appear, not what they transition to.</p>
                 <div id="reinspection-filter-list" style="max-height:200px; overflow-y:auto;"></div>
             </div>
 
-            <div style="margin-top:16px; border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Break Request Eligibility</div>
-                <p style="color:#888; font-size:12px; margin:0 0 8px;">Which statuses should show up when filtering seals on the field Break Request form. Checking a status here shows it even without a matching Trigger below (flagged with a warning) — submitting will just report that seal as not moved. Until you check/uncheck anything here, every status is shown, matching current behavior.</p>
+            <div style="margin-top:16px; border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Break Request Eligibility</div>
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:0 0 8px;">Which statuses should show up when filtering seals on the field Break Request form. Checking a status here shows it even without a matching Trigger below (flagged with a warning) — submitting will just report that seal as not moved. Until you check/uncheck anything here, every status is shown, matching current behavior.</p>
                 <div id="break-request-filter-list" style="max-height:200px; overflow-y:auto;"></div>
             </div>
 
-            <div style="margin-top:16px; border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Break Seals Eligibility</div>
-                <p style="color:#888; font-size:12px; margin:0 0 8px;">Which statuses should show up when filtering seals on the field Break Seals form.</p>
+            <div style="margin-top:16px; border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Break Seals Eligibility</div>
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:0 0 8px;">Which statuses should show up when filtering seals on the field Break Seals form.</p>
                 <div id="break-seals-filter-list" style="max-height:200px; overflow-y:auto;"></div>
             </div>
 
-            <div style="margin-top:16px; border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Work Completed Eligibility</div>
-                <p style="color:#888; font-size:12px; margin:0 0 8px;">Which statuses should show up when filtering seals on the field Work Completed form.</p>
+            <div style="margin-top:16px; border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Work Completed Eligibility</div>
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:0 0 8px;">Which statuses should show up when filtering seals on the field Work Completed form.</p>
                 <div id="work-completed-filter-list" style="max-height:200px; overflow-y:auto;"></div>
             </div>
 
-            <div style="margin-top:16px; border-top:1px dashed #ccc; padding-top:14px;">
-                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:8px;">Preview</div>
-                <div id="status-flow-preview" style="position:relative; background:#fafafa; border:1px solid #eee; border-radius:8px; padding:24px; min-height:100px; overflow:visible;"></div>
+            <div style="margin-top:16px; border-top:1px dashed var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-top:14px;">
+                <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:8px;">Preview</div>
+                <div id="status-flow-preview" style="position:relative; background:#fafafa; border:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius:8px; padding:24px; min-height:100px; overflow:visible;"></div>
             </div>
         </div>
 
         <div id="ts-panel-statusorder" style="display:none;">
-            <p style="color:#666; font-size:13px; margin-top:-8px;">Drag to reorder — this controls the order statuses appear everywhere: the status filter bar, dropdown menus, and trigger checklists.</p>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:-8px;">Drag to reorder — this controls the order statuses appear everywhere: the status filter bar, dropdown menus, and trigger checklists.</p>
             <div id="status-order-list" style="display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto;"></div>
         </div>
 
         <div class="modal-btns">
-            <button class="tool-btn" style="background-color:#1b5e20; color:white; border-color:#1b5e20;" onclick="this.getRootNode().host.saveTsSettings()">Save</button>
+            <button class="tool-btn" style="background-color:var(--Petrol-hover, #0b4a4f); color:white; border-color:var(--Petrol-hover, #0b4a4f);" onclick="this.getRootNode().host.saveTsSettings()">Save</button>
             <button class="tool-btn" style="border-color:#757575; color:#757575;" onclick="this.getRootNode().host.closeColumnSettingsModal()">Cancel</button>
         </div>
     </div>
@@ -1617,8 +1617,8 @@ export class TamperSealView extends HTMLElement {
         const colPanel = this.$('ts-panel-columns');
         const flowPanel = this.$('ts-panel-statusflow');
         const orderPanel = this.$('ts-panel-statusorder');
-        const active = 'flex:1; padding:10px; border:none; background:#f5f5f5; cursor:pointer; font-weight:600; font-size:13px; color:#2e7d32; border-bottom:3px solid #2e7d32;';
-        const inactive = 'flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:#888; border-bottom:3px solid transparent;';
+        const active = 'flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom:3px solid var(--Petrol, #0f5a60);';
+        const inactive = 'flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;';
 
         [colTab, flowTab, orderTab].forEach(t => t.style.cssText = inactive);
         [colPanel, flowPanel, orderPanel].forEach(p => p.style.display = 'none');
@@ -1658,7 +1658,7 @@ export class TamperSealView extends HTMLElement {
             const isLast = allStatuses.indexOf(s) === allStatuses.length - 1;
 
             const item = document.createElement('div');
-            item.style.cssText = "display:flex; align-items:center; width:100%; padding:10px 12px; background:#f8f9fa; border:1px solid #ddd; border-radius:6px; cursor:grab; user-select:none; box-sizing:border-box;";
+            item.style.cssText = "display:flex; align-items:center; width:100%; padding:10px 12px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:6px; cursor:grab; user-select:none; box-sizing:border-box;";
             item.draggable = true;
             item.dataset.statusKey = key;
 
@@ -1668,14 +1668,14 @@ export class TamperSealView extends HTMLElement {
             });
             item.addEventListener('dragend', () => {
                 item.style.opacity = '1';
-                this.$$('#status-order-list > div').forEach(el => el.style.border = '1px solid #ddd');
+                this.$$('#status-order-list > div').forEach(el => el.style.border = '1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb)');
             });
             item.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                item.style.border = '2px dashed #2e7d32';
+                item.style.border = '2px dashed var(--Petrol, #0f5a60)';
             });
             item.addEventListener('dragleave', () => {
-                item.style.border = '1px solid #ddd';
+                item.style.border = '1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';
             });
             item.addEventListener('drop', (e) => {
                 e.preventDefault();
@@ -1689,13 +1689,13 @@ export class TamperSealView extends HTMLElement {
             });
 
             item.innerHTML = `
-                <span style="margin-right:10px; cursor:grab; color:#999; font-size:16px;" title="Drag to reorder">⣿</span>
+                <span style="margin-right:10px; cursor:grab; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:16px;" title="Drag to reorder">⣿</span>
                 <div style="display:flex; flex-direction:column; margin-right:10px;">
-                    <button onclick="this.getRootNode().host.moveGlobalStatusOrder('${key}', -1)" ${isFirst ? 'disabled' : ''} title="Move up" style="background:none; border:none; cursor:${isFirst ? 'default' : 'pointer'}; color:${isFirst ? '#ccc' : '#555'}; font-size:12px; line-height:1; padding:2px;">▲</button>
-                    <button onclick="this.getRootNode().host.moveGlobalStatusOrder('${key}', 1)" ${isLast ? 'disabled' : ''} title="Move down" style="background:none; border:none; cursor:${isLast ? 'default' : 'pointer'}; color:${isLast ? '#ccc' : '#555'}; font-size:12px; line-height:1; padding:2px;">▼</button>
+                    <button onclick="this.getRootNode().host.moveGlobalStatusOrder('${key}', -1)" ${isFirst ? 'disabled' : ''} title="Move up" style="background:none; border:none; cursor:${isFirst ? 'default' : 'pointer'}; color:${isFirst ? 'var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4)' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-size:12px; line-height:1; padding:2px;">▲</button>
+                    <button onclick="this.getRootNode().host.moveGlobalStatusOrder('${key}', 1)" ${isLast ? 'disabled' : ''} title="Move down" style="background:none; border:none; cursor:${isLast ? 'default' : 'pointer'}; color:${isLast ? 'var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4)' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-size:12px; line-height:1; padding:2px;">▼</button>
                 </div>
                 <span style="width:16px; height:16px; border-radius:3px; background:${s.color}; border:1px solid rgba(0,0,0,0.15); margin-right:10px; flex-shrink:0;"></span>
-                <span style="font-weight:600; color:#333; font-size:14px;">${s.name}</span>
+                <span style="font-weight:600; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-size:14px;">${s.name}</span>
             `;
             list.appendChild(item);
         });
@@ -1718,7 +1718,7 @@ export class TamperSealView extends HTMLElement {
             const isLast = visibleCols.indexOf(col) === visibleCols.length - 1;
 
             const item = document.createElement('div');
-            item.style.cssText = "display:flex; align-items:center; width:100%; padding:10px 12px; background:#f8f9fa; border:1px solid #ddd; border-radius:6px; cursor:grab; user-select:none; box-sizing:border-box;";
+            item.style.cssText = "display:flex; align-items:center; width:100%; padding:10px 12px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:6px; cursor:grab; user-select:none; box-sizing:border-box;";
             item.draggable = true;
             item.dataset.colId = col.id;
 
@@ -1728,14 +1728,14 @@ export class TamperSealView extends HTMLElement {
             });
             item.addEventListener('dragend', () => {
                 item.style.opacity = '1';
-                this.$$('#col-settings-list > div').forEach(el => el.style.border = '1px solid #ddd');
+                this.$$('#col-settings-list > div').forEach(el => el.style.border = '1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb)');
             });
             item.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                item.style.border = '2px dashed #2e7d32';
+                item.style.border = '2px dashed var(--Petrol, #0f5a60)';
             });
             item.addEventListener('dragleave', () => {
-                item.style.border = '1px solid #ddd';
+                item.style.border = '1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';
             });
             item.addEventListener('drop', (e) => {
                 e.preventDefault();
@@ -1749,13 +1749,13 @@ export class TamperSealView extends HTMLElement {
             });
 
             item.innerHTML = `
-                <span style="margin-right:10px; cursor:grab; color:#999; font-size:16px;" title="Drag to reorder">⣿</span>
+                <span style="margin-right:10px; cursor:grab; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:16px;" title="Drag to reorder">⣿</span>
                 <div style="display:flex; flex-direction:column; margin-right:10px;">
-                    <button onclick="this.getRootNode().host.moveColumnConfig('${col.id}', -1)" ${isFirst ? 'disabled' : ''} title="Move up" style="background:none; border:none; cursor:${isFirst ? 'default' : 'pointer'}; color:${isFirst ? '#ccc' : '#555'}; font-size:12px; line-height:1; padding:2px;">▲</button>
-                    <button onclick="this.getRootNode().host.moveColumnConfig('${col.id}', 1)" ${isLast ? 'disabled' : ''} title="Move down" style="background:none; border:none; cursor:${isLast ? 'default' : 'pointer'}; color:${isLast ? '#ccc' : '#555'}; font-size:12px; line-height:1; padding:2px;">▼</button>
+                    <button onclick="this.getRootNode().host.moveColumnConfig('${col.id}', -1)" ${isFirst ? 'disabled' : ''} title="Move up" style="background:none; border:none; cursor:${isFirst ? 'default' : 'pointer'}; color:${isFirst ? 'var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4)' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-size:12px; line-height:1; padding:2px;">▲</button>
+                    <button onclick="this.getRootNode().host.moveColumnConfig('${col.id}', 1)" ${isLast ? 'disabled' : ''} title="Move down" style="background:none; border:none; cursor:${isLast ? 'default' : 'pointer'}; color:${isLast ? 'var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4)' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-size:12px; line-height:1; padding:2px;">▼</button>
                 </div>
                 <input type="checkbox" id="colcfg-${col.id}" ${col.visible ? 'checked' : ''} style="margin-right:12px; cursor:pointer; transform:scale(1.2);" onchange="this.getRootNode().host.columnConfig.find(c => c.id === '${col.id}').visible = this.checked;">
-                <span style="font-weight:600; color:#333; font-size:14px;">${col.name}</span>
+                <span style="font-weight:600; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-size:14px;">${col.name}</span>
             `;
             list.appendChild(item);
         });
@@ -1776,12 +1776,12 @@ export class TamperSealView extends HTMLElement {
         const wrap = this.$('workflow-selector-wrap');
         const wf = this.getEditingWorkflow();
         wrap.innerHTML = `
-            <select id="workflow-select" onchange="this.getRootNode().host.currentEditingWorkflowId = this.value; this.getRootNode().host.renderStatusFlowEditor(); this.getRootNode().host.renderStatusFlowPreview();" style="padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-weight:600; font-size:14px; flex:1;">
+            <select id="workflow-select" onchange="this.getRootNode().host.currentEditingWorkflowId = this.value; this.getRootNode().host.renderStatusFlowEditor(); this.getRootNode().host.renderStatusFlowPreview();" style="padding:8px 10px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:6px; font-weight:600; font-size:14px; flex:1;">
                 ${this.workflows.map(w => `<option value="${w.id}" ${w.id === wf.id ? 'selected' : ''}>${w.name}${w.active ? ' ✓ Active' : ''}</option>`).join('')}
             </select>
             <button class="tool-btn" style="padding:8px 12px; font-size:13px;" onclick="this.getRootNode().host.addWorkflow()">+ New</button>
             <button class="tool-btn" style="padding:8px 12px; font-size:13px;" onclick="this.getRootNode().host.renameWorkflow()">Rename</button>
-            <button class="tool-btn" style="padding:8px 12px; font-size:13px; ${wf.active ? 'background-color:#1b5e20; color:white; border-color:#1b5e20;' : 'border-color:#1b5e20; color:#1b5e20;'}" onclick="this.getRootNode().host.setActiveWorkflow()">${wf.active ? '✓ Active' : 'Set Active'}</button>
+            <button class="tool-btn" style="padding:8px 12px; font-size:13px; ${wf.active ? 'background-color:var(--Petrol-hover, #0b4a4f); color:white; border-color:var(--Petrol-hover, #0b4a4f);' : 'border-color:var(--Petrol-hover, #0b4a4f); color:var(--Petrol-hover, #0b4a4f);'}" onclick="this.getRootNode().host.setActiveWorkflow()">${wf.active ? '✓ Active' : 'Set Active'}</button>
             <button class="tool-btn" style="padding:8px 12px; font-size:13px; border-color:#d32f2f; color:#d32f2f; ${this.workflows.length <= 1 ? 'opacity:0.5; cursor:default;' : ''}" ${this.workflows.length <= 1 ? 'disabled' : ''} onclick="this.getRootNode().host.deleteWorkflow()">Delete</button>
         `;
     }
@@ -1833,14 +1833,14 @@ export class TamperSealView extends HTMLElement {
         const wf = this.getEditingWorkflow();
         const container = this.$('status-flow-editor');
         container.innerHTML = wf.statuses.map((s, i) => `
-            <div style="border:1px solid #ddd; border-radius:8px; padding:10px 12px; background:#f8f9fa;">
+            <div style="border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:8px; padding:10px 12px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee);">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div style="display:flex; flex-direction:column;">
-                        <button onclick="this.getRootNode().host.moveFlowStatus('${s.id}', -1)" ${i === 0 ? 'disabled' : ''} title="Move up" style="background:none; border:none; cursor:${i === 0 ? 'default' : 'pointer'}; color:${i === 0 ? '#ccc' : '#555'}; font-size:12px; line-height:1; padding:2px;">▲</button>
-                        <button onclick="this.getRootNode().host.moveFlowStatus('${s.id}', 1)" ${i === wf.statuses.length - 1 ? 'disabled' : ''} title="Move down" style="background:none; border:none; cursor:${i === wf.statuses.length - 1 ? 'default' : 'pointer'}; color:${i === wf.statuses.length - 1 ? '#ccc' : '#555'}; font-size:12px; line-height:1; padding:2px;">▼</button>
+                        <button onclick="this.getRootNode().host.moveFlowStatus('${s.id}', -1)" ${i === 0 ? 'disabled' : ''} title="Move up" style="background:none; border:none; cursor:${i === 0 ? 'default' : 'pointer'}; color:${i === 0 ? 'var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4)' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-size:12px; line-height:1; padding:2px;">▲</button>
+                        <button onclick="this.getRootNode().host.moveFlowStatus('${s.id}', 1)" ${i === wf.statuses.length - 1 ? 'disabled' : ''} title="Move down" style="background:none; border:none; cursor:${i === wf.statuses.length - 1 ? 'default' : 'pointer'}; color:${i === wf.statuses.length - 1 ? 'var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4)' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-size:12px; line-height:1; padding:2px;">▼</button>
                     </div>
                     <input type="color" value="${s.color}" onchange="this.getRootNode().host.updateFlowStatusColor('${s.id}', this.value)" style="width:32px; height:32px; border:none; padding:0; cursor:pointer; flex-shrink:0;">
-                    <input type="text" value="${s.name}" onchange="this.getRootNode().host.updateFlowStatusName('${s.id}', this.value)" style="flex:1; font-weight:600; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:14px;">
+                    <input type="text" value="${s.name}" onchange="this.getRootNode().host.updateFlowStatusName('${s.id}', this.value)" style="flex:1; font-weight:600; padding:8px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; font-size:14px;">
                     <button onclick="this.getRootNode().host.removeFlowStatus('${s.id}')" title="Delete status" style="background:none; border:none; color:#d32f2f; cursor:pointer; font-size:18px; padding:0 4px; flex-shrink:0;">&times;</button>
                 </div>
             </div>
@@ -1972,10 +1972,10 @@ export class TamperSealView extends HTMLElement {
         // built from the same full set of statuses instead of only the ones
         // already added to whichever workflow you happen to be editing.
         container.innerHTML = wf.transitions.map(t => `
-            <div style="border:1px solid #ddd; border-radius:8px; padding:12px; background:#fafafa; margin-bottom:10px;">
+            <div style="border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:8px; padding:12px; background:#fafafa; margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
                     <div style="flex:1;">
-                        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:6px;">Previous Status(es)</div>
+                        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:6px;">Previous Status(es)</div>
                         <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
                             ${allStatuses.map(s => {
                                 const local = wf.statuses.find(ls => ls.name.toLowerCase() === s.name.toLowerCase());
@@ -1990,8 +1990,8 @@ export class TamperSealView extends HTMLElement {
 
                         <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
                             <div>
-                                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Resulting Status</label>
-                                <select onchange="this.getRootNode().host.setTriggerTo('${t.id}', this.value)" style="font-size:13px; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+                                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Resulting Status</label>
+                                <select onchange="this.getRootNode().host.setTriggerTo('${t.id}', this.value)" style="font-size:13px; padding:6px 8px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px;">
                                     <option value="">Select...</option>
                                     ${allStatuses.map(s => {
                                         const local = wf.statuses.find(ls => ls.name.toLowerCase() === s.name.toLowerCase());
@@ -2001,8 +2001,8 @@ export class TamperSealView extends HTMLElement {
                                 </select>
                             </div>
                             <div>
-                                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:#999; margin-bottom:4px;">Triggered By</label>
-                                <select onchange="this.getRootNode().host.setTriggerFormTrigger('${t.id}', this.value)" style="font-size:13px; padding:6px 8px; border:1px solid #ddd; border-radius:4px;">
+                                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">Triggered By</label>
+                                <select onchange="this.getRootNode().host.setTriggerFormTrigger('${t.id}', this.value)" style="font-size:13px; padding:6px 8px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px;">
                                     <option value="" ${!t.formTrigger ? 'selected' : ''}>Manual only (no form)</option>
                                     <option value="break-request" ${t.formTrigger === 'break-request' ? 'selected' : ''}>Break Request</option>
                                     <option value="break-seals" ${t.formTrigger === 'break-seals' ? 'selected' : ''}>Break Seals</option>
@@ -2121,14 +2121,14 @@ export class TamperSealView extends HTMLElement {
             });
         });
 
-        let html = `<div onclick="this.getRootNode().host.addFlowStatus(); this.getRootNode().host.toggleAddStatusMenu();" style="padding:10px 14px; cursor:pointer; font-weight:600; font-size:13px; color:#2e7d32; border-bottom:1px solid #eee;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">+ Blank Status</div>`;
+        let html = `<div onclick="this.getRootNode().host.addFlowStatus(); this.getRootNode().host.toggleAddStatusMenu();" style="padding:10px 14px; cursor:pointer; font-weight:600; font-size:13px; color:var(--Petrol, #0f5a60); border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);" onmouseover="this.style.background='var(--neutrals-lightmode-light-mode-Page, #f3f2ee)'" onmouseout="this.style.background='transparent'">+ Blank Status</div>`;
 
         if (reusable.length > 0) {
-            html += `<div style="padding:8px 14px 4px; font-size:11px; font-weight:700; text-transform:uppercase; color:#999;">From other workflows</div>`;
+            html += `<div style="padding:8px 14px 4px; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">From other workflows</div>`;
             reusable.forEach(s => {
                 const safeName = s.name.replace(/'/g, "\\'");
                 html += `
-                    <div onclick="this.getRootNode().host.copyStatusIntoWorkflow('${safeName}', '${s.color}'); this.getRootNode().host.toggleAddStatusMenu();" style="display:flex; align-items:center; gap:8px; padding:8px 14px; cursor:pointer; font-size:13px;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">
+                    <div onclick="this.getRootNode().host.copyStatusIntoWorkflow('${safeName}', '${s.color}'); this.getRootNode().host.toggleAddStatusMenu();" style="display:flex; align-items:center; gap:8px; padding:8px 14px; cursor:pointer; font-size:13px;" onmouseover="this.style.background='var(--neutrals-lightmode-light-mode-Page, #f3f2ee)'" onmouseout="this.style.background='transparent'">
                         <span style="width:16px; height:16px; border-radius:3px; background:${s.color}; border:1px solid rgba(0,0,0,0.15); flex-shrink:0;"></span>
                         ${s.name}
                     </div>
@@ -2217,7 +2217,7 @@ export class TamperSealView extends HTMLElement {
                 const midX = (from.x + to.x) / 2;
                 const midY = (from.y + to.y) / 2;
                 const label = t.formTrigger ? formLabels[t.formTrigger] : 'Manual';
-                labelsHtml += `<div style="position:absolute; left:${midX}px; top:${midY}px; transform:translate(-50%,-50%); background:white; border:1px solid #ddd; border-radius:4px; padding:1px 6px; font-size:10px; color:${t.formTrigger ? '#1565c0' : '#999'}; font-weight:600; white-space:nowrap; z-index:3;">${label}</div>`;
+                labelsHtml += `<div style="position:absolute; left:${midX}px; top:${midY}px; transform:translate(-50%,-50%); background:white; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; padding:1px 6px; font-size:10px; color:${t.formTrigger ? '#1565c0' : 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'}; font-weight:600; white-space:nowrap; z-index:3;">${label}</div>`;
             });
         });
 
@@ -2234,7 +2234,7 @@ export class TamperSealView extends HTMLElement {
                 ${boxesHtml}
                 ${labelsHtml}
             </div>
-            ${wf.statuses.length === 0 ? '<p style="color:#999; text-align:center; font-size:13px;">Add a status above to see it here.</p>' : ''}
+            ${wf.statuses.length === 0 ? '<p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); text-align:center; font-size:13px;">Add a status above to see it here.</p>' : ''}
         `;
     }
 
@@ -3482,7 +3482,7 @@ export class TamperSealView extends HTMLElement {
             <div class="preview-banner">
                 <h2>Review New Entries (${entries.length} rows)</h2>
                 <p>You can edit any cell below before saving. These items have not been added to the database yet.</p>
-                <button class="tool-btn" style="background-color: #1b5e20; color: white; padding: 10px 20px;" onclick="this.getRootNode().host.saveNewEntries()">Confirm & Save to Database</button>
+                <button class="tool-btn" style="background-color: var(--Petrol-hover, #0b4a4f); color: white; padding: 10px 20px;" onclick="this.getRootNode().host.saveNewEntries()">Confirm & Save to Database</button>
                 <button class="tool-btn" style="margin-left:10px;" onclick="this.getRootNode().host.discardPreview()">Cancel & Discard</button>
             </div>
             <div id="preview-rows-container"></div>

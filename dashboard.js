@@ -128,7 +128,7 @@ export class CriticalArcDashboard {
     style.innerHTML = `
       
       .ca-wrapper { --bg: #23262B; --panel: #2D3035; --border: #3E4248; --line: #34383E; --text: #F0F0F0; --muted: #8A8F98; --green: #39B54A; --red: #E04040; --yellow: #F4B942; --blue: #4A90D9; --input-bg: #23262B; --meta-text: #5A5F68; --td-text: #D8DCE1; --td-border: #2A2D32; --hover-row: #282B30; }
-      .ca-wrapper { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; box-sizing: border-box; height: 100%; }
+      .ca-wrapper { background: var(--bg); color: var(--text); font-family: Roboto, 'Segoe UI', sans-serif; box-sizing: border-box; height: 100%; }
       .ca-wrapper * { box-sizing: border-box; }
       .ca-wrapper a { color: inherit; }
 
@@ -136,12 +136,12 @@ export class CriticalArcDashboard {
 
       /* Sidebar */
       .ca-sidebar { width: clamp(220px, 20vw, 300px); flex: 0 0 clamp(220px, 20vw, 300px); background: var(--panel); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; height: 100%; }
-      .ca-brand { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid var(--green); padding-bottom: 12px; margin-bottom: 20px; }
+      .ca-brand { font-family: Roboto, 'Segoe UI', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid var(--green); padding-bottom: 12px; margin-bottom: 20px; }
       .ca-brand-sub { font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-top: 2px; }
       .ca-side-label { font-size: 11px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin: 16px 0 6px; }
       
-      .ca-wrapper select, .ca-wrapper input[type="text"] { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; }
-      .ca-connected-project { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; font-weight: 600; }
+      .ca-wrapper select, .ca-wrapper input[type="text"] { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: Roboto, 'Segoe UI', sans-serif; font-size: 13px; }
+      .ca-connected-project { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: Roboto, 'Segoe UI', sans-serif; font-size: 13px; font-weight: 600; }
       .ca-wrapper select:focus, .ca-wrapper input[type="text"]:focus { outline: none; border-color: var(--muted); }
       .ca-pace-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); font-size: 13px; }
       .ca-pace-controls input[type="date"] { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-family: inherit; font-size: 13px; color-scheme: light dark; }
@@ -162,32 +162,32 @@ export class CriticalArcDashboard {
       .ca-eq-search-wrap input[type="checkbox"] { accent-color: var(--green); width: 15px; height: 15px; cursor: pointer; }
       
       .ca-refreshed { font-size: 11px; color: var(--muted); margin-top: 4px; }
-      .ca-btn-refresh { margin-top: 12px; width: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px; cursor: pointer; transition: background .15s, border-color .15s; }
+      .ca-btn-refresh { margin-top: 12px; width: 100%; font-family: Roboto, 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px; cursor: pointer; transition: background .15s, border-color .15s; }
       .ca-btn-refresh:hover { background: var(--line); border-color: var(--muted); }
       .ca-btn-refresh:disabled { opacity: .5; cursor: default; }
 
       /* Main Content */
       .ca-main { flex: 1; padding: clamp(16px, 2vw, 28px) clamp(16px, 2.5vw, 36px); min-width: 0; background: var(--bg); overflow-y: auto; height: 100%; }
-      .ca-page-title { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; line-height: 1.1; color: var(--text); }
+      .ca-page-title { font-family: Roboto, 'Segoe UI', sans-serif; font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; line-height: 1.1; color: var(--text); }
       .ca-page-sub { font-size: 14px; color: var(--muted); margin-top: 4px; letter-spacing: .5px; }
       .ca-page-meta { font-size: 12px; color: var(--meta-text); margin-top: 6px; letter-spacing: .5px; }
       .ca-title-hr { border: none; border-top: 1px solid var(--border); margin: 16px 0 8px; }
 
       /* Tabs (Using Display: Block/None natively now, avoiding Plotly sizing bugs) */
       .ca-tabs { display: flex; gap: 4px; background: var(--panel); padding: 4px; border-radius: 10px; border: 1px solid var(--border); margin: 16px 0 20px; width: fit-content; }
-      .ca-tab { background: transparent; border: none; border-radius: 6px; color: var(--muted); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 600; font-size: 13px; letter-spacing: .5px; padding: 8px 16px; cursor: pointer; }
+      .ca-tab { background: transparent; border: none; border-radius: 6px; color: var(--muted); font-family: Roboto, 'Segoe UI', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: .5px; padding: 8px 16px; cursor: pointer; }
       .ca-tab.active { background: var(--line); color: var(--green); }
       .ca-tabpage { display: none; } 
       .ca-tabpage.active { display: block; }
 
-      .ca-section-header { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+      .ca-section-header { font-family: Roboto, 'Segoe UI', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 
       /* KPI cards */
       .ca-kpi-row { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
       .ca-kpi-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; text-align: center; transition: border-color .2s; }
       .ca-kpi-card:hover { border-color: var(--muted); }
-      .ca-kpi-label { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-      .ca-kpi-value { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 32px; font-weight: 500; line-height: 1; margin-bottom: 4px; }
+      .ca-kpi-label { font-family: Roboto, 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+      .ca-kpi-value { font-family: Roboto, 'Segoe UI', sans-serif; font-size: 32px; font-weight: 500; line-height: 1; margin-bottom: 4px; }
       .ca-kpi-sub { font-size: 12px; color: var(--muted); }
       .kpi-red { color: var(--red); } .kpi-yellow { color: var(--yellow); } .kpi-green { color: var(--green); } .kpi-blue { color: var(--blue); } .kpi-white { color: var(--text); }
 
@@ -201,13 +201,13 @@ export class CriticalArcDashboard {
 
       /* Tables */
       .ca-wrapper table.dt { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0; }
-      .ca-wrapper table.dt th { text-align: left; color: var(--muted); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid var(--border); padding: 8px 10px; position: sticky; top: 0; background: var(--panel); }
+      .ca-wrapper table.dt th { text-align: left; color: var(--muted); font-family: Roboto, 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid var(--border); padding: 8px 10px; position: sticky; top: 0; background: var(--panel); }
       .ca-wrapper table.dt td { padding: 7px 10px; border-bottom: 1px solid var(--td-border); color: var(--td-text); }
       .ca-wrapper table.dt tr:hover td { background: var(--hover-row); }
       .ca-table-wrap { max-height: 460px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
       
       .ca-wrapper details { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
-      .ca-wrapper details > summary { cursor: pointer; padding: 12px 16px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 600; letter-spacing: .5px; color: var(--muted); }
+      .ca-wrapper details > summary { cursor: pointer; padding: 12px 16px; font-family: Roboto, 'Segoe UI', sans-serif; font-weight: 600; letter-spacing: .5px; color: var(--muted); }
       .ca-wrapper details[open] > summary { border-bottom: 1px solid var(--border); color: var(--text); }
       .ca-wrapper details .ca-table-wrap { border: none; border-radius: 0; }
       
