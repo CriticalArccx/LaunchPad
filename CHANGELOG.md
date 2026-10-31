@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.7.0...v1.8.0) (2026-10-31)
+
+
+### Features
+
+* **ARC-190:** use more Arc Green for active, selected and today markers ([e6f0f7f](https://github.com/CriticalArccx/LaunchPad/commit/e6f0f7f64c3ecea22f0c1cb8b493ac2c6c382b81))
+* **ARC-190:** use more Arc Green for active, selected and today markers ([b7b2d39](https://github.com/CriticalArccx/LaunchPad/commit/b7b2d392815b3f77b8eb06f49e8b4018a5154bbb))
+
 ## [1.7.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.6.0...v1.7.0) (2026-10-31)
 
 
