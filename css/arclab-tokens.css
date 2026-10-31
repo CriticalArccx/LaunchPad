@@ -1,0 +1,149 @@
+/* ArcLab Design System tokens: copied unchanged from the shared "Design System"
+ * artifact (project/tokens.css, version 1793400003-ef96). Update by re-copying,
+ * never by hand-editing. Loaded by every LaunchPad page (ARC-189). */
+/* Design System — generated from tokens.json */
+:root, [data-theme="light"] {
+  --neutrals-lightmode-light-mode-Page: #f3f2ee; /* App background behind cards and tables. (light mode) */
+  --neutrals-lightmode-light-mode-Subtle: #e7e5df; /* Row hover, table header fill, disabled button fill. */
+  --neutrals-lightmode-light-mode-Border: #d6d3cb; /* Card and table borders, dividers. */
+  --neutrals-lightmode-light-mode-Borderstrong: #b2aea4; /* Input borders, secondary button outline. */
+  --neutrals-lightmode-light-mode-Textdisabled: #8a867c; /* Disabled labels and icons only (exempt from contrast rules). */
+  --neutrals-lightmode-light-mode-Textsecondary: #6a675f; /* Labels, helper text, placeholders, column headers. */
+  --neutrals-darkmode-Page: #141718; /* app background in dark mode */
+  --neutrals-darkmode-Border: #35342f; /* Borders and dividers */
+  --neutrals-darkmode-Surface: #1c1f21; /* Cards, tables, modals, inputs. */
+  --neutrals-lightmode-light-mode-Textprimary: #141718; /* Headings, body text, table cells. */
+  --neutrals-lightmode-light-mode-Surface: #ffffff; /* Cards, tables, modals, inputs (light mode). Also text on the charcoal selection bar and strong grid cells. */
+  --Arc-Green-tint: #eaf6ea; /* Selected table row background. */
+  --Petrol: #0f5a60; /* Primary buttons, links, active nav icon, key chart series. */
+  --Arc-Green: #4ebd4f; /* Focus rings, selected checkbox/radio fill, active tab underline, selected row marker. Never text on light. */
+  --Arc-Green-ink: #358537; /* Thin edge next to Arc Green on light surfaces; green text on light if ever needed. */
+  --Petrol-hover: #0b4a4f; /* Hover state for primary buttons and links. */
+  --Petrol-pressed: #083b3f; /* Pressed/active state for primary buttons. */
+  --Petrol-tint: #e3efef; /* Secondary button fill, info banners, chips. Petrol text on top. */
+  --workflow-draft-badgebg: #ffffff; /* background of the draft badge, closed badge, removed badge */
+  --workflow-draft-badgetext: #4e4c46; /* Badge label and icon. Also usable for Draft text in tables. */
+  --workflow-draft-badgeborder: #8a867c; /* 1.5px dotted badge outline */
+  --workflow-draft-chart: #e6e9ec; /* bar, donut and progress segments for draft */
+  --workflow-notstarted-badgebg: #e6e9ec; /* background of the not started badge */
+  --workflow-notstarted-badgetext: #4a5058; /* Badge label and icon. Also usable for Not started text in tables. */
+  --workflow-notstarted-chart: #c3c9d0; /* Bar, donut and progress segments for Not started. */
+  --workflow-inprogress-badgebg: #fdf0cc; /* background of the in progress badge */
+  --workflow-inprogress-badgetext: #7a5600; /* Badge label and icon. Also usable for In progress text in tables. */
+  --workflow-inprogress-chart: #f2c94c; /* bar, donut and progress segments for the in progress */
+  --workflow-partialfill-badgebg: #e1eafb; /* background of the partial badge */
+  --workflow-partial-badgetext: #2a4f8f; /* badge label and icon, also use for partial text in tables */
+  --workflow-partial-chart: #7fa9e8; /* Bar, donut and progress segments for Partial. */
+  --workflow-success-badgebg: #e2f3e8; /* background of the success badge */
+  --workflow-success-badgetext: #22663b; /* Badge label and icon. Also usable for Success text in tables. */
+  --workflow-success-chart: #74c690; /* Bar, donut and progress segments for Success. */
+  --workflow-closed-badgebg: #fce4e4; /* Background of the Failure badge. */
+  --workflow-failure-badgetext: #a32a2a; /* Badge label and icon. Also usable for Failure text in tables. */
+  --workflow-failure-chart: #ee8080; /* Bar, donut and progress segments for Failure. */
+  --workflow-closed-badgetext: #4a5058; /* Badge label and icon. Also usable for Closed text in tables. */
+  --workflow-closed-badgeborder: #8e94a0; /* 1.5px solid badge outline. */
+  --workflow-closed-chart: #a8afb8; /* Bar, donut and progress segments for Closed. */
+  --workflow-removed-badgetext: #6a675f; /* Badge label and icon, with strikethrough. Also usable for Removed text in tables. */
+  --workflow-arcleapnotinterested: #b488e7; /* Use for the 'Not Interested' status in ArcLeap */
+  --shadow-elevated: 0 1px 2px rgba(20, 23, 24, 0.06), 0 3px 0 #e0ded8; /* Elevated cards (StatCard, record cards) on neutrals-lightmode-light-mode-Page. */
+}
+:root {
+  --space\.0: 0px; /* reset */
+  --space\.1: 4px; /* Icon to label gap, badge padding (vertical). */
+  --space\.2: 8px; /* Gap between buttons, inline items, chips; label to input. */
+  --space\.3: 12px; /* Input and button side padding; table cell side padding; badge padding (horizontal). */
+  --space\.4: 16px; /* Gap between form fields; card padding (compact); gap between cards. */
+  --space\.5: 20px; /* Card padding (default). */
+  --space\.6: 24px; /* Page padding; modal padding; grid gutter; gap between card groups. */
+  --space\.8: 32px; /* Space between page sections; page padding on wide screens. */
+  --space\.10: 40px; /* Space above major page headings. */
+  --space\.12: 48px; /* Empty state padding; large section breaks. */
+  --space\.16: 64px; /* Top-level layout spacing, marketing/landing only. */
+  --radius\.none: 0px; /* table cells, full-bleed headers, dividers, chart bars */
+  --radius\.small: 4px; /* checkboxes, tags, tooltips, inline code, small elements inside cards */
+  --radius\.md: 6px; /* buttons, inputs, selects, segmented controls. the default */
+  --radius\.lg: 8px; /* Dropdown menus, popovers, toasts, nested panels. */
+  --radius\.xl: 12px; /* Cards, tables, modals, side panels. */
+  --radius\.full: 9999px; /* Workflow status badges, avatars, toggle switches. */
+  --font-roboto: 'Roboto', sans-serif;
+  --text-type\.display: 600 32px/1.5 var(--font-roboto); /* Page titles on dashboards and apps */
+  --text-type\.h1: 600 24px/1.5 var(--font-roboto); /* section titles */
+  --text-type\.h2: 600 20px/1.5 var(--font-roboto); /* card and panel titles */
+  --text-type\.h3: 600 16px/1.5 var(--font-roboto); /* sub-sections, modal tiles */
+  --text-type\.body-lg: 430 16px/1.5 var(--font-roboto); /* long-form text, empty states */
+  --text-type\.body: 430 14px/1.5 var(--font-roboto); /* default UI text, table cells */
+  --text-type\.label: 600 14px/1.5 var(--font-roboto); /* buttons, form labels, tabs */
+  --text-type\.caption: 430 12px/1.5 var(--font-roboto); /* helper text, timestamps */
+  --text-type\.overline: 600 11px/1.5 var(--font-roboto); /* table headers, section labels */
+  --text-type\.mono: 600 13px/1.5 var(--font-roboto); /* equipment IDs, tag numbers, code */
+}
+.type\.display {
+  font-family: var(--font-roboto);
+  font-size: 32px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.type\.h1 {
+  font-family: var(--font-roboto);
+  font-size: 24px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.type\.h2 {
+  font-family: var(--font-roboto);
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.type\.h3 {
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.type\.body-lg {
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 430;
+  letter-spacing: 0;
+}
+.type\.body {
+  font-family: var(--font-roboto);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 430;
+  letter-spacing: 0;
+}
+.type\.label {
+  font-family: var(--font-roboto);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.type\.caption {
+  font-family: var(--font-roboto);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 430;
+  letter-spacing: 0;
+}
+.type\.overline {
+  font-family: var(--font-roboto);
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.type\.mono {
+  font-family: var(--font-roboto);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}

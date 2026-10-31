@@ -211,18 +211,18 @@ const STYLE = `
        window — same reasoning as equipment-tracker-view.js's :host. */
     display:flex; flex-direction:column; position:relative; height:100%; overflow:hidden;
     margin:0;
-    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family:Roboto, 'Segoe UI', sans-serif;
     color:var(--text-dark);
     background:#fafafa;
     padding-bottom:52px; /* reserved for the timeline-range-bar, now position:absolute below */
-    --green:#2e7d32;
+    --green:var(--Petrol, #0f5a60);
     --green-dark:#1b5e20;
-    --green-light:#e8f5e9;
-    --grey-bg:#f1f3f4;
-    --grey-border:#dcdcdc;
-    --grey-border2:#ddd;
+    --green-light:var(--Petrol-tint, #e3efef);
+    --grey-bg:var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
+    --grey-border:var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
+    --grey-border2:var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
     --text-dark:#2c2c2c;
-    --text-muted:#5f6368;
+    --text-muted:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);
     --red:#d32f2f;
 }
 *{box-sizing:border-box;}
@@ -343,8 +343,8 @@ input,select,textarea{font-family:inherit;}
 /* Included Days setting — a stronger, more opaque grey than the plain
    weekend tint above, and no hover highlight (it's not clickable — see
    buildGanttHeaderHtml()) since nothing should ever land here. */
-.gantt-day.excluded-day{background:repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 6px, #ececec 6px, #ececec 12px); color:#999; cursor:default;}
-.gantt-day.excluded-day:hover{background:repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 6px, #ececec 6px, #ececec 12px);}
+.gantt-day.excluded-day{background:repeating-linear-gradient(45deg, var(--neutrals-lightmode-light-mode-Border, #d6d3cb), var(--neutrals-lightmode-light-mode-Border, #d6d3cb) 6px, #ececec 6px, #ececec 12px); color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); cursor:default;}
+.gantt-day.excluded-day:hover{background:repeating-linear-gradient(45deg, var(--neutrals-lightmode-light-mode-Border, #d6d3cb), var(--neutrals-lightmode-light-mode-Border, #d6d3cb) 6px, #ececec 6px, #ececec 12px);}
 .gantt-day .dow{font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase;}
 .gantt-day.today{background:var(--green-light); color:var(--green-dark);}
 /* Overview zoom's month-grouped header cell (see buildGanttHeaderHtml()) —
@@ -395,7 +395,7 @@ input,select,textarea{font-family:inherit;}
 .row-resize-handle:hover, .row-resize-handle.active{background:rgba(46,125,50,0.25);}
 .gantt-track{position:relative; flex:0 0 auto; min-height:40px; overflow:visible;}
 .gantt-gridlines{position:absolute; top:0; left:0; bottom:0; display:flex; pointer-events:none;}
-.gantt-gridline{flex:0 0 var(--daywidth); border-right:1px solid #f0f0f0;}
+.gantt-gridline{flex:0 0 var(--daywidth); border-right:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);}
 .gantt-gridline.weekend{background:rgba(0,0,0,0.02);}
 .gantt-gridline.excluded-day{background:repeating-linear-gradient(45deg, rgba(0,0,0,0.045), rgba(0,0,0,0.045) 6px, rgba(0,0,0,0.02) 6px, rgba(0,0,0,0.02) 12px);}
 .gantt-gridline.today{background:rgba(46,125,50,0.06);}
@@ -453,7 +453,7 @@ input,select,textarea{font-family:inherit;}
 
 /* connection lines overlay */
 .connections-svg{position:absolute; top:0; left:0; pointer-events:none; z-index:120;}
-.connections-svg path.conn-line{fill:none; stroke:#5f6368; stroke-width:1.6; pointer-events:stroke; cursor:pointer;}
+.connections-svg path.conn-line{fill:none; stroke:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); stroke-width:1.6; pointer-events:stroke; cursor:pointer;}
 .connections-svg path.conn-line:hover{stroke:var(--red); stroke-width:2.4;}
 .connections-svg path.conn-temp{fill:none; stroke:var(--green); stroke-width:2; stroke-dasharray:4 3;}
 
@@ -489,18 +489,18 @@ input,select,textarea{font-family:inherit;}
 .modal-box.xwide{width:1040px;}
 .modal-head{
     display:flex; justify-content:space-between; align-items:center; padding:18px 22px;
-    border-bottom:1px solid #eee;
+    border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);
 }
 .modal-head h2{margin:0; color:var(--green-dark); font-size:18px;}
-.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:#999; line-height:1;}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); line-height:1;}
 .modal-body{padding:20px 22px; overflow-y:auto; flex:1;}
-.modal-foot{display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid #eee;}
+.modal-foot{display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);}
 
 .form-row{margin-bottom:14px;}
-.form-row label{display:block; font-weight:700; font-size:12.5px; color:#555; margin-bottom:5px;}
-.form-row .hint{font-weight:400; color:#999; font-size:11px;}
+.form-row label{display:block; font-weight:700; font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:5px;}
+.form-row .hint{font-weight:400; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:11px;}
 .form-row input, .form-row select, .form-row textarea{
-    width:100%; padding:9px 10px; border:1px solid #ccc; border-radius:5px; font-size:13.5px;
+    width:100%; padding:9px 10px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:5px; font-size:13.5px;
 }
 .form-row input:focus, .form-row select:focus, .form-row textarea:focus{outline:2px solid var(--green-light); border-color:var(--green);}
 .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
@@ -547,8 +547,8 @@ input,select,textarea{font-family:inherit;}
 .tab-panel.active{display:block;}
 
 /* Simple list manager table */
-.list-mgr-row{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f0f0f0;}
-.list-mgr-row input{flex:1; padding:7px 9px; border:1px solid #ddd; border-radius:4px; font-size:13px;}
+.list-mgr-row{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);}
+.list-mgr-row input{flex:1; padding:7px 9px; border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; font-size:13px;}
 .list-mgr-row .swatch-input{flex:0 0 40px; padding:2px; height:32px;}
 .list-mgr-row button.del{background:none; border:none; color:var(--red); cursor:pointer; font-size:16px;}
 .list-mgr-add{display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--grey-border2);}
@@ -557,13 +557,13 @@ input,select,textarea{font-family:inherit;}
 /* Bulk add preview table */
 .preview-table{width:100%; border-collapse:collapse; font-size:12.5px;}
 .preview-table th{background:var(--grey-bg); text-align:left; padding:7px 8px; position:sticky; top:0;}
-.preview-table td{padding:6px 8px; border-bottom:1px solid #eee;}
+.preview-table td{padding:6px 8px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);}
 .preview-table tr:hover td{background:#fafafa;}
 .preview-remove{color:var(--red); cursor:pointer; background:none; border:none; font-size:14px;}
 
-.checkbox-scroll-list{border:1px solid var(--grey-border); border-radius:5px; max-height:150px; overflow-y:auto; padding:6px; background:#f9f9f9;}
+.checkbox-scroll-list{border:1px solid var(--grey-border); border-radius:5px; max-height:150px; overflow-y:auto; padding:6px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee);}
 .checkbox-scroll-list label{display:flex; align-items:center; gap:6px; padding:4px 4px; font-size:12.5px; cursor:pointer;}
-.checkbox-scroll-list label:hover{background:#eee;}
+.checkbox-scroll-list label:hover{background:var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);}
 
 
 /* Item detail panel (click item) */
@@ -583,11 +583,11 @@ input,select,textarea{font-family:inherit;}
 .timeline-range-bar{
     position:absolute; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--grey-border);
     padding:10px 24px; display:flex; gap:20px; align-items:center; z-index:500;
-    box-shadow:0 -2px 10px rgba(0,0,0,0.08); font-size:12.5px; font-weight:700; color:#555;
+    box-shadow:0 -2px 10px rgba(0,0,0,0.08); font-size:12.5px; font-weight:700; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);
 }
 .timeline-range-bar label{display:flex; align-items:center; gap:6px;}
 .timeline-range-bar input[type="date"]{padding:6px 8px; border:1px solid var(--grey-border); border-radius:5px; font-size:12.5px; font-weight:600; color:var(--text-dark);}
-.timeline-range-bar input[type="date"]:disabled{background:var(--grey-bg); color:#999;}
+.timeline-range-bar input[type="date"]:disabled{background:var(--grey-bg); color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);}
 
 /* Print */
 @media print{
@@ -605,7 +605,7 @@ input,select,textarea{font-family:inherit;}
    (--text-dark, --grey-bg, etc.) re-themes everything that already
    references them for free; the explicit per-selector rules below catch
    the surfaces that were hardcoded to a literal color instead (#fff,
-   #fcfcfc, #f9f9f9...). */
+   #fcfcfc, var(--neutrals-lightmode-light-mode-Page, #f3f2ee)...). */
 :host(.dark-mode){
     --green-dark:#81c784;
     --text-dark:#e0e0e0;
@@ -692,7 +692,7 @@ input,select,textarea{font-family:inherit;}
 :host(.dark-mode) ::-webkit-scrollbar-thumb{background:#555 !important;}
 
 ::-webkit-scrollbar{height:10px; width:10px;}
-::-webkit-scrollbar-thumb{background:#ccc; border-radius:5px;}
+::-webkit-scrollbar-thumb{background:var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:5px;}
 ::-webkit-scrollbar-thumb:hover{background:#aaa;}
 
 /* ===== VIEWER ROLE LOCKDOWN =====
@@ -720,7 +720,7 @@ input,select,textarea{font-family:inherit;}
 #itemModal.readonly-locked .pred-chip-list button{display:none !important;}
 #itemModal.readonly-locked input:disabled,
 #itemModal.readonly-locked select:disabled,
-#itemModal.readonly-locked textarea:disabled{background:var(--grey-bg); color:#888; cursor:not-allowed;}
+#itemModal.readonly-locked textarea:disabled{background:var(--grey-bg); color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); cursor:not-allowed;}
 </style>
 `;
 
@@ -873,18 +873,18 @@ const MARKUP = `
         <div class="modal-body">
             <div id="bulkStep1">
                 <div id="bulkPanel-combo">
-                    <p style="color:#666; font-size:13px; margin-top:0;">Select multiple assets and activities to generate combinations. Area is filled in automatically from Asset.</p>
+                    <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:0;">Select multiple assets and activities to generate combinations. Area is filled in automatically from Asset.</p>
                     <div class="form-grid">
                         <div>
-                            <label style="font-weight:700; font-size:12.5px; color:#555;">Assets</label>
+                            <label style="font-weight:700; font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Assets</label>
                             <input type="text" class="search" placeholder="Filter assets..." oninput="this.getRootNode().host.filterCheckList('bulkAssetList', this.value)">
                             <div class="checkbox-scroll-list" id="bulkAssetList"></div>
                         </div>
                         <div>
-                            <label style="font-weight:700; font-size:12.5px; color:#555;">Activities</label>
+                            <label style="font-weight:700; font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Activities</label>
                             <input type="text" class="search" placeholder="Filter activities..." oninput="this.getRootNode().host.filterCheckList('bulkActivityList', this.value)">
                             <div class="checkbox-scroll-list" id="bulkActivityList"></div>
-                            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; font-weight:600; color:#555; cursor:pointer;" title="For each asset, chains its activities in the order checked above — activity 2 can't start until activity 1 finishes, and so on.">
+                            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; font-weight:600; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); cursor:pointer;" title="For each asset, chains its activities in the order checked above — activity 2 can't start until activity 1 finishes, and so on.">
                                 <input type="checkbox" id="bulkAutoLink" style="margin:0;">
                                 🔗 Auto-link each asset's activities in order
                             </label>
@@ -892,7 +892,7 @@ const MARKUP = `
                     </div>
                     <div class="form-grid" style="margin-top:14px;">
                         <div>
-                            <label style="font-weight:700; font-size:12.5px; color:#555;">Contractor(s) <span class="hint">optional</span></label>
+                            <label style="font-weight:700; font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Contractor(s) <span class="hint">optional</span></label>
                             <input type="text" class="search" placeholder="Filter contractors..." oninput="this.getRootNode().host.filterCheckList('bulkContractorList', this.value)">
                             <div class="checkbox-scroll-list" id="bulkContractorList"></div>
                         </div>
@@ -912,16 +912,16 @@ const MARKUP = `
                     <button class="tool-btn primary" onclick="this.getRootNode().host.generateBulkPreview('combo')">Generate Preview →</button>
                 </div>
                 <div id="bulkPanel-sheet">
-                    <p style="color:#666; font-size:13px; margin-top:0;">Paste rows copied straight from a live bulk-entry sheet, with columns in this exact order: <strong>ID, Activity, Asset, Predecessors, Duration, Start Date, Assigned To, Notes</strong>. Tab-separated (a normal spreadsheet paste) is safest. <strong>ID</strong> is required on every row — it's how Predecessors links rows to each other by row number. An <strong>Asset</strong> cell holding more than one asset (a multi-select cell, comma-separated) creates one line item per asset, all sharing this row's Activity/Duration/Start Date/Assigned To/Notes/Predecessors — a Predecessor reference to a row that itself expanded into several assets links to all of them.</p>
+                    <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:0;">Paste rows copied straight from a live bulk-entry sheet, with columns in this exact order: <strong>ID, Activity, Asset, Predecessors, Duration, Start Date, Assigned To, Notes</strong>. Tab-separated (a normal spreadsheet paste) is safest. <strong>ID</strong> is required on every row — it's how Predecessors links rows to each other by row number. An <strong>Asset</strong> cell holding more than one asset (a multi-select cell, comma-separated) creates one line item per asset, all sharing this row's Activity/Duration/Start Date/Assigned To/Notes/Predecessors — a Predecessor reference to a row that itself expanded into several assets links to all of them.</p>
                     <textarea id="bulkSheetPasteArea" rows="10" placeholder="ID	Activity	Asset	Predecessors	Duration	Start Date	Assigned To	Notes
 1	Temp Power	SSS-1A-BDC			1	2026-11-02		Temp Power to SSS1-A BDC
-13	Vendor Start-up	GPS1A-Mech, SSS-1A-Mech, SSS-1B-Mech	5, 8, 11	1	2026-11-23		GPS Bard unit start-up on all 3 units" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
+13	Vendor Start-up	GPS1A-Mech, SSS-1A-Mech, SSS-1B-Mech	5, 8, 11	1	2026-11-23		GPS Bard unit start-up on all 3 units" style="width:100%; font-family:monospace; font-size:12.5px; padding:10px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:5px;"></textarea>
                     <button class="tool-btn primary" style="margin-top:10px;" onclick="this.getRootNode().host.generateBulkPreview('sheet')">Generate Preview →</button>
                 </div>
             </div>
             <div id="bulkStep2" style="display:none;">
-                <p style="color:#666; font-size:13px; margin-top:0;"><strong id="bulkPreviewCount"></strong> — review before adding to the schedule. Every field is editable; remove any rows you don't want.</p>
-                <div style="max-height:340px; overflow:auto; border:1px solid #eee; border-radius:6px;">
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:0;"><strong id="bulkPreviewCount"></strong> — review before adding to the schedule. Every field is editable; remove any rows you don't want.</p>
+                <div style="max-height:340px; overflow:auto; border:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius:6px;">
                     <table class="preview-table">
                         <thead id="bulkPreviewHead"><tr><th>Asset</th><th>Activity</th><th>Dur (days)</th><th>Area</th><th>Start</th><th>Contractor(s)</th><th>Notes</th><th>Linked after</th><th></th></tr></thead>
                         <tbody id="bulkPreviewBody"></tbody>
@@ -984,8 +984,8 @@ const MARKUP = `
             <div class="tab-panel" id="listsTab-zones">
                 <div class="form-grid">
                     <div>
-                        <label style="font-weight:700; font-size:12.5px; color:#555;">Zones</label>
-                        <p style="font-size:11px; color:#999; margin:2px 0 6px;">End dates are stored in this browser only, keyed by zone name.</p>
+                        <label style="font-weight:700; font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Zones</label>
+                        <p style="font-size:11px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin:2px 0 6px;">End dates are stored in this browser only, keyed by zone name.</p>
                         <div id="zoneListRows"></div>
                         <div class="list-mgr-add">
                             <input type="text" id="newZoneName" placeholder="New zone name">
@@ -994,7 +994,7 @@ const MARKUP = `
                         </div>
                     </div>
                     <div>
-                        <label style="font-weight:700; font-size:12.5px; color:#555;">Areas</label>
+                        <label style="font-weight:700; font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Areas</label>
                         <div id="areaListRows"></div>
                         <div class="list-mgr-add">
                             <input type="text" id="newAreaName" placeholder="New area name">
@@ -1004,7 +1004,7 @@ const MARKUP = `
                 </div>
             </div>
             <div class="tab-panel" id="listsTab-types">
-                <p style="font-size:11.5px; color:#999; margin-top:0;">Types are stored in this browser only (no matching column in the shared Supabase table). This is a plain filterable attribute now — gantt bar colors come from Activity Colors instead.</p>
+                <p style="font-size:11.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-top:0;">Types are stored in this browser only (no matching column in the shared Supabase table). This is a plain filterable attribute now — gantt bar colors come from Activity Colors instead.</p>
                 <div id="typeListRows"></div>
                 <div class="list-mgr-add">
                     <input type="text" id="newTypeName" placeholder="New type name (e.g. Fire Protection)">
@@ -1012,7 +1012,7 @@ const MARKUP = `
                 </div>
             </div>
             <div class="tab-panel" id="listsTab-activitycolors">
-                <p style="font-size:11.5px; color:#999; margin-top:0;">Every activity gets an automatically assigned color the first time it's used. Adjust any of them here — stored in this browser only.</p>
+                <p style="font-size:11.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-top:0;">Every activity gets an automatically assigned color the first time it's used. Adjust any of them here — stored in this browser only.</p>
                 <div id="activityColorRows"></div>
             </div>
         </div>
@@ -1030,8 +1030,8 @@ const MARKUP = `
             <button class="modal-close" onclick="this.getRootNode().host.closeModal('optimizeReportModal')">×</button>
         </div>
         <div class="modal-body">
-            <p id="optimizeReportSummary" style="color:#666; font-size:13px; margin-top:0;"></p>
-            <div style="max-height:340px; overflow:auto; border:1px solid #eee; border-radius:6px;">
+            <p id="optimizeReportSummary" style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:0;"></p>
+            <div style="max-height:340px; overflow:auto; border:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius:6px;">
                 <table class="preview-table">
                     <thead><tr><th>Asset</th><th>Activity</th><th>Old Start</th><th>New Start</th><th>Moved</th></tr></thead>
                     <tbody id="optimizeReportBody"></tbody>
@@ -1056,7 +1056,7 @@ const MARKUP = `
             <button class="modal-close" onclick="this.getRootNode().host.closeModal('completionPlanModal')">×</button>
         </div>
         <div class="modal-body">
-            <p style="color:#666; font-size:13px; margin-top:0;">Pick a date range — the export groups every activity in that window by assignee (contractor), in date order, so each trade partner can see exactly what they owe and when.</p>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:0;">Pick a date range — the export groups every activity in that window by assignee (contractor), in date order, so each trade partner can see exactly what they owe and when.</p>
             <div class="form-grid">
                 <div class="form-row">
                     <label>From</label>
@@ -1067,7 +1067,7 @@ const MARKUP = `
                     <input type="date" id="completionPlanEnd">
                 </div>
             </div>
-            <p style="color:#999; font-size:11.5px; margin-top:10px;">Want an AI-generated plan instead of just grouping what's already scheduled? This file runs entirely in your browser with no server of its own, so it can't safely call an AI API directly (that would mean shipping an API key to everyone who opens it). If you've got a backend or an Apps Script endpoint that can call one, point me at it and I can wire this button up to send it your unscheduled activities and get suggested dates/assignments back.</p>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:11.5px; margin-top:10px;">Want an AI-generated plan instead of just grouping what's already scheduled? This file runs entirely in your browser with no server of its own, so it can't safely call an AI API directly (that would mean shipping an API key to everyone who opens it). If you've got a backend or an Apps Script endpoint that can call one, point me at it and I can wire this button up to send it your unscheduled activities and get suggested dates/assignments back.</p>
         </div>
         <div class="modal-foot">
             <button class="tool-btn" onclick="this.getRootNode().host.closeModal('completionPlanModal')">Cancel</button>
@@ -1100,7 +1100,7 @@ const MARKUP = `
         Use last activity as end date
     </label>
     <span style="width:1px; align-self:stretch; background:var(--grey-border);"></span>
-    <span style="font-weight:600; color:#888;">Quick view:</span>
+    <span style="font-weight:600; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Quick view:</span>
     <button type="button" class="tool-btn small" onclick="this.getRootNode().host.applyTimelineRangePreset('week')">This Week</button>
     <button type="button" class="tool-btn small" onclick="this.getRootNode().host.applyTimelineRangePreset('month')">This Month</button>
     <button type="button" class="tool-btn small" onclick="this.getRootNode().host.applyTimelineRangePreset('quarter')">3 Months</button>
@@ -2589,9 +2589,9 @@ export class BridgeView extends HTMLElement {
             const swatch = key === 'activity' ? `<span class="swatch" style="background:${this.activityColor(v)}"></span>` : '';
             return `<label class="filter-option ${disabled}">
                 <input type="checkbox" ${checked ? 'checked' : ''} onchange="this.getRootNode().host.toggleFilterValue('${key}','${escAttr(v).replace(/'/g, "\\'")}')">
-                ${swatch}<span style="flex:1;">${escHtml(v)}</span><span style="color:#999; font-size:11px;">${c}</span>
+                ${swatch}<span style="flex:1;">${escHtml(v)}</span><span style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:11px;">${c}</span>
             </label>`;
-        }).join('') || '<div style="padding:10px; color:#999; font-size:12px;">No options</div>';
+        }).join('') || '<div style="padding:10px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px;">No options</div>';
     }
 
     filterDropdownOptions(key, query) {
@@ -2622,7 +2622,7 @@ export class BridgeView extends HTMLElement {
         const el = this.$('typeLegend');
         const activityNames = [...new Set(this.DATA.items.map(i => i.activity_name).filter(Boolean))].sort();
         el.innerHTML = activityNames.map(name => `<span class="legend-item"><span class="legend-swatch" style="background:${this.activityColor(name)}"></span>${escHtml(name)}</span>`).join('')
-            || '<span style="color:#999; font-size:11.5px;">No activities scheduled yet</span>';
+            || '<span style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:11.5px;">No activities scheduled yet</span>';
     }
 
     buildTypePicker(containerId) {
@@ -4613,7 +4613,7 @@ export class BridgeView extends HTMLElement {
     renderPredChips() {
         const holder = this.$('itemPredChips');
         if (!this.currentItemPredecessors.length) {
-            holder.innerHTML = '<span style="color:#999; font-size:11.5px;">No predecessors linked yet.</span>';
+            holder.innerHTML = '<span style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:11.5px;">No predecessors linked yet.</span>';
             return;
         }
         holder.innerHTML = this.currentItemPredecessors.map(pid => {
@@ -4635,8 +4635,8 @@ export class BridgeView extends HTMLElement {
             .filter(i => `${i.asset_name} ${i.activity_name} ${i.zone}`.toLowerCase().includes(q))
             .slice(0, 30);
         list.innerHTML = matches.map(i =>
-            `<div class="opt" onclick="this.getRootNode().host.pickPredFromCombo('${i.id}')">${escHtml(i.asset_name)} — ${escHtml(i.activity_name)} <span style="color:#999;">(${escHtml(i.zone||'')})</span></div>`
-        ).join('') || '<div class="opt" style="color:#999;">No matches</div>';
+            `<div class="opt" onclick="this.getRootNode().host.pickPredFromCombo('${i.id}')">${escHtml(i.asset_name)} — ${escHtml(i.activity_name)} <span style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">(${escHtml(i.zone||'')})</span></div>`
+        ).join('') || '<div class="opt" style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">No matches</div>';
         list.classList.add('open');
     }
     pickPredFromCombo(id) {
@@ -4816,7 +4816,7 @@ export class BridgeView extends HTMLElement {
         if (q && !source.some(s => s.name.toLowerCase() === q)) {
             html += `<div class="opt add-new" onclick="this.getRootNode().host.pickCombo('${inputId}','${listId}','${typed.replace(/'/g, "\\'")}')">➕ Add "${escHtml(typed)}"</div>`;
         }
-        list.innerHTML = html || '<div class="opt" style="color:#999;">No matches</div>';
+        list.innerHTML = html || '<div class="opt" style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">No matches</div>';
         list.classList.add('open');
     }
     pickCombo(inputId, listId, value) {
@@ -4911,7 +4911,7 @@ export class BridgeView extends HTMLElement {
         panel.innerHTML = `
             <input type="text" class="search" placeholder="Filter contractors..." oninput="this.getRootNode().host.filterCheckList('bulkContractorPopoverList', this.value)">
             <div class="checkbox-scroll-list" id="bulkContractorPopoverList" style="border:none; background:none; padding:0; max-height:170px;">
-                ${this.DATA.contractors.map(c => `<label><input type="checkbox" value="${escAttr(c.name)}" ${selected.has(c.name) ? 'checked' : ''} onchange="this.getRootNode().host.toggleBulkContractorPick(${i}, this.value, this.checked)"> ${escHtml(c.name)}</label>`).join('') || '<div style="color:#999; font-size:12px; padding:4px;">No contractors in this project\'s list yet.</div>'}
+                ${this.DATA.contractors.map(c => `<label><input type="checkbox" value="${escAttr(c.name)}" ${selected.has(c.name) ? 'checked' : ''} onchange="this.getRootNode().host.toggleBulkContractorPick(${i}, this.value, this.checked)"> ${escHtml(c.name)}</label>`).join('') || '<div style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; padding:4px;">No contractors in this project\'s list yet.</div>'}
             </div>`;
         const rect = btn.getBoundingClientRect();
         panel.style.left = `${Math.min(rect.left, window.innerWidth - 246)}px`;
@@ -5089,13 +5089,13 @@ export class BridgeView extends HTMLElement {
             const assetUnmatched = !this.isKnownListValue('assets', r.asset) && !r.forceCreateAsset;
             const activityUnmatched = !this.isKnownListValue('activities', r.activity) && !r.forceCreateActivity;
             const unmatchedStyle = 'border:2px solid #d32f2f; background:#fdecea;';
-            const willCreateStyle = 'border:2px solid #2e7d32; background:#eef7ee;';
+            const willCreateStyle = 'border:2px solid var(--Petrol, #0f5a60); background:var(--Petrol-tint, #e3efef);';
             const assetCreateBtn = assetUnmatched
-                ? `<button type="button" title="Add &quot;${escAttr(r.asset)}&quot; as a new Asset in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'asset')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed #2e7d32; background:white; color:#2e7d32; border-radius:3px;">+ Create</button>`
-                : (r.forceCreateAsset ? `<span style="margin-left:4px; font-size:10.5px; color:#2e7d32;" title="Will be added as a new Asset">(new)</span>` : '');
+                ? `<button type="button" title="Add &quot;${escAttr(r.asset)}&quot; as a new Asset in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'asset')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed var(--Petrol, #0f5a60); background:white; color:var(--Petrol, #0f5a60); border-radius:3px;">+ Create</button>`
+                : (r.forceCreateAsset ? `<span style="margin-left:4px; font-size:10.5px; color:var(--Petrol, #0f5a60);" title="Will be added as a new Asset">(new)</span>` : '');
             const activityCreateBtn = activityUnmatched
-                ? `<button type="button" title="Add &quot;${escAttr(r.activity)}&quot; as a new Activity in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'activity')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed #2e7d32; background:white; color:#2e7d32; border-radius:3px;">+ Create</button>`
-                : (r.forceCreateActivity ? `<span style="margin-left:4px; font-size:10.5px; color:#2e7d32;" title="Will be added as a new Activity">(new)</span>` : '');
+                ? `<button type="button" title="Add &quot;${escAttr(r.activity)}&quot; as a new Activity in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'activity')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed var(--Petrol, #0f5a60); background:white; color:var(--Petrol, #0f5a60); border-radius:3px;">+ Create</button>`
+                : (r.forceCreateActivity ? `<span style="margin-left:4px; font-size:10.5px; color:var(--Petrol, #0f5a60);" title="Will be added as a new Activity">(new)</span>` : '');
             const assetCell = `<td><select style="width:120px; ${assetUnmatched ? unmatchedStyle : (r.forceCreateAsset ? willCreateStyle : '')}" title="${assetUnmatched ? "Not in this project's Asset list — pick an existing one, or Create it" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select>${assetCreateBtn}</td>`;
             const activityCell = `<td>
                     <span class="legend-swatch" style="background:${this.activityColor(r.activity)}; display:inline-block; width:9px;height:9px;border-radius:3px; margin-right:3px;"></span>
@@ -5105,7 +5105,7 @@ export class BridgeView extends HTMLElement {
             // Area is automatic (derived from Asset) everywhere else, but
             // shown read-only here rather than hidden entirely, so what got
             // picked is still visible before committing.
-            const areaCell = `<td style="font-size:11.5px; color:#555;">${escHtml(r.area || '—')}</td>`;
+            const areaCell = `<td style="font-size:11.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">${escHtml(r.area || '—')}</td>`;
             const startCell = `<td><input type="date" value="${dateVal}" style="width:130px;" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'start',this.value)"></td>`;
             const selectedContractors = (r.contractor || '').split('|').map(s => s.trim()).filter(Boolean);
             const contractorCell = `<td><button type="button" class="bulk-contractor-btn" id="bulkContractorBtn-${i}" onclick="this.getRootNode().host.openBulkContractorPicker(${i}, this)">${selectedContractors.length ? escHtml(selectedContractors.join(', ')) : 'Select...'}</button></td>`;
@@ -5122,9 +5122,9 @@ export class BridgeView extends HTMLElement {
                     const other = this.bulkPreviewRows[j];
                     return other ? `#${other.srcIndex} ${escHtml(other.activity)}` : null;
                 }).filter(Boolean);
-                const predCell = `<td style="font-size:11.5px; color:#555;">${predLabels.length ? predLabels.join('<br>') : '—'}</td>`;
+                const predCell = `<td style="font-size:11.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">${predLabels.length ? predLabels.join('<br>') : '—'}</td>`;
                 return `<tr>
-                    <td style="text-align:center; color:#888;">${r.srcIndex}</td>
+                    <td style="text-align:center; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">${r.srcIndex}</td>
                     ${assetCell}${activityCell}${durationCell}${areaCell}${startCell}${contractorCell}${notesCell}${predCell}${removeCell}
                 </tr>`;
             }
@@ -5390,7 +5390,7 @@ export class BridgeView extends HTMLElement {
                 <input type="color" class="swatch-input" value="${this.activityColor(a.name)}" onchange="this.getRootNode().host.setActivityColor('${a.name.replace(/'/g, "\\'")}', this.value); this.afterListChange();">
             </div>`).join('') || this.emptyRow();
     }
-    emptyRow() { return `<div style="padding:10px 0; color:#999; font-size:12.5px;">Nothing here yet — add one below.</div>`; }
+    emptyRow() { return `<div style="padding:10px 0; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12.5px;">Nothing here yet — add one below.</div>`; }
 
     async addListItem(table) {
         let row = null;
@@ -5902,7 +5902,7 @@ export class BridgeView extends HTMLElement {
             const succs = this.DATA.items.filter(x => (x.predecessor_ids || []).includes(it.id)).map(x => `${x.asset_name} — ${x.activity_name}`);
             const critical = this.isCriticalItem(it.id);
             const notReady = this.isStatusNotReady(it.asset_name, it.activity_name);
-            const borderColor = notReady ? '#d32f2f' : (critical ? '#f57c00' : '#eee');
+            const borderColor = notReady ? '#d32f2f' : (critical ? '#f57c00' : 'var(--neutrals-lightmode-light-mode-Subtle, #e7e5df)');
             const statusElId = `dayStatus-${it.id}`;
             const resultElId = `dayResult-${it.id}`;
             const predsElId = `dayPreds-${it.id}`;
@@ -5914,7 +5914,7 @@ export class BridgeView extends HTMLElement {
                         ${critical ? '<span style="color:#f57c00; font-weight:700; font-size:12px; margin-left:8px;">🔥 Critical Path</span>' : ''}
                     </span>
                 </div>
-                <div style="font-size:12.5px; color:#666; margin-top:6px; line-height:1.8;">
+                <div style="font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-top:6px; line-height:1.8;">
                     <strong>Area:</strong> ${escHtml(it.area || '—')} &nbsp;•&nbsp;
                     <strong>Duration:</strong> ${hoursToDays(it.duration_hours)} day(s) &nbsp;•&nbsp;
                     <strong>Contractor(s):</strong> ${escHtml((it.contractor_name || '').split('|').map(s => s.trim()).filter(Boolean).join(', ') || '—')}<br>
@@ -6883,10 +6883,10 @@ export class BridgeView extends HTMLElement {
         modal.innerHTML = `
             <div style="background:white; border-radius:10px; padding:28px; max-width:360px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-family: inherit;">
                 <div style="font-size:36px; margin-bottom:10px;">🔒</div>
-                <h3 style="margin:0 0 8px; color:#333;">View-Only Access</h3>
-                <p style="color:#666; font-size:14px; margin-bottom:20px;">You have viewer access to this project and can't make changes here. Want to request editor access?</p>
-                <button onclick="this.getRootNode().host.requestBridgeHigherAccess()" style="background:#2e7d32; color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-bottom:8px;">Request Editor Access</button>
-                <button onclick="this.getRootNode().host.closeBridgeViewerUpsell()" style="background:none; border:none; color:#999; cursor:pointer; font-size:13px;">Cancel</button>
+                <h3 style="margin:0 0 8px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">View-Only Access</h3>
+                <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:14px; margin-bottom:20px;">You have viewer access to this project and can't make changes here. Want to request editor access?</p>
+                <button onclick="this.getRootNode().host.requestBridgeHigherAccess()" style="background:var(--Petrol, #0f5a60); color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-bottom:8px;">Request Editor Access</button>
+                <button onclick="this.getRootNode().host.closeBridgeViewerUpsell()" style="background:none; border:none; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); cursor:pointer; font-size:13px;">Cancel</button>
             </div>
         `;
         // Appended to this component's own shadow root (not document.body) —
@@ -6902,7 +6902,7 @@ export class BridgeView extends HTMLElement {
 
     async requestBridgeHigherAccess() {
         const modal = this.$('bridge-viewer-upsell');
-        if (modal) modal.innerHTML = '<div style="background:white; border-radius:10px; padding:28px; text-align:center; font-size:14px; color:#666;">Sending request...</div>';
+        if (modal) modal.innerHTML = '<div style="background:white; border-radius:10px; padding:28px; text-align:center; font-size:14px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Sending request...</div>';
 
         try {
             if (!this.USER_EMAIL) throw new Error('No email was passed in from LaunchPad — please request access from there instead.');
