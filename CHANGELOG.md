@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.8.0...v1.9.0) (2026-10-31)
+
+
+### Features
+
+* **ARC-191:** make Arc Green LaunchPad's main action colour ([e0e5257](https://github.com/CriticalArccx/LaunchPad/commit/e0e52579f2b4206d448ea507414b3135939d61b9))
+* **ARC-191:** make Arc Green LaunchPad's main action colour instead of Petrol ([155e568](https://github.com/CriticalArccx/LaunchPad/commit/155e56872bc881ea774dd9fe3ed82677200a26e2))
+
 ## [1.8.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.7.0...v1.8.0) (2026-10-31)
 
 
