@@ -30,7 +30,7 @@
     .header {
         height: 80px;
         background-color: #ffffff;
-        border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
+        border-bottom: 3px solid var(--Arc-Green, #4ebd4f); /* brand edge (ARC-190) */
         display: flex;
         align-items: center;
         padding: 0 30px;
@@ -80,7 +80,7 @@
 }
 .view-btn.active {
     color: var(--Petrol, #0f5a60);
-    border-bottom: 2px solid var(--Petrol, #0f5a60);
+    border-bottom: 3px solid var(--Arc-Green, #4ebd4f);
 }
 .section-container {
         margin-bottom: 10px;
@@ -214,6 +214,7 @@
 
     .week-header {
         background-color: var(--Petrol, #0f5a60);
+        border-bottom: 3px solid var(--Arc-Green, #4ebd4f);
         color: white;
         padding: 15px 25px;
         cursor: pointer;
@@ -240,7 +241,7 @@
     .cal-toggle input { display: none; }
     .cal-toggle-slider { position: relative; width: 36px; height: 20px; background: #bdbdbd; border-radius: 10px; transition: background 0.2s; }
     .cal-toggle-slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-    .cal-toggle input:checked + .cal-toggle-slider { background: var(--Petrol, #0f5a60); }
+    .cal-toggle input:checked + .cal-toggle-slider { background: var(--Arc-Green, #4ebd4f); }
     .cal-toggle input:checked + .cal-toggle-slider::after { transform: translateX(16px); }
 
     .week-cal { display: none; padding: 10px 12px 14px; }
@@ -253,17 +254,17 @@
     .wc-head { border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); }
     .wc-dayname { text-align: center; padding: 4px 0 6px; font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); text-transform: uppercase; }
     .wc-dayname b { display: block; margin: 2px auto 0; width: 34px; height: 34px; line-height: 34px; border-radius: 50%; font-size: 20px; font-weight: normal; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); }
-    .wc-dayname.today { color: var(--Petrol, #0f5a60); }
-    .wc-dayname.today b { background: var(--Petrol, #0f5a60); color: #fff; }
+    .wc-dayname.today { color: var(--Arc-Green-ink, #358537); font-weight: 600; }
+    .wc-dayname.today b { background: var(--Arc-Green, #4ebd4f); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-weight: 600; }
     .wc-allday { border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); min-height: 6px; }
     .wc-allday > div { padding: 3px 2px; border-left: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .wc-gutter { font-size: 11px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); text-align: right; padding-right: 6px; }
     .wc-hour { position: relative; top: -7px; }
     .wc-col { position: relative; border-left: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); min-width: 0; }
-    .wc-col.today { background: rgba(46,125,50,0.04); }
+    .wc-col.today { background: var(--Arc-Green-tint, #eaf6ea); }
     .wc-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); pointer-events: none; }
     .wc-now { position: absolute; left: 0; right: 0; border-top: 2px solid #d93025; z-index: 3; pointer-events: none; }
-    .wc-event { position: absolute; box-sizing: border-box; padding: 2px 6px; overflow: hidden; border-radius: 4px; border: 1px solid var(--Petrol, #0f5a60); border-left-width: 4px; background: var(--Petrol-tint, #e3efef); color: var(--Petrol-hover, #0b4a4f); font-size: 12px; line-height: 1.3; cursor: pointer; z-index: 2; }
+    .wc-event { position: absolute; box-sizing: border-box; padding: 2px 6px; overflow: hidden; border-radius: 4px; border: 1px solid var(--Arc-Green-ink, #358537); border-left: 4px solid var(--Arc-Green, #4ebd4f); background: var(--Arc-Green-tint, #eaf6ea); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-size: 12px; line-height: 1.3; cursor: pointer; z-index: 2; }
     .wc-allday .wc-event { position: static; white-space: nowrap; text-overflow: ellipsis; }
     .wc-event:hover { z-index: 4; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
     .wc-event.past { opacity: 0.6; }
@@ -274,7 +275,7 @@
     body.dark-mode .wc-col, body.dark-mode .wc-allday > div { border-color: #333; }
     body.dark-mode .wc-line { border-color: #2a2a2a; }
     body.dark-mode .wc-event { background: #1b3a1d; color: #c8e6c9; border-color: #4caf50; }
-    .wc-event.selected { box-shadow: 0 0 0 2px #0c44fa; z-index: 4; }
+    .wc-event.selected { box-shadow: 0 0 0 2px var(--Petrol, #0f5a60); z-index: 4; }
     @media (min-width: 900px) { #schedule-view.cal-edit-open #main-content-area { margin-right: 400px; } }
 
     #cal-edit-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,0.18); z-index: 2500; flex-direction: column; }
@@ -354,7 +355,7 @@
     /* THE ALIGNMENT MATH */
     padding: 0 30px;        /* Changed to match your row wrapper padding exactly */
     border-radius: 4px;     
-    border-bottom: 1px solid var(--Petrol-hover, #0b4a4f);
+    border-bottom: 3px solid var(--Arc-Green, #4ebd4f);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
@@ -826,9 +827,9 @@
 }
 
 .nav-item.active {
-    background-color: var(--Petrol-tint, #e3efef);
+    background-color: var(--Arc-Green-tint, #eaf6ea);
     color: var(--Petrol, #0f5a60);
-    border-left: 4px solid var(--Petrol, #0f5a60);
+    border-left: 4px solid var(--Arc-Green, #4ebd4f);
 }
 
 .nav-icon {
@@ -913,6 +914,13 @@ button, input, select, textarea { font-family: inherit; }
     outline: 2px solid var(--Arc-Green, #4ebd4f);
     outline-offset: 2px;
 }
+/* Arc Green for selection (ARC-190): checked boxes, and selected Schedule
+   lines get the DataTable treatment (tint + left marker). */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--Arc-Green, #4ebd4f); }
+body:not(.dark-mode) .cell-row:has(.row-checkbox:checked) {
+    background-color: var(--Arc-Green-tint, #eaf6ea);
+    box-shadow: inset 3px 0 0 var(--Arc-Green, #4ebd4f);
+}
 /* Places Filter Buttons */
 .place-filter-btn {
     background-color: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
@@ -928,9 +936,9 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 .place-filter-btn.active {
-    background-color: var(--Petrol-tint, #e3efef);
-    color: #1b8320;
-    border-color: #257e29;
+    background-color: var(--Arc-Green-tint, #eaf6ea);
+    color: var(--Arc-Green-ink, #358537);
+    border-color: var(--Arc-Green, #4ebd4f);
 }
 
 .place-filter-btn:hover {
@@ -1026,9 +1034,9 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 .place-filter-btn-vertical.active {
-    background-color: var(--Petrol-tint, #e3efef);
-    color: #1b8320;
-    border-color: #257e29;
+    background-color: var(--Arc-Green-tint, #eaf6ea);
+    color: var(--Arc-Green-ink, #358537);
+    border-color: var(--Arc-Green, #4ebd4f);
 }
 
 .place-filter-btn-vertical:hover {
@@ -1204,7 +1212,7 @@ button, input, select, textarea { font-family: inherit; }
         left: 0% !important;
         padding: 0 30px !important;
         border-radius: 4px;
-        border-bottom: 1px solid var(--Petrol-hover, #0b4a4f);
+        border-bottom: 3px solid var(--Arc-Green, #4ebd4f);
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         box-sizing: border-box;
     }
