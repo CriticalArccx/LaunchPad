@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.9.0...v1.10.0) (2026-10-31)
+
+
+### Features
+
+* **ARC-192:** phone layout for the app shell and Schedule ([3ef6209](https://github.com/CriticalArccx/LaunchPad/commit/3ef62097d4940b2e52355d2f13ae094d45371e5e))
+
 ## [1.9.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.8.0...v1.9.0) (2026-10-31)
 
 
