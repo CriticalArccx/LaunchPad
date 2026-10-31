@@ -33,7 +33,7 @@ const Settings = {
 
                     <div style="margin-top: 15px; display: flex; gap: 10px;">
                         <input type="text" id="new-option-input" placeholder="New entry name..." style="flex: 1; padding: 10px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: 4px;">
-                        <button id="add-opt-btn" onclick="Settings.addOption()" style="background: var(--Petrol, #0f5a60); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
+                        <button id="add-opt-btn" onclick="Settings.addOption()" style="background: var(--lp-action, #2f7a31); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
                     </div>
                 </div>
 

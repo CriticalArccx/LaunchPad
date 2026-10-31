@@ -215,9 +215,9 @@ const STYLE = `
     color:var(--text-dark);
     background:#fafafa;
     padding-bottom:52px; /* reserved for the timeline-range-bar, now position:absolute below */
-    --green:var(--Petrol, #0f5a60);
+    --green:var(--lp-action, #2f7a31);
     --green-dark:#1b5e20;
-    --green-light:var(--Petrol-tint, #e3efef);
+    --green-light:var(--lp-action-tint, #eaf6ea);
     --grey-bg:var(--neutrals-lightmode-light-mode-Page, #f3f2ee);
     --grey-border:var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
     --grey-border2:var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
@@ -5089,13 +5089,13 @@ export class BridgeView extends HTMLElement {
             const assetUnmatched = !this.isKnownListValue('assets', r.asset) && !r.forceCreateAsset;
             const activityUnmatched = !this.isKnownListValue('activities', r.activity) && !r.forceCreateActivity;
             const unmatchedStyle = 'border:2px solid #d32f2f; background:#fdecea;';
-            const willCreateStyle = 'border:2px solid var(--Petrol, #0f5a60); background:var(--Petrol-tint, #e3efef);';
+            const willCreateStyle = 'border:2px solid var(--lp-action, #2f7a31); background:var(--lp-action-tint, #eaf6ea);';
             const assetCreateBtn = assetUnmatched
-                ? `<button type="button" title="Add &quot;${escAttr(r.asset)}&quot; as a new Asset in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'asset')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed var(--Petrol, #0f5a60); background:white; color:var(--Petrol, #0f5a60); border-radius:3px;">+ Create</button>`
-                : (r.forceCreateAsset ? `<span style="margin-left:4px; font-size:10.5px; color:var(--Petrol, #0f5a60);" title="Will be added as a new Asset">(new)</span>` : '');
+                ? `<button type="button" title="Add &quot;${escAttr(r.asset)}&quot; as a new Asset in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'asset')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed var(--lp-action, #2f7a31); background:white; color:var(--lp-action, #2f7a31); border-radius:3px;">+ Create</button>`
+                : (r.forceCreateAsset ? `<span style="margin-left:4px; font-size:10.5px; color:var(--lp-action, #2f7a31);" title="Will be added as a new Asset">(new)</span>` : '');
             const activityCreateBtn = activityUnmatched
-                ? `<button type="button" title="Add &quot;${escAttr(r.activity)}&quot; as a new Activity in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'activity')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed var(--Petrol, #0f5a60); background:white; color:var(--Petrol, #0f5a60); border-radius:3px;">+ Create</button>`
-                : (r.forceCreateActivity ? `<span style="margin-left:4px; font-size:10.5px; color:var(--Petrol, #0f5a60);" title="Will be added as a new Activity">(new)</span>` : '');
+                ? `<button type="button" title="Add &quot;${escAttr(r.activity)}&quot; as a new Activity in this project's list" onclick="this.getRootNode().host.forceCreateBulkField(${i},'activity')" style="margin-left:4px; font-size:10.5px; padding:2px 5px; cursor:pointer; border:1px dashed var(--lp-action, #2f7a31); background:white; color:var(--lp-action, #2f7a31); border-radius:3px;">+ Create</button>`
+                : (r.forceCreateActivity ? `<span style="margin-left:4px; font-size:10.5px; color:var(--lp-action, #2f7a31);" title="Will be added as a new Activity">(new)</span>` : '');
             const assetCell = `<td><select style="width:120px; ${assetUnmatched ? unmatchedStyle : (r.forceCreateAsset ? willCreateStyle : '')}" title="${assetUnmatched ? "Not in this project's Asset list — pick an existing one, or Create it" : ''}" onchange="this.getRootNode().host.updateBulkPreviewField(${i},'asset',this.value)">${this.selectOptionsHtml(assetOpts, r.asset, false)}</select>${assetCreateBtn}</td>`;
             const activityCell = `<td>
                     <span class="legend-swatch" style="background:${this.activityColor(r.activity)}; display:inline-block; width:9px;height:9px;border-radius:3px; margin-right:3px;"></span>
@@ -6885,7 +6885,7 @@ export class BridgeView extends HTMLElement {
                 <div style="font-size:36px; margin-bottom:10px;">🔒</div>
                 <h3 style="margin:0 0 8px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">View-Only Access</h3>
                 <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:14px; margin-bottom:20px;">You have viewer access to this project and can't make changes here. Want to request editor access?</p>
-                <button onclick="this.getRootNode().host.requestBridgeHigherAccess()" style="background:var(--Petrol, #0f5a60); color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-bottom:8px;">Request Editor Access</button>
+                <button onclick="this.getRootNode().host.requestBridgeHigherAccess()" style="background:var(--lp-action, #2f7a31); color:white; border:none; padding:12px 20px; border-radius:6px; cursor:pointer; font-weight:bold; width:100%; margin-bottom:8px;">Request Editor Access</button>
                 <button onclick="this.getRootNode().host.closeBridgeViewerUpsell()" style="background:none; border:none; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); cursor:pointer; font-size:13px;">Cancel</button>
             </div>
         `;
