@@ -2372,7 +2372,7 @@ body.help-docked #loading-overlay {
                     <input type="email" id="invite-email" autocomplete="off" placeholder="name@company.com" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 6px; font-size: 14px;">
                 </label>
                 <label style="font-weight: 600;">Company
-                    <input type="text" id="invite-company" list="invite-company-list" autocomplete="off" placeholder="Optional" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 6px; font-size: 14px;">
+                    <input type="text" id="invite-company" list="invite-company-list" autocomplete="off" required placeholder="Pick or type their company" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 6px; font-size: 14px;">
                     <datalist id="invite-company-list"></datalist>
                 </label>
                 <label style="font-weight: 600;">Role
@@ -5876,6 +5876,11 @@ async function inviteUser() {
         showInviteResult('Enter a valid email address.', false);
         return;
     }
+    if (!company) {
+        showInviteResult('Enter their company.', false);
+        document.getElementById('invite-company').focus();
+        return;
+    }
 
     const btn = document.getElementById('invite-send-btn');
     btn.disabled = true;
@@ -5901,7 +5906,7 @@ async function inviteUser() {
             hasAccount = !!legacy;
         }
 
-        const membershipError = await grantProjectAccess(email, company || null, role, requestProjectContext());
+        const membershipError = await grantProjectAccess(email, company, role, requestProjectContext());
         const warning = membershipError ? ' (Warning: their launchpad_memberships row could not be added; see the console.)' : '';
 
         if (hasAccount) {
