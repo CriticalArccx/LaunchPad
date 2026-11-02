@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.10.0...v1.11.0) (2026-11-02)
+
+
+### Features
+
+* **ARC-195:** project admins can invite people by email ([0c05437](https://github.com/CriticalArccx/LaunchPad/commit/0c05437e0450b5a964ee2bc3b85bdb4549be2efe))
+* **ARC-195:** project admins can invite people by email ([a06f4a3](https://github.com/CriticalArccx/LaunchPad/commit/a06f4a3f6d313f8c651168cba723255e6714d71c))
+
 ## [1.10.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.9.0...v1.10.0) (2026-10-31)
 
 
