@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.12.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.11.0...v1.12.0) (2026-11-02)
+
+
+### Features
+
+* **ARC-197:** name the shared calendar "PREFIX LaunchPad Schedule" ([badce55](https://github.com/CriticalArccx/LaunchPad/commit/badce55bb6466cd975fc6dab8b16bc36fa1e97d1))
+* **ARC-197:** name the shared calendar "PREFIX LaunchPad Schedule" ([e2ee510](https://github.com/CriticalArccx/LaunchPad/commit/e2ee51019864b09e705073b7758fa8359adc4cc9))
+
+
+### Bug Fixes
+
+* **ARC-195:** make Company required when inviting someone ([119e3ec](https://github.com/CriticalArccx/LaunchPad/commit/119e3ec5ad41f2fef3af2467acc2fa424f1d2bad))
+* **ARC-195:** make Company required when inviting someone ([327deeb](https://github.com/CriticalArccx/LaunchPad/commit/327deeb925bffe6bcf71fa7caafff18dcda69f53))
+
 ## [1.11.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.10.0...v1.11.0) (2026-11-02)
 
 
