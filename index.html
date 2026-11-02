@@ -2358,12 +2358,33 @@ body.help-docked #loading-overlay {
         <div style="display: flex; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
             <button id="admin-tab-requests" onclick="switchAdminTab('requests')" style="flex:1; padding:12px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom: 3px solid var(--lp-action, #2f7a31);">Pending Requests</button>
             <button id="admin-tab-members" onclick="switchAdminTab('members')" style="flex:1; padding:12px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom: 3px solid transparent;">Members</button>
+            <button id="admin-tab-invite" onclick="switchAdminTab('invite')" style="flex:1; padding:12px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom: 3px solid transparent;">Invite</button>
         </div>
         <div style="padding: 16px 20px; overflow-y: auto;">
             <div id="request-list" style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
                 <p style="color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 13px; text-align: center; padding: 20px;">No pending requests.</p>
             </div>
             <div id="members-list" style="display: none; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);"></div>
+            <!-- Invite someone to this project (ARC-195): see inviteUser(). -->
+            <div id="invite-panel" style="display: none; flex-direction: column; gap: 10px; font-size: 13px;">
+                <p style="margin: 0; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">They get access straight away. Someone new to LaunchPad is emailed a link to create their PIN.</p>
+                <label style="font-weight: 600;">Email
+                    <input type="email" id="invite-email" autocomplete="off" placeholder="name@company.com" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 6px; font-size: 14px;">
+                </label>
+                <label style="font-weight: 600;">Company
+                    <input type="text" id="invite-company" list="invite-company-list" autocomplete="off" placeholder="Optional" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 6px; font-size: 14px;">
+                    <datalist id="invite-company-list"></datalist>
+                </label>
+                <label style="font-weight: 600;">Role
+                    <select id="invite-role" style="display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 6px; font-size: 14px;">
+                        <option value="viewer">Viewer</option>
+                        <option value="editor" selected>Editor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </label>
+                <button id="invite-send-btn" onclick="inviteUser()" style="padding: 10px; background: var(--lp-action, #2f7a31); color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer;">Send invite</button>
+                <p id="invite-result" style="display: none; margin: 0; padding: 10px; border-radius: 6px; line-height: 1.45;"></p>
+            </div>
         </div>
     </div>
 </div>
@@ -5460,27 +5481,21 @@ function toggleAdminPanel() {
 }
 
 function switchAdminTab(tab) {
-    const requestsTab = document.getElementById('admin-tab-requests');
-    const membersTab = document.getElementById('admin-tab-members');
-    const requestsList = document.getElementById('request-list');
-    const membersList = document.getElementById('members-list');
-
     const activeStyle = 'flex:1; padding:12px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom: 3px solid var(--lp-action, #2f7a31);';
     const inactiveStyle = 'flex:1; padding:12px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom: 3px solid transparent;';
 
-    if (tab === 'requests') {
-        requestsTab.style.cssText = activeStyle;
-        membersTab.style.cssText = inactiveStyle;
-        requestsList.style.display = 'block';
-        membersList.style.display = 'none';
-        refreshRequestList();
-    } else {
-        membersTab.style.cssText = activeStyle;
-        requestsTab.style.cssText = inactiveStyle;
-        membersList.style.display = 'block';
-        requestsList.style.display = 'none';
-        refreshMembersList();
-    }
+    // tab id -> [tab button, its panel, panel display, what to load]
+    const tabs = {
+        requests: ['admin-tab-requests', 'request-list', 'block', refreshRequestList],
+        members: ['admin-tab-members', 'members-list', 'block', refreshMembersList],
+        invite: ['admin-tab-invite', 'invite-panel', 'flex', resetInviteForm]
+    };
+    Object.entries(tabs).forEach(([id, [btnId, panelId, display, load]]) => {
+        const on = id === tab;
+        document.getElementById(btnId).style.cssText = on ? activeStyle : inactiveStyle;
+        document.getElementById(panelId).style.display = on ? display : 'none';
+        if (on) load();
+    });
 }
 
 async function refreshMembersList() {
@@ -5745,9 +5760,26 @@ async function refreshRequestList() {
 // Returns the membershipError (if any) so callers can decide how to warn
 // about it, same as the single-click path already did inline.
 async function admitUserCore(email, company, requestId, role, project) {
+    const ctx = requestProjectContext(project);
+    const membershipError = await grantProjectAccess(email, company, role, ctx);
+
+    // 2. Remove from STY4access_requests
+    await _supabase.from(`${ctx.tablePrefix}access_requests`).delete().eq('id', requestId);
+
+    // 3. Send Notification Email via Google Script
+    const url = `${ctx.googleScriptUrl}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
+    await fetch(url);
+
+    return membershipError || null;
+}
+
+// Gives an email access to a project: its {prefix}authorized_editors row
+// plus its launchpad_memberships row. Shared by admitting a request and by
+// inviteUser() (ARC-195). Throws if the project row can't be written; returns
+// the membership error (if any) as a warning, as admitting always has.
+async function grantProjectAccess(email, company, role, ctx) {
     role = role || 'editor';
     const emailLower = email.toLowerCase();
-    const ctx = requestProjectContext(project);
 
     // Someone requesting a role UPGRADE (e.g. viewer -> editor via
         // requestHigherAccess()) is already a row in authorized_editors —
@@ -5808,14 +5840,116 @@ async function admitUserCore(email, company, requestId, role, project) {
             console.error('Failed to add launchpad_memberships row for', email, membershipError);
         }
 
-    // 2. Remove from STY4access_requests
-    await _supabase.from(`${ctx.tablePrefix}access_requests`).delete().eq('id', requestId);
-
-    // 3. Send Notification Email via Google Script
-    const url = `${ctx.googleScriptUrl}?action=notifyAdmit&email=${encodeURIComponent(email)}`;
-    await fetch(url);
-
     return membershipError || null;
+}
+
+// ===== INVITE (ARC-195) =====
+// An admin invites an email to the open project. Access is granted straight
+// away either way; what they're sent depends on whether they already use
+// LaunchPad:
+//   - on another project already -> the usual "Access granted" email, and
+//     the project shows in their picker next sign-in;
+//   - new to LaunchPad -> Supabase emails them a sign-in link. The account
+//     that link creates carries lp_invite_pending, so startApp() opens
+//     "Create your PIN" for it (see showInvitePinSetup()).
+function resetInviteForm() {
+    const list = document.getElementById('invite-company-list');
+    const companies = (window.dropdownData && window.dropdownData.col6) || [];
+    list.innerHTML = companies.map(c => `<option value="${String(c).replace(/"/g, '&quot;')}"></option>`).join('');
+    document.getElementById('invite-result').style.display = 'none';
+}
+
+function showInviteResult(message, ok) {
+    const el = document.getElementById('invite-result');
+    el.textContent = message;
+    el.style.background = ok ? 'var(--lp-action-tint, #eaf6ea)' : '#ffebee';
+    el.style.color = ok ? 'var(--neutrals-lightmode-light-mode-Textprimary, #141718)' : '#b71c1c';
+    el.style.display = 'block';
+}
+
+async function inviteUser() {
+    if (!window.isAdmin) return;
+    const email = document.getElementById('invite-email').value.trim().toLowerCase();
+    const company = document.getElementById('invite-company').value.trim();
+    const role = document.getElementById('invite-role').value;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showInviteResult('Enter a valid email address.', false);
+        return;
+    }
+
+    const btn = document.getElementById('invite-send-btn');
+    btn.disabled = true;
+    btn.textContent = 'Inviting...';
+    try {
+        const { data: current, error: currentErr } = await _supabase
+            .from(T('authorized_editors')).select('email, role').ilike('email', email).maybeSingle();
+        if (currentErr) throw currentErr;
+        if (current) {
+            showInviteResult(`${email} already has access to this project (${current.role || 'editor'}). Change their role on the Members tab.`, false);
+            return;
+        }
+
+        // "Already uses LaunchPad" = a membership on any project, or (like
+        // selectProject()) a legacy row in the default project's own table.
+        const { data: memberships, error: memErr } = await _supabase
+            .from('launchpad_memberships').select('project_key').eq('email', email);
+        if (memErr) throw memErr;
+        let hasAccount = (memberships || []).length > 0;
+        if (!hasAccount) {
+            const { data: legacy } = await _supabase
+                .from(`${DEFAULT_PROJECT_KEY}authorized_editors`).select('email').ilike('email', email).maybeSingle();
+            hasAccount = !!legacy;
+        }
+
+        const membershipError = await grantProjectAccess(email, company || null, role, requestProjectContext());
+        const warning = membershipError ? ' (Warning: their launchpad_memberships row could not be added; see the console.)' : '';
+
+        if (hasAccount) {
+            try {
+                await fetch(`${GOOGLE_SCRIPT_URL}?action=notifyAdmit&email=${encodeURIComponent(email)}`);
+            } catch (e) {
+                console.warn('Invite: access granted but the notification email failed', e);
+            }
+            showInviteResult(`${email} already uses LaunchPad, so they now have access and have been emailed. They'll see this project next time they sign in.${warning}`, true);
+        } else {
+            const { error: otpErr } = await _supabase.auth.signInWithOtp({
+                email,
+                options: {
+                    shouldCreateUser: true,
+                    emailRedirectTo: window.location.origin + window.location.pathname,
+                    // Only applied when this call creates the account.
+                    data: { lp_invite_pending: true, lp_invited_to: window.LP_CONFIG.projectKey }
+                }
+            });
+            if (otpErr) {
+                showInviteResult(`${email} now has access, but the invite email couldn't be sent: ${otpErr.message}. They can still use "First time? Create your PIN" on the sign-in page.${warning}`, false);
+            } else {
+                showInviteResult(`${email} is new to LaunchPad. They now have access and have been emailed a link to create their PIN.${warning}`, true);
+            }
+        }
+        document.getElementById('invite-email').value = '';
+        document.getElementById('invite-company').value = '';
+    } catch (e) {
+        console.error('Invite failed', e);
+        showInviteResult('Could not invite: ' + (e.message || e), false);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send invite';
+    }
+}
+
+// The invited person's first visit: their sign-in link has already signed
+// them in, so ask for a PIN and reuse the PIN-update path in handleAuthAction().
+function showInvitePinSetup() {
+    document.getElementById('loading-spinner-section').style.display = 'none';
+    document.getElementById('auth-prompt').style.display = 'block';
+    document.getElementById('auth-title').innerText = "Create your PIN";
+    document.getElementById('auth-subtitle').innerText = "Welcome to LaunchPad! Create a PIN (at least 6 digits) to finish setting up your account.";
+    document.getElementById('auth-btn').innerText = "Create PIN";
+    document.getElementById('user-email-input').style.display = 'none';
+    document.getElementById('auth-toggle-link').parentElement.style.display = 'none';
+    window.isUpdateMode = true;
+    window.isInvitePinSetup = true;
 }
 
 async function admitUser(email, company, requestId, role) {
@@ -7031,6 +7165,12 @@ async function startApp() {
 try {
         const savedEmail = localStorage.getItem('launchpad_email');
         const { data: { user } } = await _supabase.auth.getUser();
+
+        // Arrived from an admin's invite email and hasn't set a PIN yet (ARC-195).
+        if (user && user.user_metadata && user.user_metadata.lp_invite_pending) {
+            showInvitePinSetup();
+            return;
+        }
 
         if (user && savedEmail) {
             // Resolve which project this user belongs to BEFORE anything else
@@ -9955,7 +10095,8 @@ async function handleAuthAction() {
     try {
         // --- 1. HANDLE PIN UPDATE (Recovery Mode) ---
         if (window.isUpdateMode) {
-            const { error } = await _supabase.auth.updateUser({ password: pin });
+            // Clearing lp_invite_pending finishes an invite's PIN setup (ARC-195).
+            const { error } = await _supabase.auth.updateUser({ password: pin, data: { lp_invite_pending: false } });
             if (error) throw error;
             
             // Get the user object to save their email to localStorage
@@ -9964,7 +10105,7 @@ async function handleAuthAction() {
                 localStorage.setItem('launchpad_email', user.email);
             }
 
-            successEl.innerText = "PIN updated! Accessing LaunchPad...";
+            successEl.innerText = (window.isInvitePinSetup ? "PIN created!" : "PIN updated!") + " Accessing LaunchPad...";
             successEl.style.display = 'block';
             errorEl.style.display = 'none';
 
