@@ -20,8 +20,10 @@
 //        LP_TABLE_PREFIX       CASB
 //        LP_PROJECT_NAME       optional; first part of each title (defaults to the prefix)
 //   2. Run setupScheduleCalendar() and approve the Calendar permission.
-//      It creates the calendar, saves its id (LP_CALENDAR_ID) and adds a
-//      10-minute trigger for syncScheduleToCalendar().
+//      It creates the calendar "PREFIX LaunchPad Schedule", saves its id
+//      (LP_CALENDAR_ID) and adds a 10-minute trigger for
+//      syncScheduleToCalendar(). Re-running it is safe, and renames a calendar
+//      made under an older name.
 //   3. Share the new calendar with the team in Google Calendar.
 // =============================================================================
 
@@ -39,9 +41,15 @@ const LP_CAL_SYNC = {
 function setupScheduleCalendar() {
   const props = PropertiesService.getScriptProperties();
   const prefix = lpCalProp_('LP_TABLE_PREFIX');
+  const calName = `${prefix} LaunchPad Schedule`; // e.g. "CASB LaunchPad Schedule"
   let calId = props.getProperty('LP_CALENDAR_ID');
-  if (!calId || !CalendarApp.getCalendarById(calId)) {
-    const cal = CalendarApp.createCalendar(`LaunchPad Schedule (${prefix})`, {
+  const existing = calId && CalendarApp.getCalendarById(calId);
+  if (existing) {
+    // Re-running setup renames a calendar made under an older name (ARC-197);
+    // its id, events and sharing are kept.
+    if (existing.getName() !== calName) existing.setName(calName);
+  } else {
+    const cal = CalendarApp.createCalendar(calName, {
       summary: `Synced every 10 minutes from the LaunchPad ${prefix} Schedule. Edit the Schedule, not these events.`,
       timeZone: Session.getScriptTimeZone()
     });
