@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.13.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.12.0...v1.13.0) (2026-11-05)
+
+
+### Features
+
+* **ARC-199:** Feedback module for LaunchPad, hidden until enabled in Settings ([afbd86f](https://github.com/CriticalArccx/LaunchPad/commit/afbd86f7cb241dd88d5ef50679d2e9f28fecb659))
+* **ARC-199:** Feedback module, hidden until enabled in Settings ([c7d9571](https://github.com/CriticalArccx/LaunchPad/commit/c7d957179445ebd37a1503ebe485edebfcb90fda))
+* **ARC-209:** capture names and show them instead of emails ([8ad81a0](https://github.com/CriticalArccx/LaunchPad/commit/8ad81a0fa174f52c6d09f73c23b4090b2d326ec1))
+* **ARC-209:** capture people's names and show them instead of emails ([d075058](https://github.com/CriticalArccx/LaunchPad/commit/d075058aa228f7984960317f22a97e34d3452902))
+
 ## [1.12.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.11.0...v1.12.0) (2026-11-02)
 
 
