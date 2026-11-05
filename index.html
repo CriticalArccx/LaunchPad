@@ -915,6 +915,33 @@ button, input, select, textarea { font-family: inherit; }
     outline: 2px solid var(--Arc-Green, #4ebd4f);
     outline-offset: 2px;
 }
+/* Feedback on LaunchPad (ARC-199) */
+.feedback-filter {
+    padding: 8px; font: inherit; font-size: 14px; background: #ffffff; box-sizing: border-box;
+    border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: var(--radius\.md, 6px);
+}
+.feedback-field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); }
+.feedback-field input, .feedback-field select, .feedback-field textarea {
+    font: inherit; font-weight: 430; font-size: 14px; padding: 9px;
+    border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);
+    border-radius: var(--radius\.md, 6px); box-sizing: border-box; width: 100%;
+}
+.feedback-field textarea { resize: vertical; }
+.feedback-card {
+    background: #ffffff; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);
+    border-radius: var(--radius\.xl, 12px); padding: var(--space\.5, 20px); margin-bottom: var(--space\.4, 16px);
+}
+.feedback-card h3 { margin: 0 0 6px; font-size: 16px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); }
+.feedback-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); }
+.feedback-chip { display: inline-flex; padding: 2px 10px; border-radius: 9999px; background: var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-weight: 600; font-size: 12px; }
+.feedback-chip.impact-high { background: var(--neutrals-lightmode-light-mode-Textprimary, #141718); color: #ffffff; }
+.feedback-details { margin-top: 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); }
+.feedback-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.feedback-empty { text-align: center; padding: 48px 16px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); }
+body.dark-mode #feedback-view { background: #121212 !important; }
+body.dark-mode .feedback-card, body.dark-mode #feedback-modal > div { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
+body.dark-mode .feedback-card h3, body.dark-mode .feedback-details, body.dark-mode .feedback-field, body.dark-mode #feedback-view h2 { color: #e0e0e0; }
+
 /* Controls that only exist in the phone layout (css/launchpad-mobile.css). */
 .mobile-only { display: none !important; }
 /* Arc Green for selection (ARC-190): checked boxes, and selected Schedule
@@ -1589,6 +1616,12 @@ body.help-docked #loading-overlay {
         <span class="nav-text">Dashboard</span>
     </div>
 
+    <!-- Hidden until turned on in Settings > Navigation Menu (ARC-199). -->
+    <div id="nav-feedback" class="nav-item" style="display: none;" onclick="switchMainView('feedback', this)">
+        <span class="nav-icon">💬</span>
+        <span class="nav-text">Feedback</span>
+    </div>
+
     
     <div style="margin-top: auto; width: 100%;">
         
@@ -1683,7 +1716,7 @@ body.help-docked #loading-overlay {
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
             <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Navigation Menu</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Select which modules are available on the left sidebar.</p>
-            <div style="display: flex; gap: 20px; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
+            <div style="display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-schedule" style="margin-right:8px; transform:scale(1.2);"> Schedule</label>
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-equipment" style="margin-right:8px; transform:scale(1.2);"> Equipment Tracker</label>
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-attributes" style="margin-right:8px; transform:scale(1.2);"> Asset Attributes</label>
@@ -1691,6 +1724,7 @@ body.help-docked #loading-overlay {
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-bridge" style="margin-right:8px; transform:scale(1.2);"> The Bridge</label>
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-tamperseals" style="margin-right:8px; transform:scale(1.2);"> Tamper Seals</label>
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-sealform" style="margin-right:8px; transform:scale(1.2);"> Seal Form</label>
+                <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-feedback" style="margin-right:8px; transform:scale(1.2);"> Feedback</label>
             </div>
         </div>
 
@@ -1895,6 +1929,67 @@ body.help-docked #loading-overlay {
         <div id="sealform-qr-code-display"></div>
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
             <button class="tool-btn" style="border-color:#757575; color:#757575;" onclick="document.getElementById('sealFormQrModal').style.display='none'">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback on LaunchPad (ARC-199): see the FEEDBACK script section. -->
+<div id="feedback-view" style="display: none; height: 100%; width: 100%; overflow-y: auto; box-sizing: border-box; padding: 24px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee);">
+    <div style="max-width: 960px; margin: 0 auto;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px;">
+            <h2 style="margin: 0; font-size: 24px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">Feedback</h2>
+            <button class="tool-btn" onclick="openFeedbackModal()" style="background: var(--lp-action, #2f7a31); color: white; border-color: var(--lp-action, #2f7a31);">+ Send feedback</button>
+        </div>
+        <p style="margin: 0 0 16px; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Report a bug, suggest an idea or ask a question about LaunchPad. Only people on this project can see what's sent here.</p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+            <select id="feedback-type-filter" onchange="renderFeedback()" class="feedback-filter">
+                <option value="">All types</option>
+            </select>
+            <select id="feedback-area-filter" onchange="renderFeedback()" class="feedback-filter">
+                <option value="">All areas</option>
+            </select>
+            <label class="feedback-filter" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="feedback-mine-filter" onchange="renderFeedback()"> Mine only
+            </label>
+            <input type="search" id="feedback-search" oninput="renderFeedback()" placeholder="Search feedback..." class="feedback-filter" style="flex: 1; min-width: 180px;">
+        </div>
+        <div id="feedback-list"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="feedback-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 24px; border-radius: 12px; width: 600px; max-width: 95%; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; font-size: 13px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="feedback-modal-title" style="margin: 0; font-size: 20px; color: var(--lp-action, #2f7a31);">Send feedback</h3>
+            <button onclick="closeFeedbackModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">&times;</button>
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <label class="feedback-field" style="flex: 1; min-width: 160px;">Type
+                <select id="feedback-type"><option value="">Select...</option></select>
+            </label>
+            <label class="feedback-field" style="flex: 1; min-width: 160px;">Part of LaunchPad
+                <select id="feedback-area"><option value="">Select...</option></select>
+            </label>
+        </div>
+        <label class="feedback-field">Title
+            <input type="text" id="feedback-title" maxlength="200" placeholder="A short summary">
+        </label>
+        <label class="feedback-field">Details
+            <textarea id="feedback-details" rows="6" placeholder="What happened or what you'd like. For a bug: what you did, what you expected, and what happened instead."></textarea>
+        </label>
+        <label class="feedback-field">How much does this affect your work?
+            <select id="feedback-impact">
+                <option value="">Select...</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+            </select>
+        </label>
+        <p style="margin: 0; font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Your name, this project, the screen you were on and your browser are included automatically.</p>
+        <p id="feedback-modal-error" style="display: none; margin: 0; padding: 10px; border-radius: 6px; background: #ffebee; color: #b71c1c;"></p>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button class="tool-btn" onclick="closeFeedbackModal()">Cancel</button>
+            <button id="feedback-save-btn" class="tool-btn" onclick="saveFeedback()" style="background: var(--lp-action, #2f7a31); color: white; border-color: var(--lp-action, #2f7a31);">Send</button>
         </div>
     </div>
 </div>
@@ -2681,7 +2776,8 @@ function saveScheduleConfig() {
 }
 
 let appConfig = {
-    sidebar: { schedule: true, equipment: true, attributes: true, dashboard: true, bridge: true, tamperSeals: true, sealForm: false }
+    // feedback (ARC-199) starts hidden; an admin turns it on in Settings.
+    sidebar: { schedule: true, equipment: true, attributes: true, dashboard: true, bridge: true, tamperSeals: true, sealForm: false, feedback: false }
 };
 
 function applySidebarConfig() {
@@ -2692,6 +2788,7 @@ function applySidebarConfig() {
     const navBridge = document.querySelector('.nav-item[onclick*="bridge"]');
     const navTamperSeals = document.querySelector('.nav-item[onclick*="tamperseals"]');
     const navSealForm = document.getElementById('nav-sealform');
+    const navFeedback = document.getElementById('nav-feedback');
 
     if (navSchedule) navSchedule.style.display = appConfig.sidebar.schedule ? 'flex' : 'none';
     if (navEquipment) navEquipment.style.display = appConfig.sidebar.equipment ? 'flex' : 'none';
@@ -2700,6 +2797,7 @@ function applySidebarConfig() {
     if (navBridge) navBridge.style.display = appConfig.sidebar.bridge ? 'flex' : 'none';
     if (navTamperSeals) navTamperSeals.style.display = appConfig.sidebar.tamperSeals ? 'flex' : 'none';
     if (navSealForm) navSealForm.style.display = appConfig.sidebar.sealForm ? 'flex' : 'none';
+    if (navFeedback) navFeedback.style.display = appConfig.sidebar.feedback ? 'flex' : 'none';
     
     // If the default Schedule view is hidden by the admin, auto-route the user to the first available module
     if (!appConfig.sidebar.schedule) {
@@ -3345,7 +3443,8 @@ function switchMainView(viewType, btn) {
     const sealFormView = document.getElementById('sealform-view');
     const sett = document.getElementById('settings-view'); 
     const attrView = document.getElementById('attributes-view'); // <-- ADDED THIS
-    
+    const feedbackView = document.getElementById('feedback-view');
+
     // 2. Target the specific UI tools (Header buttons, Image, and Filter Sidebar)
     const schedControls = document.getElementById('schedule-header-controls');
     const altImage = document.getElementById('alternate-header-img');
@@ -3373,7 +3472,8 @@ function switchMainView(viewType, btn) {
     if (tamperSealsView) tamperSealsView.style.display = 'none';
     if (sealFormView) sealFormView.style.display = 'none';
     if (attrView) attrView.style.display = 'none'; // <-- ADDED THIS
-    
+    if (feedbackView) feedbackView.style.display = 'none';
+
     // By default, hide schedule-specific tools and show the alternate image
     if (schedControls) schedControls.style.display = 'none';
     if (altImage) altImage.style.display = 'block';
@@ -3438,9 +3538,13 @@ function switchMainView(viewType, btn) {
         if (attrView) {
             attrView.style.display = 'flex'; // Use flex for the side-by-side layout
             // Load data on first click automatically
-            if (!window.attributesLoaded) fetchAssetAttributes(); 
+            if (!window.attributesLoaded) fetchAssetAttributes();
         }
-        if (appBody) appBody.style.width = 'calc(100% - 36px)'; 
+        if (appBody) appBody.style.width = 'calc(100% - 36px)';
+    } else if (viewType === 'feedback') {
+        if (feedbackView) feedbackView.style.display = 'block';
+        if (appBody) appBody.style.width = 'calc(100% - 36px)';
+        openFeedbackView();
     } else {
         // IF VIEWING SCHEDULE: Bring back all schedule-specific elements
         if (schedControls) schedControls.style.display = 'flex';
@@ -3462,6 +3566,191 @@ function switchMainView(viewType, btn) {
         // without waiting for a manual click.
         if (cameFromDifferentView) refreshScheduleData();
     }
+}
+
+// ===== FEEDBACK ON LAUNCHPAD (ARC-199) =====
+// Table launchpad_feedback (sync/feedback.sql). Hidden on the sidebar until
+// an admin ticks Feedback in Settings > Navigation Menu (appConfig.sidebar).
+// Anyone on the project can send and read it. Append-only: an edit saves a
+// new version (supersedes_id) and stamps the old one superseded_at;
+// removing an entry stamps archived_at. The table's policies and trigger
+// enforce the same.
+const FEEDBACK_TYPES = ['Bug', 'Idea', 'Question', 'Other'];
+const FEEDBACK_AREAS = ['Schedule', 'Calendar view', 'Equipment Tracker', 'The Bridge', 'Tamper Seals', 'Asset Attributes', 'Dashboard', 'Settings', 'Sign-in & access', 'Phone layout', 'Other'];
+let __feedback = [];
+let __editingFeedback = null;
+
+function feedbackEsc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function feedbackMyEmail() { return (localStorage.getItem('launchpad_email') || '').toLowerCase(); }
+// Within the open project: the person who sent it, or an admin.
+function canManageFeedback(f) {
+    return window.userRole === 'admin' || (f.submitted_by || '').toLowerCase() === feedbackMyEmail();
+}
+
+function openFeedbackView() {
+    const fill = (id, values) => {
+        const el = document.getElementById(id);
+        if (el.options.length <= 1) values.forEach(v => el.add(new Option(v, v)));
+    };
+    fill('feedback-type-filter', FEEDBACK_TYPES);
+    fill('feedback-area-filter', FEEDBACK_AREAS);
+    fill('feedback-type', FEEDBACK_TYPES);
+    fill('feedback-area', FEEDBACK_AREAS);
+    loadFeedback();
+}
+
+async function loadFeedback() {
+    const list = document.getElementById('feedback-list');
+    list.innerHTML = '<div class="feedback-empty">Loading...</div>';
+    // Senders' names (ARC-209), when that's merged; emails otherwise.
+    if (typeof loadPeopleNames === 'function') await loadPeopleNames();
+    const { data, error } = await _supabase.from('launchpad_feedback').select('*')
+        .eq('project_key', window.LP_CONFIG.projectKey)
+        .is('superseded_at', null).is('archived_at', null)
+        .order('created_at', { ascending: false });
+    if (error) {
+        console.error('Feedback: load failed', error);
+        list.innerHTML = '<div class="feedback-empty">Couldn\'t load feedback. If this is new, run sync/feedback.sql in Supabase.</div>';
+        return;
+    }
+    __feedback = data || [];
+    renderFeedback();
+}
+
+function renderFeedback() {
+    const list = document.getElementById('feedback-list');
+    const type = document.getElementById('feedback-type-filter').value;
+    const area = document.getElementById('feedback-area-filter').value;
+    const mine = document.getElementById('feedback-mine-filter').checked;
+    const term = document.getElementById('feedback-search').value.trim().toLowerCase();
+    const me = feedbackMyEmail();
+
+    const shown = __feedback.filter(f =>
+        (!type || f.type === type) &&
+        (!area || f.area === area) &&
+        (!mine || (f.submitted_by || '').toLowerCase() === me) &&
+        (!term || [f.title, f.details, f.submitted_by].some(v => (v || '').toLowerCase().includes(term))));
+
+    if (shown.length === 0) {
+        list.innerHTML = `<div class="feedback-empty">${__feedback.length === 0
+            ? 'No feedback yet. Use "+ Send feedback" to report a bug or share an idea.'
+            : 'No feedback matches these filters.'}</div>`;
+        return;
+    }
+
+    list.innerHTML = shown.map(f => {
+        const date = new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const chips = [
+            `<span class="feedback-chip">${feedbackEsc(f.type)}</span>`,
+            f.area ? `<span class="feedback-chip">${feedbackEsc(f.area)}</span>` : '',
+            f.impact ? `<span class="feedback-chip${f.impact === 'High' ? ' impact-high' : ''}">${feedbackEsc(f.impact)} impact</span>` : ''
+        ].filter(Boolean).join('');
+        const actions = canManageFeedback(f) ? `
+            <div class="feedback-actions">
+                <button class="tool-btn" onclick="openFeedbackModal(${f.id})">Edit</button>
+                <button class="tool-btn" onclick="archiveFeedback(${f.id})" style="color:#d32f2f; border-color:#d32f2f;">Archive</button>
+            </div>` : '';
+        return `
+            <div class="feedback-card">
+                <h3>${feedbackEsc(f.title)}</h3>
+                <div class="feedback-meta">${chips}</div>
+                ${f.details ? `<div class="feedback-details">${feedbackEsc(f.details)}</div>` : ''}
+                <div class="feedback-meta" style="margin-top: 12px;">${f.supersedes_id ? 'Edited by' : 'From'} ${typeof lpPersonHtml === 'function' ? lpPersonHtml(f.submitted_by) : feedbackEsc(f.submitted_by)}${f.submitted_by_company ? ' (' + feedbackEsc(f.submitted_by_company) + ')' : ''} · ${date}</div>
+                ${actions}
+            </div>`;
+    }).join('');
+}
+
+function openFeedbackModal(editId) {
+    __editingFeedback = editId ? __feedback.find(f => f.id === editId) || null : null;
+    const f = __editingFeedback || {};
+    const set = (id, v) => { document.getElementById(id).value = v || ''; };
+    set('feedback-type', f.type);
+    set('feedback-area', f.area);
+    set('feedback-title', f.title);
+    set('feedback-details', f.details);
+    set('feedback-impact', f.impact);
+    document.getElementById('feedback-modal-title').textContent = __editingFeedback ? 'Edit feedback' : 'Send feedback';
+    document.getElementById('feedback-save-btn').textContent = __editingFeedback ? 'Save' : 'Send';
+    document.getElementById('feedback-modal-error').style.display = 'none';
+    document.getElementById('feedback-modal').style.display = 'flex';
+    document.getElementById('feedback-type').focus();
+}
+
+function closeFeedbackModal() {
+    document.getElementById('feedback-modal').style.display = 'none';
+    __editingFeedback = null;
+}
+
+function showFeedbackError(msg) {
+    const el = document.getElementById('feedback-modal-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+async function saveFeedback() {
+    const val = id => document.getElementById(id).value.trim();
+    const old = __editingFeedback;
+    const row = {
+        project_key: window.LP_CONFIG.projectKey,
+        type: val('feedback-type'),
+        area: val('feedback-area') || null,
+        title: val('feedback-title'),
+        details: val('feedback-details') || null,
+        impact: val('feedback-impact') || null,
+        // What a bug report needs to be reproduced; an edit keeps the original's.
+        context: old ? old.context : {
+            view: window.__currentView || 'schedule',
+            screen: `${window.innerWidth}x${window.innerHeight}`,
+            userAgent: navigator.userAgent,
+            page: window.location.pathname
+        },
+        submitted_by: feedbackMyEmail(),
+        submitted_by_company: window.userCompany || null
+    };
+    if (!row.type) return showFeedbackError('Pick a type: bug, idea, question or other.');
+    if (!row.title) return showFeedbackError('Give it a short title.');
+    if (old) row.supersedes_id = old.id;
+
+    const btn = document.getElementById('feedback-save-btn');
+    btn.disabled = true;
+    try {
+        const { error } = await _supabase.from('launchpad_feedback').insert([row]);
+        if (error) {
+            console.error('Feedback: save failed', error);
+            return showFeedbackError(/row-level security/i.test(error.message)
+                ? 'Only people on this project can send feedback here.'
+                : 'Could not send: ' + error.message);
+        }
+        if (old) {
+            const { data: updated, error: supErr } = await _supabase.from('launchpad_feedback')
+                .update({ superseded_at: new Date().toISOString() }).eq('id', old.id).select('id');
+            if (supErr || !updated || updated.length === 0) {
+                console.error('Feedback: could not retire the previous version', supErr);
+                alert('Your edit was saved, but the previous version could not be retired, so both may show. An admin of this project can archive the old one.');
+            }
+        }
+        closeFeedbackModal();
+        loadFeedback();
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function archiveFeedback(id) {
+    const f = __feedback.find(x => x.id === id);
+    if (!f || !confirm(`Archive "${f.title}"? It will no longer be listed, but is kept on record.`)) return;
+    const { data, error } = await _supabase.from('launchpad_feedback')
+        .update({ archived_at: new Date().toISOString(), archived_by: feedbackMyEmail() })
+        .eq('id', id).select('id');
+    if (error || !data || data.length === 0) {
+        console.error('Feedback: archive failed', error);
+        alert('Could not archive this. Only the person who sent it or an admin of this project can.');
+        return;
+    }
+    loadFeedback();
 }
 
 let equivalentActivitiesConfig = { L2: [], L3: [], L4: [] };
@@ -7638,6 +7927,7 @@ function openScheduleConfigModal() {
     document.getElementById('cfg-nav-bridge').checked = appConfig.sidebar.bridge;
     document.getElementById('cfg-nav-tamperseals').checked = appConfig.sidebar.tamperSeals;
     document.getElementById('cfg-nav-sealform').checked = appConfig.sidebar.sealForm;
+    document.getElementById('cfg-nav-feedback').checked = !!appConfig.sidebar.feedback;
 
     renderRescheduleTriggerList();
     renderStatusColorRulesUI();
@@ -7824,6 +8114,7 @@ async function saveAllSettings(btn) {
     appConfig.sidebar.bridge = document.getElementById('cfg-nav-bridge').checked;
     appConfig.sidebar.tamperSeals = document.getElementById('cfg-nav-tamperseals').checked;
     appConfig.sidebar.sealForm = document.getElementById('cfg-nav-sealform').checked;
+    appConfig.sidebar.feedback = document.getElementById('cfg-nav-feedback').checked;
 
     // 2. Gather Schedule Config
     scheduleColConfig.forEach(col => {
