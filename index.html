@@ -2145,7 +2145,11 @@ body.help-docked #loading-overlay {
         <h2 id="auth-title" style="margin-top: 0; color: var(--lp-action, #2f7a31); font-size: 26px;">Sign In</h2>
         <p id="auth-subtitle" style="margin-bottom: 25px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Enter your credentials to access LaunchPad.</p>
         
-        <input type="email" id="user-email-input" placeholder="Email Address" 
+        <!-- Only shown when creating a PIN (ARC-209). -->
+        <input type="text" id="user-name-input" placeholder="Full name" autocomplete="name"
+               style="display: none; padding: 14px; width: 100%; border-radius: 6px; border: 2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
+
+        <input type="email" id="user-email-input" placeholder="Email Address"
                style="padding: 14px; width: 100%; border-radius: 6px; border: 2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom: 10px; box-sizing: border-box; font-size: 16px;">
         
         <input type="password" id="user-pin-input" placeholder="Enter PIN (min. 6 digits)" 
@@ -2483,7 +2487,19 @@ body.help-docked #loading-overlay {
         </div>
     </div>
 </div>
-<div id="ready-activities-panel" style="display: none; position: fixed; top: 140px; left: 220px; width: 340px; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 15px;">
+<!-- One-time "What's your name?" for people who signed up before names were collected (ARC-209). -->
+<div class="modal-overlay" id="name-prompt-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10002; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 24px; border-radius: 12px; width: 400px; max-width: 95%; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;">
+        <h3 style="margin: 0; font-size: 20px; color: var(--lp-action, #2f7a31);">What's your name?</h3>
+        <p style="margin: 0; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">It's shown to your project admins and on your edits, instead of just your email.</p>
+        <input type="text" id="name-prompt-input" placeholder="Full name" autocomplete="name"
+               onkeydown="if (event.key === 'Enter') saveNamePrompt()"
+               style="padding: 12px; border-radius: 6px; border: 2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); font-size: 16px;">
+        <p id="name-prompt-error" style="display: none; margin: 0; color: #d32f2f; font-size: 13px;">Please enter your name.</p>
+        <button id="name-prompt-save" onclick="saveNamePrompt()" style="padding: 12px; background: var(--lp-action, #2f7a31); color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer;">Save</button>
+    </div>
+</div>
+<div id="ready-activities-panel"style="display: none; position: fixed; top: 140px; left: 220px; width: 340px; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; padding: 15px;">
     
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
         <div id="ready-filters-container" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; flex-grow: 1; margin-right: 10px;">
@@ -3187,7 +3203,7 @@ async function showCellHistory(e, rowId, colIndex) {
     content.innerHTML = data.map(h => `
         <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
             <div style="color:var(--lp-action, #2f7a31); font-weight:bold; margin-bottom:2px;">${new Date(h.changed_at).toLocaleString()}</div>
-            <div style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">User: ${h.changed_by}</div>
+            <div style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">User: ${lpPersonHtml(h.changed_by)}</div>
             <div style="display:flex; gap:5px; align-items:center;">
                 <span style="color:#d32f2f; text-decoration:line-through; background:#ffebee; padding:2px 4px; border-radius:2px;">${h.old_value || '(empty)'}</span>
                 <span>➔</span>
@@ -5789,6 +5805,7 @@ function switchAdminTab(tab) {
 
 async function refreshMembersList() {
     const container = document.getElementById('members-list');
+    await loadPeopleNames();
     const { data, error } = await _supabase.from(T('authorized_editors')).select('*').order('email');
 
     if (error) {
@@ -5805,7 +5822,7 @@ async function refreshMembersList() {
     container.innerHTML = data.map(m => `
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Page, #f3f2ee);">
             <div style="min-width:0;">
-                <div style="font-size:13px; font-weight:bold; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.email}</div>
+                <div style="font-size:13px; font-weight:bold; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${lpPersonHtml(m.email)}</div>
                 <div style="font-size:11px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); display:flex; align-items:center; gap:4px; margin-top:3px;">${buildCompanyEditor('mem-' + m.email.replace(/[^a-zA-Z0-9]/g, '_'), m.company, 'member', m.email)}</div>
             </div>
             <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
@@ -5998,6 +6015,7 @@ let __pendingAccessRequests = [];
 
 async function refreshRequestList() {
     const listContainer = document.getElementById('request-list');
+    await loadPeopleNames();
     const { data, error } = await _supabase.from(T('access_requests')).select('*');
 
     if (error || !data || data.length === 0) {
@@ -6021,7 +6039,7 @@ async function refreshRequestList() {
 
     listContainer.innerHTML = bulkBar + data.map(req => `
         <div style="padding: 10px 0; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Page, #f3f2ee);">
-            <div style="font-size: 13px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">${req.email}</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">${lpPersonHtml(req.email, req.full_name)}</div>
             <div style="font-size: 11px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 6px; display:flex; align-items:center; gap:4px;">
                 Company: ${buildCompanyEditor('req-' + req.id, req.company, 'request', req.id)}
             </div>
@@ -6232,14 +6250,91 @@ async function inviteUser() {
     }
 }
 
+// ===== PEOPLE'S NAMES (ARC-209) =====
+// A name is saved on the person's own Auth account (user_metadata.full_name)
+// and, so others can see it, appended to launchpad_people_names
+// (sync/people_names.sql). lpDisplayName() falls back to the email for
+// anyone without one, or if that table isn't there yet.
+window.lpNames = {};
+let __namesAvailable = false;
+
+async function loadPeopleNames() {
+    const { data, error } = await _supabase.from('launchpad_people_current').select('email, full_name');
+    __namesAvailable = !error;
+    if (error) return;
+    window.lpNames = {};
+    (data || []).forEach(r => { window.lpNames[String(r.email).toLowerCase()] = r.full_name; });
+}
+
+function lpDisplayName(email) {
+    return (email && window.lpNames[String(email).toLowerCase()]) || email || '';
+}
+
+// "Jane Smith" over "jane@acme.com" for lists; just the email when no name is known.
+function lpPersonHtml(email, knownName) {
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const name = knownName || (email && window.lpNames[String(email).toLowerCase()]);
+    return name
+        ? `${esc(name)} <span style="font-weight:normal; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">${esc(email)}</span>`
+        : esc(email);
+}
+
+async function recordMyName(email, fullName) {
+    const { error } = await _supabase.from('launchpad_people_names')
+        .insert([{ email: String(email).toLowerCase(), full_name: fullName }]);
+    if (error) console.warn('Could not save name to launchpad_people_names', error);
+    else window.lpNames[String(email).toLowerCase()] = fullName;
+}
+
+// After sign-in: copy the account's name into the shared table, or ask
+// once for it if there isn't one anywhere yet.
+async function ensureMyName(user) {
+    if (!user || !user.email) return;
+    await loadPeopleNames();
+    if (!__namesAvailable) return; // sync/people_names.sql not run yet
+    const email = user.email.toLowerCase();
+    const accountName = ((user.user_metadata && user.user_metadata.full_name) || '').trim();
+    const shared = window.lpNames[email];
+    if (accountName) {
+        if (shared !== accountName) await recordMyName(email, accountName);
+        localStorage.setItem('launchpad_name', accountName);
+    } else if (shared) {
+        localStorage.setItem('launchpad_name', shared);
+    } else {
+        document.getElementById('name-prompt-input').value = localStorage.getItem('launchpad_name') || '';
+        document.getElementById('name-prompt-modal').style.display = 'flex';
+        document.getElementById('name-prompt-input').focus();
+    }
+}
+
+async function saveNamePrompt() {
+    const input = document.getElementById('name-prompt-input');
+    const fullName = input.value.trim().replace(/\s+/g, ' ');
+    const err = document.getElementById('name-prompt-error');
+    if (!fullName) { err.style.display = 'block'; return; }
+    const btn = document.getElementById('name-prompt-save');
+    btn.disabled = true;
+    try {
+        const { data: { user } } = await _supabase.auth.getUser();
+        if (!user) return;
+        await _supabase.auth.updateUser({ data: { full_name: fullName } });
+        await recordMyName(user.email, fullName);
+        localStorage.setItem('launchpad_name', fullName);
+        document.getElementById('name-prompt-modal').style.display = 'none';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 // The invited person's first visit: their sign-in link has already signed
 // them in, so ask for a PIN and reuse the PIN-update path in handleAuthAction().
 function showInvitePinSetup() {
     document.getElementById('loading-spinner-section').style.display = 'none';
     document.getElementById('auth-prompt').style.display = 'block';
     document.getElementById('auth-title').innerText = "Create your PIN";
-    document.getElementById('auth-subtitle').innerText = "Welcome to LaunchPad! Create a PIN (at least 6 digits) to finish setting up your account.";
+    document.getElementById('auth-subtitle').innerText = "Welcome to LaunchPad! Enter your name and create a PIN (at least 6 digits) to finish setting up your account.";
     document.getElementById('auth-btn').innerText = "Create PIN";
+    document.getElementById('user-name-input').style.display = 'block';
     document.getElementById('user-email-input').style.display = 'none';
     document.getElementById('auth-toggle-link').parentElement.style.display = 'none';
     window.isUpdateMode = true;
@@ -6887,6 +6982,7 @@ function renderProjectPicker(projects, opts) {
                 <input type="text" id="access-code-input" placeholder="6-digit access code" maxlength="6" inputmode="numeric" oninput="handleAccessCodeInput()" style="padding:12px; width:100%; border-radius:6px; border:2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom:6px; box-sizing:border-box; font-size:15px; text-align:center; letter-spacing:3px;">
                 <p id="access-code-status" style="font-size:12.5px; margin:0 0 10px; min-height:16px;"></p>
                 ${emailFieldHtml}
+                <input type="text" id="access-request-name" placeholder="Your full name" autocomplete="name" value="${String(localStorage.getItem('launchpad_name') || (opts.currentUserEmail && window.lpNames[opts.currentUserEmail.toLowerCase()]) || '').replace(/"/g, '&quot;')}" style="padding:12px; width:100%; border-radius:6px; border:2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom:10px; box-sizing:border-box; font-size:15px;">
                 <select id="access-request-company" disabled onchange="handleCompanySelectChange()" style="padding:12px; width:100%; border-radius:6px; border:2px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); margin-bottom:10px; box-sizing:border-box; font-size:15px; background-color:white; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">
                     <option value="">Enter a valid code to load the company list...</option>
                 </select>
@@ -7007,7 +7103,7 @@ function renderPickerAccessRequests() {
         </div>
         ${reqs.map((req, i) => `
             <div style="text-align:left; padding:10px 12px; margin-bottom:8px; border:1px solid #f3c7c7; border-radius:10px; background:#fff8f8;">
-                <div style="font-size:14px; font-weight:700; color:#1b1b1b; word-break:break-all;">${esc(req.email)}</div>
+                <div style="font-size:14px; font-weight:700; color:#1b1b1b; word-break:break-all;">${lpPersonHtml(req.email, req.full_name)}</div>
                 <div style="font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin:3px 0 6px;">
                     Requested <strong style="color:var(--lp-action, #2f7a31);">${esc(req.projectName)}</strong>
                     · ${req.requested_role === 'viewer' ? 'Viewer' : 'Editor'}
@@ -7503,9 +7599,10 @@ async function continueStartAppAfterProject(user) {
         return;
     }
     const permissions = await verifyPermission(user.email); 
-    if (permissions.isAuthorized) { 
+    if (permissions.isAuthorized) {
         window.isAuthorized = true;
-        window.isAdmin = permissions.isAdmin; 
+        window.isAdmin = permissions.isAdmin;
+        ensureMyName(user); // not awaited: loads names, may ask once (ARC-209)
 
         // Only NOW does window.userRole actually hold a real value — this
         // has to happen after verifyPermission() resolves, both for the
@@ -10352,7 +10449,8 @@ function toggleAuthMode() {
     const subtitle = document.getElementById('auth-subtitle');
     const btn = document.getElementById('auth-btn');
     const toggleLink = document.getElementById('auth-toggle-link');
-    
+    document.getElementById('user-name-input').style.display = isSignUpMode ? 'block' : 'none';
+
     if (isSignUpMode) {
         title.innerText = "Create PIN";
         subtitle.innerText = "Set a 6-digit PIN for your email.";
@@ -10384,6 +10482,15 @@ async function handleAuthAction() {
         return;
     }
 
+    // Creating a PIN (sign-up, or an invite's first visit) also takes a name (ARC-209).
+    const fullName = document.getElementById('user-name-input').value.trim().replace(/\s+/g, ' ');
+    const asksForName = (isSignUpMode && !window.isUpdateMode) || window.isInvitePinSetup;
+    if (asksForName && !fullName) {
+        errorEl.innerText = "Please enter your full name.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
     btn.disabled = true;
     errorEl.style.display = 'none';
     successEl.style.display = 'none';
@@ -10392,13 +10499,16 @@ async function handleAuthAction() {
         // --- 1. HANDLE PIN UPDATE (Recovery Mode) ---
         if (window.isUpdateMode) {
             // Clearing lp_invite_pending finishes an invite's PIN setup (ARC-195).
-            const { error } = await _supabase.auth.updateUser({ password: pin, data: { lp_invite_pending: false } });
+            const data = { lp_invite_pending: false };
+            if (window.isInvitePinSetup) data.full_name = fullName;
+            const { error } = await _supabase.auth.updateUser({ password: pin, data });
             if (error) throw error;
-            
+
             // Get the user object to save their email to localStorage
             const { data: { user } } = await _supabase.auth.getUser();
             if (user) {
                 localStorage.setItem('launchpad_email', user.email);
+                if (window.isInvitePinSetup) await recordMyName(user.email, fullName);
             }
 
             successEl.innerText = (window.isInvitePinSetup ? "PIN created!" : "PIN updated!") + " Accessing LaunchPad...";
@@ -10424,11 +10534,15 @@ async function handleAuthAction() {
                 password: pin,
                 options: {
                     // This dynamically sends them back to the exact current page folder
-                    emailRedirectTo: window.location.origin + window.location.pathname
+                    emailRedirectTo: window.location.origin + window.location.pathname,
+                    // Copied to launchpad_people_names on their first sign-in (ensureMyName()).
+                    data: { full_name: fullName }
                 }
             });
 
             if (error) throw error;
+            // Pre-fills the access request form, which is sent before they're signed in.
+            localStorage.setItem('launchpad_name', fullName);
 
             // Supabase auth accounts are global across every LaunchPad site on
             // this backend, so it's possible this email already has an
@@ -11714,6 +11828,7 @@ function handleCompanySelectChange() {
 async function submitAccessRequest() {
     const code = document.getElementById('access-code-input').value.trim();
     const email = document.getElementById('access-request-email').value.trim().toLowerCase();
+    const fullName = document.getElementById('access-request-name').value.trim().replace(/\s+/g, ' ');
     const companySelectValue = document.getElementById('access-request-company').value.trim();
     const company = companySelectValue === '__add_new__'
         ? document.getElementById('access-request-new-company').value.trim()
@@ -11733,6 +11848,13 @@ async function submitAccessRequest() {
 
     if (!email || !email.includes('@')) {
         errorEl.innerText = "Please enter your valid email address.";
+        errorEl.style.display = 'block';
+        successEl.style.display = 'none';
+        return;
+    }
+
+    if (!fullName) {
+        errorEl.innerText = "Please enter your full name.";
         errorEl.style.display = 'block';
         successEl.style.display = 'none';
         return;
@@ -11801,11 +11923,17 @@ async function submitAccessRequest() {
         }
 
         // 2. Log the request against THIS project's own access_requests table
-        const { error: dbError } = await _supabase
-            .from(`${prefix}access_requests`)
-            .insert([{ email, company, requested_role: requestedRole }]);
+        // full_name (ARC-209) is added by sync/people_names.sql; until that's
+        // run for a project, send the request without it rather than fail.
+        const request = { email, company, requested_role: requestedRole, full_name: fullName };
+        let { error: dbError } = await _supabase.from(`${prefix}access_requests`).insert([request]);
+        if (dbError && /full_name/.test(dbError.message || '')) {
+            delete request.full_name;
+            ({ error: dbError } = await _supabase.from(`${prefix}access_requests`).insert([request]));
+        }
         
         if (dbError) throw dbError;
+        localStorage.setItem('launchpad_name', fullName);
 
         // 3. Notify that project's own admin via that project's own Apps Script.
         // This is a best-effort notification, not the actual request — the
