@@ -13,6 +13,7 @@ from that project's Google Sheet and LaunchPad's own Supabase data.
 | Equipment Status Tracker | `equipment-tracker.html`, `equipment-tracker-view.js` |
 | Asset Tamper Seal Log | `tamperseal.html`, `tamperseal-view.js` |
 | Tamper Seal Request | `seal-form.html`, `seal-form-view.js` |
+| Power Flow Diagram (tab in LaunchPad, off until enabled in Settings; data in `sync/power_flow.sql`) | `powerflow-view.js` |
 
 ## 2. Stack
 
