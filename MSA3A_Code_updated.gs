@@ -773,6 +773,26 @@ if (action === 'getPhaseRules') {
     return ContentService.createTextOutput(JSON.stringify({data: result})).setMimeType(ContentService.MimeType.JSON);
   }
 
+  // Power Flow Diagram (ARC-237): every LP_Data row in one call, so the
+  // module can colour each asset by its LP Status. Display values, so a
+  // HYPERLINK status comes back as its text.
+  if (action === 'getLpStatus') {
+    var lpSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('LP_Data');
+    if (!lpSheet) return jsonResponse_({ rows: [] });
+    var lpValues = lpSheet.getDataRange().getDisplayValues();
+    if (lpValues.length < 2) return jsonResponse_({ rows: [] });
+    var lpHead = lpValues[0].map(function (h) { return String(h).trim().toLowerCase(); });
+    var iPhase = lpHead.indexOf('phase'), iAsset = lpHead.indexOf('asset'), iStatus = lpHead.indexOf('status');
+    if (iPhase < 0 || iAsset < 0 || iStatus < 0) return jsonResponse_({ rows: [], error: 'LP_Data needs Phase, Asset and Status columns' });
+    var lpRows = [];
+    for (var r = 1; r < lpValues.length; r++) {
+      var lpAsset = String(lpValues[r][iAsset] || '').trim();
+      if (!lpAsset) continue;
+      lpRows.push({ phase: String(lpValues[r][iPhase] || '').trim(), asset: lpAsset, status: String(lpValues[r][iStatus] || '').trim() });
+    }
+    return jsonResponse_({ rows: lpRows });
+  }
+
   if (action === 'getReady') {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("LP_Data"); // Update this to match your actual sheet name if needed
     var data = sheet.getDataRange().getValues();
