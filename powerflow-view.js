@@ -201,6 +201,19 @@ dialog { border: 0; border-radius: 12px; padding: 20px; width: min(720px, calc(1
 dialog::backdrop { background: rgba(20,23,24,.45); }
 textarea { width: 100%; min-height: 220px; font: 12px/1.45 ui-monospace, Consolas, monospace; padding: 10px; border-radius: 6px; border: 1px solid var(--pf-border-strong); background: var(--pf-page); color: var(--pf-text); }
 .empty { padding: 28px; text-align: center; }
+.guide summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.guide summary::-webkit-details-marker { display: none; }
+.guide summary::before { content: ''; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; flex: 0 0 auto; }
+.guide[open] summary::before { transform: rotate(45deg); }
+ol.steps { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.step { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--pf-border); }
+.step .num { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: var(--pf-subtle); color: var(--pf-text2); }
+.step.next .num { background: var(--pf-petrol); color: #fff; }
+.step.done .num { background: var(--pf-green-tint); color: #22663b; }
+.step.done .step-body > *:not(h3) { color: var(--pf-text2); }
+.step-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.step-body h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.step-body ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
 @media (max-width: 768px) { .wrap { padding: 14px 12px 32px; } h1 { font-size: 22px; } .rules-row { grid-template-columns: 1fr; } }
 </style>`;
 
@@ -297,11 +310,18 @@ export class PowerFlowView extends HTMLElement {
     setDarkMode(isDark) { this.classList.toggle('dark-mode', !!isDark); }
 
     // The shell's Settings gear: jump to the rules on Match-up.
+    // The admin settings live on Match-up: the setup guide first, then the
+    // rules.
     openSettings() {
         this.ui.tab = 'matchup';
         this.render();
-        const el = this.$('rules');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        this.scrollToId(this.canSetup ? 'guide' : 'rules');
+    }
+    scrollToId(id) {
+        const el = this.$(id);
+        if (!el) return;
+        if (el.tagName === 'DETAILS') el.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     $(id) { return this.shadowRoot.getElementById(id); }
@@ -614,7 +634,7 @@ export class PowerFlowView extends HTMLElement {
         if (!root) return;
         this.hidePop(true);
         if (this.needsSql) {
-            root.innerHTML = `${this.headerHtml(false)}<div class="card"><h2>One-time setup needed</h2><p>Run <b>sync/power_flow.sql</b> in Supabase to create the power flow tables, then press Refresh.</p></div>`;
+            root.innerHTML = `${this.headerHtml(false)}<div class="card"><h2>One-time setup needed</h2><p>Run <b>sync/power_flow.sql</b> in Supabase to create the power flow tables, then press Refresh.</p></div>${this.canSetup ? this.guideHtml() : ''}`;
             return;
         }
         if (this.err) { root.innerHTML = `${this.headerHtml(false)}<div class="note err">${esc(this.err)}</div>`; return; }
@@ -635,6 +655,7 @@ ${body}`;
         return `<div class="head"><div><div class="eyebrow">${esc(this.PROJECT_KEY)} · ${imp ? 'Imported ' + esc(fmtDate(imp.created_at)) + ' · ' + esc(imp.file_name || 'power-flow file') : 'No power-flow file yet'}</div><h1>Power flow diagram</h1></div>
 <div class="row">
 <button type="button" class="btn" data-act="refresh">Refresh</button>
+${full && this.canSetup ? `<button type="button" class="btn" data-act="openGuide">Setup guide</button>` : ''}
 ${full ? `<button type="button" class="btn" data-act="template">Template &amp; AI prompt</button>` : ''}
 ${full && this.canSetup ? `<button type="button" class="btn primary" data-act="import">Import power-flow file</button>` : ''}
 </div></div>`;
@@ -705,7 +726,7 @@ ${pending ? `<button type="button" class="linkbtn" data-act="tab" data-v="matchu
 
     matchupHtml() {
         if (!this.imp) {
-            return `<div class="card empty"><h2>Nothing to match yet</h2><p class="muted">Import a power-flow file first. Exact tag matches are accepted automatically; everything else shows up here for a decision.</p></div>${this.canSetup ? this.rulesHtml() : ''}${this.logHtml()}`;
+            return `${this.canSetup ? this.guideHtml() : ''}<div class="card empty"><h2>Nothing to match yet</h2><p class="muted">Import a power-flow file first. Exact tag matches are accepted automatically; everything else shows up here for a decision.</p></div>${this.canSetup ? this.rulesHtml() : ''}${this.logHtml()}`;
         }
         const tags = this.tags;
         const review = tags.filter(t => t.edge !== 'exact' || !t.decision.auto);
@@ -743,14 +764,14 @@ ${canAct && !d.auto ? `<br><button type="button" class="linkbtn" data-act="undo"
         const offPending = this.offDrawing.filter(o => o.kind === 'pending');
         const f = this.ui.listFilter.toLowerCase();
         const offShown = this.offDrawing.filter(o => !f || o.name.toLowerCase().includes(f) || String(o.area).toLowerCase().includes(f));
-        return `<div class="row" style="justify-content: space-between">
+        return `${this.canSetup ? this.guideHtml() : ''}<div class="row" style="justify-content: space-between">
 <div class="row"><span class="badge b-success">${matched} matched</span><span class="badge b-progress">${pending} need a decision</span><span class="badge b-closed">${excluded} ignored or track only</span></div>
 <span class="small muted">${exactAuto} exact tag match${exactAuto === 1 ? ' was' : 'es were'} accepted automatically.</span></div>
 ${canAct ? `<label class="field">Reason for your next change (saved to the log)<input type="text" id="note" value="${esc(this.ui.note)}" placeholder="e.g. per RFI-112, confirmed with EOR"></label>` : '<p class="small muted">Only project admins can make Match-up decisions.</p>'}
-<section class="card"><div class="sec-head"><h2>Drawing tags</h2><span class="small muted">Edge cases and anything decided by hand. Exact matches are in the log.</span></div>
+<section class="card" id="tags"><div class="sec-head"><h2>Drawing tags</h2><span class="small muted">Edge cases and anything decided by hand. Exact matches are in the log.</span></div>
 ${review.length ? `<div class="scroll-x"><table><thead><tr><th style="width:170px">Drawing tag</th><th style="width:170px">What it is</th><th style="width:200px">Edge case</th><th>Match or action</th><th style="width:150px">Decision</th></tr></thead><tbody>${review.map(rowHtml).join('')}</tbody></table></div>` : '<p class="muted">Every tag matched the asset list exactly.</p>'}
 </section>
-<section class="card"><div class="sec-head"><h2>In the asset list, not on any drawing</h2><span class="small muted">${offPending.length} of ${this.offDrawing.length} need a decision</span></div>
+<section class="card" id="offlist"><div class="sec-head"><h2>In the asset list, not on any drawing</h2><span class="small muted">${offPending.length} of ${this.offDrawing.length} need a decision</span></div>
 <div class="row"><input type="search" id="listFilter" placeholder="Filter by asset or area" value="${esc(this.ui.listFilter)}" aria-label="Filter assets not on any drawing">
 ${canAct && offPending.length ? `<button type="button" class="btn sm" data-act="offall">Mark ${offShown.filter(o => o.kind === 'pending').length} shown as off power path</button>` : ''}</div>
 <div class="scroll-x" style="max-height:420px;overflow-y:auto"><table style="min-width:560px"><tbody>${offShown.slice(0, 400).map(o => `<tr class="${o.kind === 'pending' ? '' : 'done'}"><td><b>${esc(o.name)}</b>${o.area ? `<br><span class="small muted">${esc(o.area)}</span>` : ''}</td>
@@ -759,6 +780,78 @@ ${canAct && offPending.length ? `<button type="button" class="btn sm" data-act="
 ${offShown.length > 400 ? `<p class="small muted">Showing 400 of ${offShown.length}. Use the filter to narrow it down.</p>` : ''}
 </section>
 <div class="two">${this.canSetup ? this.rulesHtml() : ''}${this.logHtml()}</div>`;
+    }
+
+    // Step-by-step setup for admins. Each step ticks itself off from the
+    // module's real state, so it doubles as a checklist.
+    guideHtml() {
+        const tablesOk = !this.needsSql;
+        const lpOk = this.lpState === 'ok';
+        const hasImport = !!this.imp;
+        const pendingTags = hasImport ? (this.tags || []).filter(t => t.decision.kind === 'pending').length : 0;
+        const pendingOff = hasImport ? (this.offDrawing || []).filter(o => o.kind === 'pending').length : 0;
+        const rulesSet = this.log.some(l => l.kind === 'rule');
+        const btn = (act, label, extra) => `<button type="button" class="btn sm" data-act="${act}"${extra || ''}>${label}</button>`;
+        const steps = [
+            { done: tablesOk, title: 'Create the Power Flow tables (once for all projects)', body: `
+<ol><li>Open the Supabase project's <b>SQL editor</b>.</li>
+<li>Paste the contents of <b>sync/power_flow.sql</b> from the LaunchPad repo and run it. It's safe to run again.</li>
+<li>The last result should list a read and an insert rule for each of the two power flow tables, and no update or delete rules.</li>
+<li>Come back here and press <b>Refresh</b>.</li></ol>` },
+            { done: lpOk, title: 'Connect LP Status from the project\'s Google Sheet', body: `
+<ol><li>Open this project's Google Sheet, then <b>Extensions → Apps Script</b>.</li>
+<li>Replace the script with the latest <b>MSA3A_Code_updated.gs</b> from the LaunchPad repo (it adds the <b>getLpStatus</b> action).</li>
+<li><b>Deploy → Manage deployments</b>, edit the existing web app deployment, choose <b>New version</b> and <b>Deploy</b>. Keep the same deployment so the URL doesn't change.</li>
+<li>Press <b>Refresh</b> here. Until this is done, every matched asset shows as Designed.</li></ol>` },
+            { done: true, title: 'Turn the module on for this project', body: `
+<p>Already on, since you can see it. For reference: open <b>Settings</b> (the gear in the sidebar) on the Schedule, tick <b>Navigation Menu → Power Flow</b> and save. Other people see it the next time they load LaunchPad. Untick it to hide it again; nothing is deleted.</p>` },
+            { done: hasImport, title: 'Make the power-flow file from the single-line drawings', body: `
+<ol><li>Get the single-line sheets as PDFs. Vector PDFs (exported from CAD, not scans) read far more accurately.</li>
+<li>Download the CSV template, then open <b>See the AI prompt</b> and copy it (both buttons are below).</li>
+<li>In Gemini or Claude, attach the PDFs and paste the prompt. Do a few sheets at a time for a large set.</li>
+<li>Save the answer as a <b>.csv</b> file. If you did several batches, paste them into one file under a single header row.</li>
+<li>Spot-check it against the drawings: tags spelled exactly as printed, <b>fed_from_tag</b> pointing at the right upstream gear, and <b>section</b> names your team recognises (they become the diagram's groups).</li></ol>
+<div class="row">${btn('downloadTemplate', 'Download CSV template')}${btn('template', 'See the AI prompt')}</div>` },
+            { done: hasImport, title: 'Import the file', body: `
+<ol><li>Press <b>Import power-flow file</b> and choose the CSV (JSON also works).</li>
+<li>Check the preview: row count, sections, and how many tags match the LaunchPad asset list exactly. Rows without an asset_tag are skipped and listed.</li>
+<li>Confirm. The reason box on Match-up is saved with the import if you fill it in first.</li></ol>
+${hasImport ? `<p class="small muted">Current file: ${esc(this.imp.file_name || 'power-flow file')}, imported ${esc(fmtDate(this.imp.created_at))}.</p>` : ''}
+<div class="row">${btn('import', hasImport ? 'Import a newer file' : 'Import power-flow file')}</div>` },
+            { done: hasImport && pendingTags === 0, title: 'Decide the drawing tags that need it', body: `
+<p>Exact tag matches are accepted automatically. Everything else follows the edge case rules, or waits for you under <b>Drawing tags</b>.</p>
+<ol><li>Type a reason first if there is one (e.g. an RFI number); it's saved with your next decision.</li>
+<li><b>Accept</b> a suggested match, <b>Attach</b> a breaker or component to its parent, or pick the right asset from the list.</li>
+<li>Use <b>Keep as drawing-only</b> for gear that isn't in the asset list, <b>Track only</b> for gear that's shown but not commissioned (by others), and <b>Ignore</b> for spares.</li>
+<li>Every decision is logged and can be undone.</li></ol>
+${hasImport ? `<p class="small"><b>${pendingTags}</b> tag${pendingTags === 1 ? '' : 's'} still need a decision.</p>` : ''}
+<div class="row">${hasImport ? btn('scrollTo', 'Go to drawing tags', ' data-v="tags"') : ''}</div>` },
+            { done: hasImport && pendingOff === 0, title: 'Review assets that aren\'t on any drawing', body: `
+<p>These are in the LaunchPad asset list but not in the file. Either the drawing data is missing them (fix the file and re-import), or they aren't on the power path (mechanical equipment, for example): mark those <b>Off power path</b>. Filter by area and mark a whole group at once if it helps.</p>
+${hasImport ? `<p class="small"><b>${pendingOff}</b> asset${pendingOff === 1 ? '' : 's'} still need a decision.</p>` : ''}
+<div class="row">${hasImport ? btn('scrollTo', 'Go to the list', ' data-v="offlist"') : ''}</div>` },
+            { done: rulesSet, optional: true, title: 'Check the rules (optional)', body: `
+<ol><li><b>Edge cases:</b> choose what LaunchPad does on its own with spares, by-others gear, OFE, close tags and the rest.</li>
+<li><b>Tamper seal required:</b> tick the seal statuses (from this project's Tamper Seal workflow) and the commissioning levels that should raise the red seal flag. The default flags anything at Level 3 or later without an intact or replaced seal.</li>
+<li><b>Status colours:</b> make sure the words match how this project's LP_Data statuses are written (for example "Ready" or "QCx Complete").</li></ol>
+<div class="row">${btn('scrollTo', 'Go to the rules', ' data-v="rules"')}</div>` },
+            { info: true, title: 'Check the diagram, and keep it current', body: `
+<ol><li>Open <b>Asset diagram</b>, pick a section and hover a few assets: the colours, CHK/ISS, schedule and seals should match the Equipment Tracker, Schedule and Tamper Seals.</li>
+<li>When a drawing revision arrives, make a new file and import it. Decisions are kept for tags that are still there; new or changed tags come back here for review.</li>
+<li>Status, checklists, seals and schedule always come live from LaunchPad, so they never need re-importing.</li></ol>
+<div class="row">${btn('tab', 'Open the Asset diagram', ' data-v="diagram"')}</div>` }
+        ];
+        const countable = steps.filter(s => !s.info && !s.optional);
+        const doneCount = countable.filter(s => s.done).length;
+        const allDone = doneCount === countable.length;
+        const firstOpen = steps.findIndex(s => !s.info && !s.optional && !s.done);
+        return `<details class="card guide" id="guide"${allDone ? '' : ' open'}>
+<summary><span><h2 style="display:inline">Setup guide</h2> <span class="small muted">· ${doneCount} of ${countable.length} steps done${allDone ? ' · all set' : ''}</span></span></summary>
+<p class="small muted">Admin only. Follow these in order to set up Power Flow for this project. Steps tick themselves off as LaunchPad sees them done.</p>
+<ol class="steps">${steps.map((s, i) => `<li class="step${s.done && !s.info ? ' done' : ''}${i === firstOpen ? ' next' : ''}">
+<span class="num" aria-hidden="true">${s.done && !s.info ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>' : i + 1}</span>
+<div class="step-body"><h3>${esc(s.title)} ${s.info ? '' : s.done ? '<span class="badge b-success">Done</span>' : s.optional ? '<span class="badge b-draft">Optional</span>' : (i === firstOpen ? '<span class="badge b-progress">Next</span>' : '<span class="badge b-notstarted">To do</span>')}</h3>${s.body}</div></li>`).join('')}</ol>
+</details>`;
     }
 
     rulesHtml() {
@@ -914,6 +1007,8 @@ ${s.inspection_notes ? `<span class="small muted">${esc(s.inspection_notes)}</sp
             case 'section': this.ui.section = el.dataset.v; this.render(); break;
             case 'refresh': this.loaded = false; this.needsSql = false; this.$('root').innerHTML = '<div class="empty muted">Loading power flow…</div>'; this.load(); break;
             case 'closePop': this.hidePop(true); break;
+            case 'openGuide': this.openSettings(); break;
+            case 'scrollTo': this.scrollToId(el.dataset.v); break;
             case 'import': this.$('file').click(); break;
             case 'template': this.showTemplate(); break;
             case 'dlgClose': this.$('dlg').close(); break;
