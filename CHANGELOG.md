@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.13.0...v1.14.0) (2026-11-08)
+
+
+### Features
+
+* **ARC-237:** Power Flow Diagram module, phase 1, hidden until enabled in Settings ([37d4957](https://github.com/CriticalArccx/LaunchPad/commit/37d495724646db99b442a77d4fac5805b5c41774))
+* **ARC-237:** step-by-step setup guide in Power Flow's admin settings ([85df337](https://github.com/CriticalArccx/LaunchPad/commit/85df33736f090f23b77d63627e3c457dd1539109))
+
 ## [1.13.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.12.0...v1.13.0) (2026-11-05)
 
 
