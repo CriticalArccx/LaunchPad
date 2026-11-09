@@ -2481,23 +2481,18 @@ export class TamperSealView extends HTMLElement {
     }
 
     async fetchLookupData() {
-        // Assets and their locations now come from the same dropdownoptions
-        // table the rest of the app already uses (Assets/Places columns) —
-        // no separate AssetRegistry table needed.
-        const { data, error } = await this._supabase.from(this.T('dropdownoptions')).select('Assets, Places');
-
-        if (error) {
-            console.error("Error fetching lookups:", error);
-            return;
-        }
-
-        // Filter unique, non-empty values
-        this.lookupData.assets = [...new Set(data.map(item => item.Assets).filter(Boolean))].sort();
-        this.lookupData.locations = [...new Set(data.map(item => item.Places).filter(Boolean))].sort();
+        // Assets and their locations come from the same shared dropdown
+        // options the rest of the app uses (ARC-238, dropdown-options.js):
+        // the Sheet's assets plus any added in LaunchPad.
+        const { rows } = await LPOptions.load(this._supabase, this.PROJECT_KEY, this.PROJECT_KEY);
+        const { lists } = LPOptions.build(rows);
+        this.lookupData.assets = lists.Assets;
+        this.lookupData.locations = lists.Places;
 
         // Populate HTML Datalists
-        this.$('asset-list').innerHTML = this.lookupData.assets.map(a => `<option value="${a}">`).join('');
-        this.$('location-list').innerHTML = this.lookupData.locations.map(l => `<option value="${l}">`).join('');
+        const attr = v => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        this.$('asset-list').innerHTML = this.lookupData.assets.map(a => `<option value="${attr(a)}">`).join('');
+        this.$('location-list').innerHTML = this.lookupData.locations.map(l => `<option value="${attr(l)}">`).join('');
     }
 
     async toggleEditMode() {

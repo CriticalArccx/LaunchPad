@@ -620,30 +620,11 @@ export class SealFormView extends HTMLElement {
     }
 
     // ===== Reusable Trade Partners company dropdown =====
+    // ARC-238: from the shared dropdown options. This form is opened from a
+    // QR code without signing in, so it asks by the project's public uuid
+    // and gets back only company names.
     async fetchTradePartnersForProject() {
-        const companies = [];
-        let page = 0;
-        const pageSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-            const { data, error } = await this._supabase
-                .from(this.T('dropdownoptions'))
-                .select('Trade_Partners')
-                .range(page * pageSize, (page + 1) * pageSize - 1);
-
-            if (error || !data || data.length === 0) { hasMore = false; break; }
-
-            data.forEach(row => {
-                const trade = row.Trade_Partners?.toString().trim();
-                if (trade && !companies.includes(trade)) companies.push(trade);
-            });
-
-            if (data.length < pageSize) hasMore = false;
-            page++;
-        }
-
-        return companies.sort();
+        return LPOptions.tradePartners(this._supabase, { publicUuid: this.PROJECT_ID, prefix: this.PROJECT_KEY });
     }
 
     async loadCompanyOptions(selectId) {
