@@ -2882,6 +2882,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     <table id="grid"></table>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="dropdown-options.js"></script>
     <script src="settings.js"></script>
 
 <script>
@@ -6576,11 +6577,24 @@ function initRealtimeSync() {
     // If another user adds an activity/asset in settings, it instantly pushes to everyone's dropdowns
     _supabase
         .channel('dropdown-sync')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: T('dropdownoptions') 
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'launchpad_dropdown_options',
+            filter: `project_key=eq.${window.LP_CONFIG.projectKey}`
         }, payload => {
+            if (window.dropdownMode !== 'shared') return;
+            console.log("System data changed by another user. Refreshing dropdowns silently...");
+            fetchDropdownOptions();
+        })
+        // Projects not yet switched to the shared table (ARC-238) still use
+        // their old {prefix}dropdownoptions table.
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: T('dropdownoptions')
+        }, payload => {
+            if (window.dropdownMode === 'shared') return;
             console.log("System data changed by another user. Refreshing dropdowns silently...");
             fetchDropdownOptions();
         })
@@ -7102,7 +7116,7 @@ async function loadPickerAccessRequests(adminProjects) {
         // Trade partners feed the same company editor the in-project list uses.
         const [{ data, error }, companies] = await Promise.all([
             _supabase.from(`${p.table_prefix}access_requests`).select('*'),
-            fetchTradePartnersForProject(p.table_prefix)
+            fetchTradePartnersForProject(p)
         ]);
         if (error) {
             console.error('Picker: could not load access requests for', p.project_key, error);
@@ -8264,6 +8278,9 @@ async function saveAllSettings(btn) {
     appConfig.sidebar.sealForm = document.getElementById('cfg-nav-sealform').checked;
     appConfig.sidebar.feedback = document.getElementById('cfg-nav-feedback').checked;
     appConfig.sidebar.powerFlow = document.getElementById('cfg-nav-powerflow').checked;
+    // Which dropdown table this project uses (ARC-238, Settings > Dropdown Management)
+    const ddShared = document.getElementById('cfg-dd-shared');
+    if (ddShared) appConfig.dropdownSource = ddShared.checked ? 'shared' : 'legacy';
 
     // 2. Gather Schedule Config
     scheduleColConfig.forEach(col => {
@@ -8516,64 +8533,31 @@ function rebuildFilterOptionsFromBackendData(rows) {
     renderSidebarFilters();
 }
 
+// Dropdown lists come from the project's old {prefix}dropdownoptions table
+// until an admin switches it to the shared launchpad_dropdown_options table
+// (ARC-238; see dropdown-options.js) in Settings > Dropdown Management: the
+// project's Sheet assets plus anything added in LaunchPad. A switched
+// project still falls back to the old table if the shared one can't be read.
 async function fetchDropdownOptions() {
-    const newData = { col1: [], col2: [], col3: [], col4: [], col6: [], col7: [] };
-    const assetToPlaceMap = {}; // Dictionary to link Assets to Places
+    const { mode, wanted, rows } = await LPOptions.load(_supabase, window.LP_CONFIG.projectKey, window.LP_CONFIG.tablePrefix);
+    const { lists, placeByAsset } = LPOptions.build(rows);
+    const newData = {
+        col1: lists.Times,
+        col2: lists.Places,          // Place is Col 2
+        col3: lists.Activities,      // Activity is Col 3
+        col4: lists.Assets,
+        col6: lists.Trade_Partners,
+        col7: lists.Results
+    };
+    const assetToPlaceMap = placeByAsset; // Dictionary to link Assets to Places
 
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-
-    // Loop through Supabase pages until all rows are loaded
-    while (hasMore) {
-        const { data, error } = await _supabase
-            .from(T('dropdownoptions'))
-            .select('Times, Places, Activities, Assets, Trade_Partners, Results')
-            .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (error || !data || data.length === 0) {
-            hasMore = false;
-            break;
-        }
-
-        data.forEach(row => {
-            const time = row.Times?.toString().trim();
-            const place = row.Places?.toString().trim();
-            const activity = row.Activities?.toString().trim();
-            const asset = row.Assets?.toString().trim();
-            const trade = row.Trade_Partners?.toString().trim();
-            const result = row.Results?.toString().trim();
-
-            if (time && !newData.col1.includes(time)) newData.col1.push(time);
-            if (place && !newData.col2.includes(place)) newData.col2.push(place);          // Place is Col 2
-            if (activity && !newData.col3.includes(activity)) newData.col3.push(activity); // Activity is Col 3
-            if (asset && !newData.col4.includes(asset)) newData.col4.push(asset);
-            if (trade && !newData.col6.includes(trade)) newData.col6.push(trade);
-            if (result && !newData.col7.includes(result)) newData.col7.push(result);
-
-            if (asset && place) {
-                assetToPlaceMap[asset] = place;
-            }
-        });
-
-        // If less than 1,000 rows were returned, we have reached the end
-        if (data.length < pageSize) {
-            hasMore = false;
-        } else {
-            page++;
-        }
-    }
-
-    newData.col1.sort();
-    newData.col2.sort();
-    newData.col3.sort();
-    newData.col4.sort();
-    newData.col6.sort();
-    newData.col7.sort();
-
-    // SWAP the data globally
+    // SWAP the data globally. dropdownRows (every option, hidden ones too,
+    // with its source) is what Settings > Dropdown Management lists.
     window.dropdownData = newData;
     window.assetToPlaceMap = assetToPlaceMap;
+    window.dropdownRows = rows;
+    window.dropdownMode = mode;       // the table actually read
+    window.dropdownWanted = wanted;   // the table this project is set to use
     LP_CACHE.set('dropdownData', { dropdownData: newData, assetToPlaceMap });
 
     console.log(`✅ Dropdown data synced (${newData.col4.length} assets loaded).`);
@@ -11769,39 +11753,15 @@ function switchToLoginView() {
 // Debounced so we're not hammering Supabase on every keystroke before the
 // 6th digit lands.
 let __accessCodeLookupTimer = null;
-// Same pagination approach as fetchDropdownOptions() — dropdownoptions can
-// have far more than 1000 rows (one row per possible option value across
-// six different dropdown categories), and a single unbounded .select()
-// gets silently capped at Supabase's default row limit, which can miss
-// real Trade Partner entries entirely if they don't happen to sit within
-// whatever the first page returns.
-async function fetchTradePartnersForProject(tablePrefix) {
-    const companies = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-        const { data, error } = await _supabase
-            .from(`${tablePrefix}dropdownoptions`)
-            .select('Trade_Partners')
-            .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (error || !data || data.length === 0) {
-            hasMore = false;
-            break;
-        }
-
-        data.forEach(row => {
-            const trade = row.Trade_Partners?.toString().trim();
-            if (trade && !companies.includes(trade)) companies.push(trade);
-        });
-
-        if (data.length < pageSize) hasMore = false;
-        page++;
-    }
-
-    return companies.sort();
+// A project's Trade Partners (ARC-238: from the shared dropdown options).
+// Signed out (the access request) it's looked up by the access code, which
+// returns only company names; signed in, by project key.
+async function fetchTradePartnersForProject(project, accessCode) {
+    return LPOptions.tradePartners(_supabase, {
+        projectKey: accessCode ? null : project.project_key,
+        prefix: project.table_prefix,
+        accessCode: accessCode || null
+    });
 }
 
 function handleAccessCodeInput() {
@@ -11855,7 +11815,7 @@ function handleAccessCodeInput() {
         // Pull that project's own Trade Partners (col6) list, same source
         // the in-app dropdowns use, so this matches whatever that project
         // actually calls its contractors/companies.
-        const companies = await fetchTradePartnersForProject(project.table_prefix);
+        const companies = await fetchTradePartnersForProject(project, code);
 
         companySelect.innerHTML = '<option value="">Select Company...</option>';
         companies.forEach(c => companySelect.add(new Option(c, c)));

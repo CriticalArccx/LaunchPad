@@ -1239,13 +1239,33 @@ export class BridgeView extends HTMLElement {
             5500
         );
     },
+    // One load of the project's options serves all five lists (and the
+    // asset lookup maps) in the same refresh. Its mode says which table the
+    // project uses: 'shared' (ARC-238) or 'legacy', the old
+    // {prefix}dropdownoptions table, which keeps its original behaviour
+    // below until the project is switched in Settings.
+    _loadOptions() {
+        if (!self._optionsLoad || Date.now() - self._optionsLoad.at > 3000) {
+            self._optionsLoad = { at: Date.now(), p: LPOptions.load(self._supabase, self.PROJECT_KEY, self.PROJECT_KEY) };
+        }
+        return self._optionsLoad.p;
+    },
+    _sheetOwned(name) {
+        return `"${name}" comes from the Google Sheet's Equipment tab. Rename or remove it there.`;
+    },
+    _optionError(e) {
+        console.warn('Dropdown option change refused or failed:', e.message || e);
+        self.setSaveIndicator('error', 'Save failed');
+        self.toast(e.message || 'Saving the option failed.', 5500);
+        return null;
+    },
     async fetchAll(table) {
         if (table === 'types') {
             return self.loadLocalTypes() || DEFAULT_TYPE_COLORS.map(t => ({ ...t }));
         }
         const column = DROPDOWN_COLUMN[table];
-        if (column && self._supabase) {
-            // one row per option, all packed into one column of the shared table
+        if (column && self._supabase && (await this._loadOptions()).mode !== 'shared') {
+            // old table: one row per option, all packed into one column
             const { data, error } = await self._supabase
                 .from(self.TABLES.dropdowns)
                 .select(`id, "${column}"`)
@@ -1253,6 +1273,16 @@ export class BridgeView extends HTMLElement {
                 .order(column, { ascending: true });
             if (error) { this._reportError('load', self.TABLES.dropdowns, error); return []; }
             return (data || []).map(r => ({ id: r.id, name: r[column] }));
+        }
+        if (column && self._supabase) {
+            // ARC-238: the shared launchpad_dropdown_options table (via
+            // dropdown-options.js), active options only. id is the option's
+            // current row id; source says whether the Sheet owns it.
+            const { rows } = await this._loadOptions();
+            return rows
+                .filter(r => r.list === column && r.active !== false)
+                .map((r, i) => ({ id: r.id != null ? String(r.id) : `${column}-${i}`, name: r.value, source: r.source }))
+                .sort((a, b) => a.name.localeCompare(b.name));
         }
         if (!column && self._supabase) {
             // items: query the real table directly. Paginated explicitly —
@@ -1285,11 +1315,19 @@ export class BridgeView extends HTMLElement {
             return row;
         }
         const column = DROPDOWN_COLUMN[table];
-        if (column && self._supabase) {
-            // new option = a new row in the shared table with just this one column set
+        if (column && self._supabase && (await this._loadOptions()).mode !== 'shared') {
+            // old table: a new row with just this one column set
             const { data, error } = await self._supabase.from(self.TABLES.dropdowns).insert({ [column]: row.name }).select();
             if (error) { this._reportError('save', self.TABLES.dropdowns, error); return null; }
             return { id: data[0].id, name: data[0][column] };
+        }
+        if (column && self._supabase) {
+            // new option = a new 'manual' row in launchpad_dropdown_options
+            try {
+                const saved = await LPOptions.add(self._supabase, self.PROJECT_KEY, column, row.name, { note: 'Added in The Bridge' });
+                self._optionsLoad = null;
+                return { id: String(saved.id), name: saved.value, source: saved.source };
+            } catch (e) { return this._optionError(e); }
         }
         if (!column && self._supabase) {
             // {PROJECT_KEY}schedule_items.id is a real Postgres uuid column with its own
@@ -1316,11 +1354,23 @@ export class BridgeView extends HTMLElement {
             return null;
         }
         const column = DROPDOWN_COLUMN[table];
-        if (column && self._supabase) {
-            // renaming an option = updating that one column's value on its row
+        if (column && self._supabase && (await this._loadOptions()).mode !== 'shared') {
+            // old table: update that one column's value on its row
             const { data, error } = await self._supabase.from(self.TABLES.dropdowns).update({ [column]: patch.name }).eq('id', id).select();
             if (error) { this._reportError('save', self.TABLES.dropdowns, error); return null; }
             return { id: data[0].id, name: data[0][column] };
+        }
+        if (column && self._supabase) {
+            // renaming an option = the new name added and the old one hidden
+            // (nothing is overwritten). Assets from the Sheet are renamed there.
+            if (patch.name == null) return null;
+            const old = (self.DATA[table] || []).find(r => r.id === id);
+            if (old && old.source === 'sheet') { return this._optionError(new Error(this._sheetOwned(old.name))); }
+            try {
+                const saved = await LPOptions.rename(self._supabase, self.PROJECT_KEY, column, old ? old.name : patch.name, patch.name);
+                self._optionsLoad = null;
+                return { id: String(saved.id), name: saved.value, source: saved.source };
+            } catch (e) { return this._optionError(e); }
         }
         if (!column && self._supabase) {
             const { data, error } = await self._supabase.from(table).update(patch).eq('id', id).select();
@@ -1339,6 +1389,19 @@ export class BridgeView extends HTMLElement {
             return true;
         }
         const column = DROPDOWN_COLUMN[table];
+        if (column && self._supabase && (await this._loadOptions()).mode === 'shared') {
+            // removing an option hides it (a new row); it's never deleted
+            const old = (self.DATA[table] || []).find(r => r.id === id);
+            if (!old) return false;
+            if (old.source === 'sheet') { this._optionError(new Error(this._sheetOwned(old.name))); return false; }
+            try {
+                await LPOptions.setActive(self._supabase, self.PROJECT_KEY, column, old.name, false, 'Removed in The Bridge');
+                self._optionsLoad = null;
+                return true;
+            } catch (e) { this._optionError(e); return false; }
+        }
+        // old table (unchanged from before ARC-238): deleting an option
+        // removes its whole row, which only ever has the one column set
         const real = column ? self.TABLES.dropdowns : table;
         if (self._supabase) {
             // deleting an option removes its whole row — each row in the
@@ -2285,19 +2348,11 @@ export class BridgeView extends HTMLElement {
     // LaunchPad does, instead of asking the user to pick them separately.
     async fetchAssetLookupMaps() {
         if (!this._supabase) { this.ASSET_TO_ZONE_MAP = {}; this.ASSET_TO_AREA_MAP = {}; return; }
-        const { data, error } = await this._supabase
-            .from(this.TABLES.dropdowns)
-            .select('Assets, Zone, Places')
-            .range(0, 1000);
-        if (error) { console.error('Asset lookup fetch failed', error); return; }
-        const zoneMap = {}, areaMap = {};
-        (data || []).forEach(row => {
-            const asset = row.Assets?.toString().trim();
-            const zone = row.Zone?.toString().trim();
-            const place = row.Places?.toString().trim();
-            if (asset && zone) zoneMap[asset] = zone;
-            if (asset && place) areaMap[asset] = place;
-        });
+        // Each asset's Zone and Place: on its own row in the shared table
+        // (ARC-238), or from the same row of the old table (LPOptions reads
+        // whichever this project uses).
+        const { rows } = await this.DB._loadOptions();
+        const { zoneByAsset: zoneMap, placeByAsset: areaMap } = LPOptions.build(rows);
         this.ASSET_TO_ZONE_MAP = zoneMap;
         this.ASSET_TO_AREA_MAP = areaMap;
     }
@@ -5436,7 +5491,9 @@ export class BridgeView extends HTMLElement {
         const trimmed = newName.trim();
         const row = this.DATA[table].find(r => r.id === id);
         const oldName = row ? row.name : null;
-        await this.DB.update(this.TABLES[table], id, { name: trimmed });
+        const saved = await this.DB.update(this.TABLES[table], id, { name: trimmed });
+        // A refused rename (e.g. an asset the Sheet owns) puts the old name back.
+        if (!saved && DROPDOWN_COLUMN[this.TABLES[table]]) { this.renderListsManager(); return; }
         if (row) row.name = trimmed;
         if (table === 'zones' && oldName && oldName !== trimmed) {
             const endDate = this.getZoneEndDate(oldName);
@@ -5458,7 +5515,8 @@ export class BridgeView extends HTMLElement {
     async deleteListItem(table, id) {
         if (!confirm('Remove this item from the list? (Existing schedule items keep their values.)')) return;
         const row = this.DATA[table].find(r => r.id === id);
-        await this.DB.remove(this.TABLES[table], id);
+        const removed = await this.DB.remove(this.TABLES[table], id);
+        if (!removed && DROPDOWN_COLUMN[this.TABLES[table]]) return;
         this.DATA[table] = this.DATA[table].filter(r => r.id !== id);
         if (table === 'zones' && row) this.setZoneEndDate(row.name, null);
         this.renderListsManager();

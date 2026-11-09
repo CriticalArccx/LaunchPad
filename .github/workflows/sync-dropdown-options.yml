@@ -1,0 +1,31 @@
+name: Sync Asset Dropdowns from Google Sheets
+
+# Keeps each project's asset dropdown in step with its Sheet's Equipment tab
+# (ARC-238). Runs every 15 minutes, but a project only syncs when one of the
+# times its admins set in Settings > Status Refresh Schedule has passed since
+# its last sync. "Run workflow" by hand syncs straight away. See
+# sync/sync-dropdown-options.mjs.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      project_key:
+        description: 'Sync only this one project_key (leave blank to sync all)'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync asset lists into Supabase
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SYNC_ONLY_PROJECT: ${{ github.event.inputs.project_key }}
+          FORCE_SYNC: ${{ github.event_name == 'workflow_dispatch' }}
+        run: node sync/sync-dropdown-options.mjs

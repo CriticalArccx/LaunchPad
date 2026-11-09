@@ -31,6 +31,15 @@ Google Sheet (per project) → Apps Script → GitHub Action (`sync/sync-equipme
 → Supabase → browser. See [DASHBOARD-README.md](DASHBOARD-README.md) for the dashboard's
 tables and fields.
 
+Dropdown options (every project, one table): `launchpad_dropdown_options`, from
+`sync/dropdown_options.sql`, read and written through `dropdown-options.js`. Assets come
+from each Sheet's Equipment tab via Apps Script `getAssetList` and
+`sync/sync-dropdown-options.mjs`, at the project's Status Refresh Schedule times. Assets
+added in LaunchPad are kept alongside them. Projects move over one at a time: each keeps
+its old `{prefix}dropdownoptions` table until an admin switches it in Settings → Dropdown
+Management. See
+[ADR 0002](docs/adr/0002-shared-dropdown-options.md).
+
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared
 calendar in step, one way. Setup steps are at the top of that file; see

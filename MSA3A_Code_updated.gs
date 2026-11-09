@@ -793,6 +793,39 @@ if (action === 'getPhaseRules') {
     return jsonResponse_({ rows: lpRows });
   }
 
+  // Asset dropdowns (ARC-238): every asset on the Equipment tab, so
+  // LaunchPad's sync can keep its asset list in step with this Sheet.
+  // Columns are matched by header name, the same way the checklist matrix
+  // reads this tab: Asset (or Name), Area (or Space), Zone, Equipment ID
+  // (or ID) and Type (or Asset Type). Display values, so a HYPERLINK comes
+  // back as its text.
+  if (action === 'getAssetList') {
+    var eqSs = SpreadsheetApp.getActiveSpreadsheet();
+    var eqTab = eqSs.getSheetByName('Equipment') || eqSs.getSheetByName('Assets');
+    if (!eqTab) return jsonResponse_({ rows: [], error: "No 'Equipment' tab in this Sheet" });
+    var eqValues = eqTab.getDataRange().getDisplayValues();
+    if (eqValues.length < 2) return jsonResponse_({ rows: [], tab: eqTab.getName() });
+    var eqHead = eqValues[0].map(function (h) { return String(h).trim().toLowerCase(); });
+    var eqCol = function (names) {
+      for (var n = 0; n < names.length; n++) { var at = eqHead.indexOf(names[n]); if (at !== -1) return at; }
+      return -1;
+    };
+    var iName = eqCol(['asset', 'name']);
+    if (iName < 0) return jsonResponse_({ rows: [], error: 'The Equipment tab needs an Asset or Name column' });
+    // Place: the first of these headers the tab has.
+    var iPlace = eqCol(['place', 'location', 'area', 'space', 'room']), iZone = eqCol(['zone']);
+    var iEqId = eqCol(['equipment_id', 'equipment id', 'id']), iType = eqCol(['type', 'asset type']);
+    var cell = function (row, i) { return i < 0 ? '' : String(row[i] || '').trim(); };
+    var eqRows = [];
+    for (var er = 1; er < eqValues.length; er++) {
+      var eqName = cell(eqValues[er], iName);
+      if (!eqName) continue;
+      eqRows.push({ asset: eqName, place: cell(eqValues[er], iPlace), zone: cell(eqValues[er], iZone),
+                    equipment_id: cell(eqValues[er], iEqId), type: cell(eqValues[er], iType) });
+    }
+    return jsonResponse_({ rows: eqRows, tab: eqTab.getName(), has_place: iPlace >= 0 });
+  }
+
   if (action === 'getReady') {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("LP_Data"); // Update this to match your actual sheet name if needed
     var data = sheet.getDataRange().getValues();
