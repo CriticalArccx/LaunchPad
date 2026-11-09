@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.14.0...v1.15.0) (2026-11-09)
+
+
+### Features
+
+* **ARC-238:** shared dropdown options, assets synced from each project's Sheet ([42a2d14](https://github.com/CriticalArccx/LaunchPad/commit/42a2d141e0dc4efe24b7b42953ab80ce31d5dff7))
+
 ## [1.14.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.13.0...v1.14.0) (2026-11-08)
 
 
