@@ -251,7 +251,7 @@ export class CriticalArcDashboard {
             <div class="ca-checkgroup" id="ca-fDiscipline"></div>
             <div class="ca-side-label">Contractor / Assigned To</div>
             <div class="ca-checkgroup" id="ca-fContractor"></div>
-            <div class="ca-side-label">Status</div>
+            <div class="ca-side-label">Issue Status</div>
             <div class="ca-checkgroup" id="ca-fStatus"></div>
             <div class="ca-side-label">Building Phase</div>
             <div class="ca-checkgroup" id="ca-fPhase"></div>
@@ -355,12 +355,17 @@ export class CriticalArcDashboard {
     return m.toISOString().slice(0, 10);
   }
 
-  applyFilters(rows) {
+  // The Status filter lists ISSUE statuses, so it only applies when asked
+  // for (the Issues tab). Checklists, tests, equipment and the Path to
+  // Completion snapshots have statuses of their own (ARC-294).
+  // Note: equipment rows carry no assigned_company (see the Apps Script's
+  // buildDashboardJson_), so any Contractor filter empties the Equipment tab.
+  applyFilters(rows, withIssueStatus) {
     const f = this.STATE.filters;
     return rows.filter(r => {
       if (f.discipline.length && !f.discipline.includes(r.discipline)) return false;
       if (f.contractor.length && !f.contractor.includes(r.assigned_company)) return false;
-      if (f.status.length && !f.status.includes(r.status)) return false;
+      if (withIssueStatus && f.status.length && !f.status.includes(r.status)) return false;
       if (f.phase.length && !f.phase.includes(this.phaseOf(r))) return false;
       return true;
     });
@@ -599,15 +604,18 @@ export class CriticalArcDashboard {
 
   renderAll() {
     const d = this.STATE.data;
-    const issues = this.applyFilters(d.issues);
+    const issues = this.applyFilters(d.issues, true);
+    // Tests and Equipment count open issues per asset; the Issue Status
+    // filter must not change those counts either.
+    const issuesAnyStatus = this.applyFilters(d.issues);
     const checklists = this.applyFilters(d.checklists);
     const tests = this.applyFilters(d.tests);
     const equipment = this.applyFilters(d.equipment);
     
     this.renderIssues(issues);
     this.renderChecklists(checklists);
-    this.renderTests(tests, issues);
-    this.renderEquipment(equipment, checklists, tests, issues);
+    this.renderTests(tests, issuesAnyStatus);
+    this.renderEquipment(equipment, checklists, tests, issuesAnyStatus);
     
     // An admin can override the synced project_name with a cleaner display
     // name via Dashboard Settings (saved to launchpad_projects.dashboard_
@@ -948,14 +956,14 @@ export class CriticalArcDashboard {
     const pct = total ? (done / total * 100).toFixed(1) : '0.0';
 
     // Snapshots are filtered like the live rows so the line agrees with the
-    // cards. The phase filter cannot apply: snapshots carry no asset.
+    // cards. The phase filter cannot apply: snapshots carry no asset. The
+    // Issue Status filter doesn't apply to checklists (ARC-294).
     const f = this.STATE.filters;
     const perDate = new Map();
     (this.STATE.snapshots || []).forEach(s => {
       if (scopeType && s.type_name !== scopeType) return;
       if (f.discipline.length && !f.discipline.includes(s.discipline)) return;
       if (f.contractor.length && !f.contractor.includes(s.assigned_company)) return;
-      if (f.status.length && !f.status.includes(s.status)) return;
       perDate.set(s.snapshot_date, (perDate.get(s.snapshot_date) || 0) +
         (this.isVerified({ status: s.status }) ? s.checklist_count : 0));
     });
