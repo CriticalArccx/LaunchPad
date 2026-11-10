@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.15.0...v1.15.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **ARC-287:** escape Sheet values and search text on the Dashboard ([6a04de8](https://github.com/CriticalArccx/LaunchPad/commit/6a04de87d1ab03d0a98337e97ad3c9490ee1e072))
+* **ARC-287:** escape Sheet values and search text on the Dashboard ([16f2127](https://github.com/CriticalArccx/LaunchPad/commit/16f21273c6fee0c26b00e8997cbeab0c75110a6b))
+
 ## [1.15.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.14.0...v1.15.0) (2026-11-09)
 
 
