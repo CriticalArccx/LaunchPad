@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.16.0...v1.17.0) (2026-11-10)
+
+
+### Features
+
+* **ARC-298:** keep deleted Schedule lines, with a line_status column and Restore ([a8f2bf8](https://github.com/CriticalArccx/LaunchPad/commit/a8f2bf84fdc76c1cedc860cc93b8917156fdafda))
+* **ARC-298:** keep deleted Schedule lines, with a line_status column and Restore ([d337cc8](https://github.com/CriticalArccx/LaunchPad/commit/d337cc85871ee37888dd0620180a9c2bcfaaeed5))
+
 ## [1.16.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.15.2...v1.16.0) (2026-11-10)
 
 
