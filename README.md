@@ -40,6 +40,12 @@ its old `{prefix}dropdownoptions` table until an admin switches it in Settings �
 Management. See
 [ADR 0002](docs/adr/0002-shared-dropdown-options.md).
 
+New projects: the platform owner creates them from "+ Add new project" in the project
+picker or the Switch Project menu (`project-setup.js`, `sync/new_project.sql`). The new
+project's tables copy the structure of an existing project's, and chosen settings can be
+copied from any project, then or later from Settings → Copy Settings. See
+[ADR 0003](docs/adr/0003-create-projects-in-launchpad.md).
+
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared
 calendar in step, one way. Setup steps are at the top of that file; see
