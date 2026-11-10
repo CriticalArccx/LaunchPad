@@ -1,5 +1,13 @@
 // dashboard.js
 
+// Escapes text for HTML (element content and quoted attributes). Every value
+// that comes from a project's Sheet, and the search box text, goes through
+// this before it is put into innerHTML (ARC-287). Labels written in this file
+// (table headers, KPI titles) may contain entities and are left as they are.
+const esc = (v) => String(v == null ? '' : v)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 export class CriticalArcDashboard {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
@@ -317,10 +325,12 @@ export class CriticalArcDashboard {
   
   chartBox(id, h) { return `<div class="ca-chart" id="${id}" style="height:${h||360}px"></div>`; }
   
+  // cols[].label is markup written in this file; every cell value is
+  // escaped, since most of them come from the project's Sheet.
   table(cols, rows) {
     const head = cols.map(c => `<th>${c.label}</th>`).join('');
     const body = rows.map(r => '<tr>' + cols.map(c =>
-      `<td>${r[c.k] === null || r[c.k] === undefined ? '' : r[c.k]}</td>`).join('') + '</tr>').join('');
+      `<td>${esc(r[c.k])}</td>`).join('') + '</tr>').join('');
     return `<div class="ca-table-wrap"><table class="dt"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
 
@@ -417,7 +427,6 @@ export class CriticalArcDashboard {
   }
 
   buildCheckGroup(id, values) {
-    const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     this.q(id).innerHTML = values.map(v =>
       `<label><input type="checkbox" value="${esc(v)}" /><span title="${esc(v)}">${esc(v)}</span></label>`
     ).join('');
@@ -1137,9 +1146,9 @@ export class CriticalArcDashboard {
       this.kpi('Delivered', delivered, 'kpi-blue') + this.kpi('Installing', installing, 'kpi-green') + '</div>';
     html += `<div class="ca-eq-filters" style="margin-top:16px">
       <div><div class="ca-side-label">Building Phase</div>
-        <select id="ca-eqBldg">${bldgs.map(b => `<option ${b===this.EQ_FILTER.bldg?'selected':''}>${b}</option>`).join('')}</select></div>
+        <select id="ca-eqBldg">${bldgs.map(b => `<option ${b===this.EQ_FILTER.bldg?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
       <div><div class="ca-side-label">Floor</div>
-        <select id="ca-eqFloor">${floors.map(f => `<option ${f===this.EQ_FILTER.floor?'selected':''}>${f}</option>`).join('')}</select></div>
+        <select id="ca-eqFloor">${floors.map(f => `<option ${f===this.EQ_FILTER.floor?'selected':''}>${esc(f)}</option>`).join('')}</select></div>
     </div>`;
     html += `<div id="ca-eq-body"></div>`;
     root.innerHTML = html;
@@ -1161,7 +1170,7 @@ export class CriticalArcDashboard {
     html += this.section('Checklist Completion by Equipment') +
       `<div class="ca-caption">Sorted by lowest completion — the holdbacks rise to the top.</div>
        <div class="ca-eq-search-wrap">
-         <input type="text" id="ca-eqSearch" placeholder="Search equipment name or type…" value="${this.EQ_SEARCH.q}" />
+         <input type="text" id="ca-eqSearch" placeholder="Search equipment name or type…" value="${esc(this.EQ_SEARCH.q)}" />
          <label><input type="checkbox" id="ca-eqIncomplete" ${this.EQ_SEARCH.incompleteOnly ? 'checked' : ''}/> Incomplete only</label>
        </div>
        <div id="ca-eq-cl-table"></div>`;
@@ -1203,7 +1212,7 @@ export class CriticalArcDashboard {
       Equipment: e.name, Type: e.type, Phase: e.building_phase, Floor: e.floor_parsed,
       'CL %': pct + '%', 'CL Done': `${e.cl_done}/${e.cl_total}`, 'Open Issues': e.iss_open || 0, Tests: `${e.ts_passed}/${e.ts_total}`, Status: e.status,
     }));
-    cont.innerHTML = `<div class="ca-caption">${rows.length} equipment${this.EQ_SEARCH.incompleteOnly ? ' with incomplete checklists' : ''}${q ? ` matching “${q}”` : ''}.</div>` +
+    cont.innerHTML = `<div class="ca-caption">${rows.length} equipment${this.EQ_SEARCH.incompleteOnly ? ' with incomplete checklists' : ''}${q ? ` matching “${esc(q)}”` : ''}.</div>` +
       (rows.length ? this.table(['Equipment','Type','Phase','Floor','CL %','CL Done','Open Issues','Tests','Status'].map(k => ({ k, label: k })), rows) : '<div class="ca-ok">✅ No matching equipment.</div>');
   }
 }
