@@ -52,6 +52,11 @@ free again. The app only sees live lines. Schedule → Deleted lines restores on
 (`schedule-deleted-lines.js`, `sync/schedule_line_status.sql`). See
 [ADR 0004](docs/adr/0004-keep-deleted-schedule-lines.md).
 
+Tamper seal requests reach the CCM in one email a day. The seal form adds a row to
+`launchpad_seal_notifications` (`sync/seal_digest.sql`), and `apps-script/SealDigest.gs` in the
+project's Apps Script sends the digest to the recipients and at the time set in Tamper Seal
+Settings → Notifications. See [ADR 0005](docs/adr/0005-daily-ccm-seal-digest.md).
+
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared
 calendar in step, one way. Setup steps are at the top of that file; see

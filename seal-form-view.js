@@ -229,6 +229,30 @@ export class SealFormView extends HTMLElement {
         this.$$('.card input, .card select, .card textarea').forEach(el => { el.disabled = busy; });
     }
 
+    // The CCM hears about Break Requests and Ready for Reseal in one email
+    // a day (ARC-323): this adds a row to launchpad_seal_notifications, and
+    // apps-script/SealDigest.gs sends the digest at the time set in Tamper
+    // Seal Settings -> Notifications. The form used to call the project's
+    // Apps Script (?action=notifyCCM) and wait many seconds for it before
+    // showing the success screen. Best-effort, like the other logs: the
+    // seal's own status change is what counts.
+    async queueCcmNotification(event, fields) {
+        try {
+            const { error } = await this._supabase.from('launchpad_seal_notifications')
+                .insert([{ project_key: this.PROJECT_KEY, event, ...fields }]);
+            if (error) console.warn('CCM digest entry not saved (the submit itself was still saved):', error);
+        } catch (e) { console.warn('CCM digest entry not saved (the submit itself was still saved):', e); }
+    }
+
+    // Best-effort log inserts. supabase-js reports a failed insert in
+    // { error } rather than throwing, so both are checked.
+    async logInsert(table, rows, what) {
+        try {
+            const { error } = await this._supabase.from(this.T(table)).insert(rows);
+            if (error) console.warn(`${table} log insert failed (${what} itself was still saved):`, error);
+        } catch (e) { console.warn(`${table} log insert failed (${what} itself was still saved):`, e); }
+    }
+
     // A document-level click listener sees `event.target` retargeted to
     // this element itself (Shadow DOM retargeting), not the actual element
     // that was clicked inside the shadow tree — composedPath() is the
@@ -705,18 +729,22 @@ export class SealFormView extends HTMLElement {
         });
 
         let updatedCount = 0;
-        for (const [status, entries] of Object.entries(groups)) {
-            const ids = entries.map(e => e.id);
-            // Chaining .select() is what makes this verifiable — a
-            // plain .update() call doesn't error when RLS silently
-            // filters it down to zero affected rows, it just "succeeds"
-            // having changed nothing. Checking the returned rows is the
-            // only way to tell the difference between an actual write
-            // and a write RLS quietly blocked.
-            const { data: updatedRows, error } = await this._supabase.from(this.T('Assets'))
+        // One update per target status, sent together rather than one
+        // after another: they touch different seals, so order doesn't matter.
+        // Chaining .select() is what makes each verifiable — a plain
+        // .update() call doesn't error when RLS silently filters it down
+        // to zero affected rows, it just "succeeds" having changed nothing.
+        // Checking the returned rows is the only way to tell the difference
+        // between an actual write and a write RLS quietly blocked.
+        const groupList = Object.entries(groups);
+        const responses = await Promise.all(groupList.map(([status, entries]) =>
+            this._supabase.from(this.T('Assets'))
                 .update({ status, ...extraFields })
-                .in('id', ids)
-                .select();
+                .in('id', entries.map(e => e.id))
+                .select()));
+        for (let g = 0; g < groupList.length; g++) {
+            const [status, entries] = groupList[g];
+            const { data: updatedRows, error } = responses[g];
 
             if (error) {
                 console.error('Status update failed for seal(s):', entries.map(e => e.sealNumber).join(', '), error);
@@ -778,39 +806,33 @@ export class SealFormView extends HTMLElement {
                 return;
             }
 
-            try {
-                await this._supabase.from(this.T('BreakRequests')).insert([{
+            // The request log, the per-seal log and the CCM digest entry,
+            // together. All best-effort; RequestedSeals may not exist for
+            // every project.
+            await Promise.all([
+                this.queueCcmNotification('break_request', {
+                    asset_name: assetName, location, seal_numbers: sealNumbers, reason,
+                    requestor_name: name, requestor_company: company, requestor_email: email
+                }),
+                this.logInsert('BreakRequests', [{
                     asset_name: assetName, location: location,
                     requested_seal_numbers: sealNumbers,
                     reason, requestor_name: name, requestor_company: company, requestor_email: email,
                     ccm_decision: 'Pending'
-                }]);
-            } catch (e) { console.warn('BreakRequests audit insert failed (request itself was still saved):', e); }
+                }], 'request'),
+                this.logInsert('RequestedSeals', selectedSeals.map(s => ({
+                    seal_number: s.seal_number,
+                    asset_name: s.asset_name,
+                    location: s.location,
+                    reason,
+                    requestor_name: name,
+                    requestor_company: company,
+                    requestor_email: email,
+                    request_date: new Date().toISOString().split('T')[0]
+                })), 'request')
+            ]);
 
-            // One row per seal, with every field this form collects.
-            // Best-effort — this table may not exist for every project.
-            try {
-                await this._supabase.from(this.T('RequestedSeals')).insert(
-                    selectedSeals.map(s => ({
-                        seal_number: s.seal_number,
-                        asset_name: s.asset_name,
-                        location: s.location,
-                        reason,
-                        requestor_name: name,
-                        requestor_company: company,
-                        requestor_email: email,
-                        request_date: new Date().toISOString().split('T')[0]
-                    }))
-                );
-            } catch (e) { console.warn('RequestedSeals log insert failed (request itself was still saved):', e); }
-
-            if (this.scriptUrl) {
-                try {
-                    await fetch(`${this.scriptUrl}?action=notifyCCM&project=${encodeURIComponent(this.PROJECT_KEY)}&asset=${encodeURIComponent(assetName)}&seals=${encodeURIComponent(sealNumbers)}&requestor=${encodeURIComponent(name)}&requestorEmail=${encodeURIComponent(email)}`);
-                } catch (e) { console.warn('CCM notification failed:', e); }
-            }
-
-            const result = buildResultMessage(transitionResult, 'The Chain of Custody Manager has been notified and will review your request. You\'ll be notified by email once a decision has been made.');
+            const result = buildResultMessage(transitionResult, 'Your request is with the Chain of Custody Manager, who gets a summary of new requests each morning. You\'ll be notified by email once a decision has been made.');
             this.showSuccess((transitionResult.skipped.length + transitionResult.blocked.length) === 0 ? 'Break Request Submitted' : result.title, result.message);
         } catch (e) {
             errorEl.innerHTML = `<div class="error-box">Something went wrong: ${e.message}</div>`;
@@ -872,19 +894,15 @@ export class SealFormView extends HTMLElement {
                 return;
             }
 
-            try {
-                await this._supabase.from(this.T('BrokenSeals')).insert(
-                    selectedSeals.map(s => ({
-                        seal_number: s.seal_number,
-                        asset_name: s.asset_name,
-                        location: s.location,
-                        break_date: breakDate,
-                        remover_email: removerEmail,
-                        remover_company: removerCompany,
-                        break_reason: breakReason
-                    }))
-                );
-            } catch (e) { console.warn('BrokenSeals log insert failed (break itself was still saved):', e); }
+            await this.logInsert('BrokenSeals', selectedSeals.map(s => ({
+                seal_number: s.seal_number,
+                asset_name: s.asset_name,
+                location: s.location,
+                break_date: breakDate,
+                remover_email: removerEmail,
+                remover_company: removerCompany,
+                break_reason: breakReason
+            })), 'break');
 
             const result = buildResultMessage(transitionResult, 'The log has been updated. Use the Work Completed form once your work behind the seal is finished.');
             this.showSuccess((transitionResult.skipped.length + transitionResult.blocked.length) === 0 ? 'Seal Break Logged' : result.title, result.message);
@@ -933,13 +951,13 @@ export class SealFormView extends HTMLElement {
                 return;
             }
 
-            if (this.scriptUrl) {
-                try {
-                    await fetch(`${this.scriptUrl}?action=notifyCCM&project=${encodeURIComponent(this.PROJECT_KEY)}&asset=${encodeURIComponent(assetName)}&event=ready_for_reseal`);
-                } catch (e) { console.warn('Notification failed:', e); }
-            }
+            await this.queueCcmNotification('ready_for_reseal', {
+                asset_name: assetName,
+                location: selectedSeals[0] ? selectedSeals[0].location : '',
+                seal_numbers: selectedSeals.map(s => s.seal_number).join(', ')
+            });
 
-            const result = buildResultMessage(transitionResult, 'The CxA will coordinate re-sealing with the GC.');
+            const result = buildResultMessage(transitionResult, 'The CxA/CCM will see this in their morning summary and coordinate re-sealing with the GC.');
             this.showSuccess((transitionResult.skipped.length + transitionResult.blocked.length) === 0 ? 'Marked Ready for Reseal' : result.title, result.message);
         } catch (e) {
             errorEl.innerHTML = `<div class="error-box">Something went wrong: ${e.message}</div>`;
