@@ -948,6 +948,7 @@ const MARKUP = `
             <button id="ts-tab-columns" onclick="this.getRootNode().host.switchTsSettingsTab('columns')" style="flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom:3px solid var(--lp-action, #2f7a31);">Columns</button>
             <button id="ts-tab-statusflow" onclick="this.getRootNode().host.switchTsSettingsTab('statusflow')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Status Flow</button>
             <button id="ts-tab-statusorder" onclick="this.getRootNode().host.switchTsSettingsTab('statusorder')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Status Order</button>
+            <button id="ts-tab-notifications" onclick="this.getRootNode().host.switchTsSettingsTab('notifications')" style="flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;">Notifications</button>
         </div>
 
         <div id="ts-panel-columns">
@@ -1009,6 +1010,32 @@ const MARKUP = `
         <div id="ts-panel-statusorder" style="display:none;">
             <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:-8px;">Drag to reorder — this controls the order statuses appear everywhere: the status filter bar, dropdown menus, and trigger checklists.</p>
             <div id="status-order-list" style="display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto;"></div>
+        </div>
+
+        <div id="ts-panel-notifications" style="display:none; text-align:left;">
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:13px; margin-top:-8px;">The Chain of Custody Manager gets one email a day: new Break Requests and seals marked Ready for Reseal since the last email, and every request still waiting for a decision. Nothing is sent on a day with nothing to report.</p>
+            <label for="ccm-recipients" style="display:block; font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">CCM email recipients</label>
+            <textarea id="ccm-recipients" rows="4" placeholder="ccm@example.com&#10;backup.ccm@example.com" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px; font-family:inherit;"></textarea>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:4px 0 14px;">One per line, or separated by commas. Leave empty to send no digest.</p>
+            <div style="display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-end;">
+                <label style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Send at<br>
+                    <input type="time" id="ccm-digest-time" step="900" style="margin-top:4px; padding:7px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px;">
+                </label>
+                <label style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Time zone<br>
+                    <select id="ccm-digest-timezone" style="margin-top:4px; padding:7px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px; max-width:100%;">
+                        <option value="America/New_York">Eastern (America/New_York)</option>
+                        <option value="America/Chicago">Central (America/Chicago)</option>
+                        <option value="America/Denver">Mountain (America/Denver)</option>
+                        <option value="America/Phoenix">Arizona, no DST (America/Phoenix)</option>
+                        <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
+                        <option value="America/Anchorage">Alaska (America/Anchorage)</option>
+                        <option value="Pacific/Honolulu">Hawaii (Pacific/Honolulu)</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </label>
+            </div>
+            <p style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size:12px; margin:10px 0 0;">Sent by the project's Apps Script within 15 minutes of this time. It needs SealDigest.gs set up once (see the notes at the top of that file).</p>
+            <div id="ccm-digest-error" role="alert" style="color:#b3261e; font-size:13px; margin-top:8px;"></div>
         </div>
 
         <div class="modal-btns">
@@ -1083,6 +1110,9 @@ export class TamperSealView extends HTMLElement {
         this.breakRequestFilterStatuses = null;
         this.breakSealsFilterStatuses = null;
         this.workCompletedFilterStatuses = null;
+        // Daily CCM digest (ARC-323): who gets it and when. Sent by
+        // apps-script/SealDigest.gs; edited on the Notifications tab.
+        this.ccmDigest = { recipients: [], time: '07:00', timeZone: 'America/New_York' };
         // Closures capture `this` (the element instance) instead of module-
         // scoped variables the way tamperseal.html's original top-level
         // SECTION_FILTER_META did, since each of these is now per-instance
@@ -1377,6 +1407,13 @@ export class TamperSealView extends HTMLElement {
             if (Array.isArray(data.breakRequestFilterStatuses)) this.breakRequestFilterStatuses = data.breakRequestFilterStatuses;
             if (Array.isArray(data.breakSealsFilterStatuses)) this.breakSealsFilterStatuses = data.breakSealsFilterStatuses;
             if (Array.isArray(data.workCompletedFilterStatuses)) this.workCompletedFilterStatuses = data.workCompletedFilterStatuses;
+            if (data.ccmDigest && typeof data.ccmDigest === 'object') {
+                this.ccmDigest = {
+                    recipients: Array.isArray(data.ccmDigest.recipients) ? data.ccmDigest.recipients : [],
+                    time: /^\d{2}:\d{2}$/.test(data.ccmDigest.time || '') ? data.ccmDigest.time : '07:00',
+                    timeZone: data.ccmDigest.timeZone || 'America/New_York'
+                };
+            }
             this.currentEditingWorkflowId = this.getActiveWorkflow().id;
         } catch (e) {
             console.warn('Could not load column settings, using defaults:', e);
@@ -1444,21 +1481,61 @@ export class TamperSealView extends HTMLElement {
         this.classList.remove('ts-layout-edit-mode');
     }
 
+    // Everything saved in launchpad_tamperseal_config.config. Both Save
+    // (settings) and Save Layout write the whole object, so both use this.
+    tsConfigPayload() {
+        return {
+            columnConfig: this.columnConfig,
+            workflows: this.workflows,
+            globalStatusOrder: this.globalStatusOrder,
+            reinspectionFilterStatuses: this.reinspectionFilterStatuses,
+            breakRequestFilterStatuses: this.breakRequestFilterStatuses,
+            breakSealsFilterStatuses: this.breakSealsFilterStatuses,
+            workCompletedFilterStatuses: this.workCompletedFilterStatuses,
+            ccmDigest: this.ccmDigest
+        };
+    }
+
+    // Notifications tab <-> this.ccmDigest.
+    fillCcmDigestForm() {
+        this.$('ccm-recipients').value = (this.ccmDigest.recipients || []).join('\n');
+        this.$('ccm-digest-time').value = this.ccmDigest.time || '07:00';
+        this.$('ccm-digest-timezone').value = this.ccmDigest.timeZone || 'America/New_York';
+        this.$('ccm-digest-error').textContent = '';
+    }
+
+    // Returns false (and shows why) if the tab has something invalid.
+    readCcmDigestForm() {
+        const errorEl = this.$('ccm-digest-error');
+        const seen = new Set();
+        const recipients = [];
+        const bad = [];
+        this.$('ccm-recipients').value.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean).forEach(addr => {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { bad.push(addr); return; }
+            const key = addr.toLowerCase();
+            if (!seen.has(key)) { seen.add(key); recipients.push(addr); }
+        });
+        const time = this.$('ccm-digest-time').value;
+        if (bad.length) {
+            errorEl.textContent = `Not an email address: ${bad.join(', ')}`;
+            return false;
+        }
+        if (!/^\d{2}:\d{2}$/.test(time)) {
+            errorEl.textContent = 'Choose a time to send the digest.';
+            return false;
+        }
+        errorEl.textContent = '';
+        this.ccmDigest = { recipients, time, timeZone: this.$('ccm-digest-timezone').value || 'America/New_York' };
+        return true;
+    }
+
     async saveTamperSealLayout() {
         const btn = this.shadowRoot.querySelector('#ts-layout-edit-toolbar button:nth-child(2)');
         if (btn) { btn.innerText = 'Saving...'; btn.disabled = true; }
         try {
             const { error } = await this._supabase.from('launchpad_tamperseal_config').upsert({
                 project_key: this.PROJECT_KEY,
-                config: {
-                    columnConfig: this.columnConfig,
-                    workflows: this.workflows,
-                    globalStatusOrder: this.globalStatusOrder,
-                    reinspectionFilterStatuses: this.reinspectionFilterStatuses,
-                    breakRequestFilterStatuses: this.breakRequestFilterStatuses,
-                    breakSealsFilterStatuses: this.breakSealsFilterStatuses,
-                    workCompletedFilterStatuses: this.workCompletedFilterStatuses
-                },
+                config: this.tsConfigPayload(),
                 updated_by: this.USER_EMAIL || null
             }, { onConflict: 'project_key' });
             if (error) throw error;
@@ -1606,6 +1683,7 @@ export class TamperSealView extends HTMLElement {
         this.currentEditingWorkflowId = this.getActiveWorkflow().id;
         this.renderWorkflowSelector();
         this.renderStatusFlowEditor();
+        this.fillCcmDigestForm();
         this.switchTsSettingsTab('columns');
         this.$('colSettingsModal').style.display = 'flex';
     }
@@ -1617,13 +1695,18 @@ export class TamperSealView extends HTMLElement {
         const colPanel = this.$('ts-panel-columns');
         const flowPanel = this.$('ts-panel-statusflow');
         const orderPanel = this.$('ts-panel-statusorder');
+        const notifyTab = this.$('ts-tab-notifications');
+        const notifyPanel = this.$('ts-panel-notifications');
         const active = 'flex:1; padding:10px; border:none; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); cursor:pointer; font-weight:600; font-size:13px; color:var(--lp-action, #2f7a31); border-bottom:3px solid var(--lp-action, #2f7a31);';
         const inactive = 'flex:1; padding:10px; border:none; background:#fafafa; cursor:pointer; font-weight:600; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-bottom:3px solid transparent;';
 
-        [colTab, flowTab, orderTab].forEach(t => t.style.cssText = inactive);
-        [colPanel, flowPanel, orderPanel].forEach(p => p.style.display = 'none');
+        [colTab, flowTab, orderTab, notifyTab].forEach(t => t.style.cssText = inactive);
+        [colPanel, flowPanel, orderPanel, notifyPanel].forEach(p => p.style.display = 'none');
 
-        if (tab === 'columns') {
+        if (tab === 'notifications') {
+            notifyTab.style.cssText = active;
+            notifyPanel.style.display = 'block';
+        } else if (tab === 'columns') {
             colTab.style.cssText = active;
             colPanel.style.display = 'block';
         } else if (tab === 'statusorder') {
@@ -2243,6 +2326,10 @@ export class TamperSealView extends HTMLElement {
     }
 
     async saveTsSettings() {
+        if (!this.readCcmDigestForm()) {
+            this.switchTsSettingsTab('notifications');
+            return;
+        }
         this.applyColumnConfig();
         this.refreshAllStatusDropdowns();
         this.closeColumnSettingsModal();
@@ -2250,15 +2337,7 @@ export class TamperSealView extends HTMLElement {
         try {
             const { error } = await this._supabase.from('launchpad_tamperseal_config').upsert({
                 project_key: this.PROJECT_KEY,
-                config: {
-                    columnConfig: this.columnConfig,
-                    workflows: this.workflows,
-                    globalStatusOrder: this.globalStatusOrder,
-                    reinspectionFilterStatuses: this.reinspectionFilterStatuses,
-                    breakRequestFilterStatuses: this.breakRequestFilterStatuses,
-                    breakSealsFilterStatuses: this.breakSealsFilterStatuses,
-                    workCompletedFilterStatuses: this.workCompletedFilterStatuses
-                },
+                config: this.tsConfigPayload(),
                 updated_by: this.USER_EMAIL || null
             }, { onConflict: 'project_key' });
             if (error) throw error;
