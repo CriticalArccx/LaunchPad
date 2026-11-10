@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/CriticalArccx/LaunchPad/compare/v1.15.1...v1.15.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **ARC-294:** Dashboard Status filter applies only to Issues ([f5ba7df](https://github.com/CriticalArccx/LaunchPad/commit/f5ba7df21b4b2d3148e64400adf5dabb47e82b56))
+
 ## [1.15.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.15.0...v1.15.1) (2026-11-10)
 
 
