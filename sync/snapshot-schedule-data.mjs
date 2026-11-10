@@ -54,7 +54,9 @@ async function snapshotProject(projectKey, tablePrefix) {
     const PAGE_SIZE = 1000;
     let allRows = [];
     for (let offset = 0; ; offset += PAGE_SIZE) {
-        const res = await supabaseRequest(`${table}?select=*&order=id.asc`, {
+        // Live lines only: deleted and moved lines are kept in the table
+        // itself (ARC-298), so the snapshot stays a picture of the Schedule.
+        const res = await supabaseRequest(`${table}?select=*&line_status=eq.live&order=id.asc`, {
             headers: { Range: `${offset}-${offset + PAGE_SIZE - 1}` },
         });
         const page = await res.json();

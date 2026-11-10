@@ -6632,7 +6632,7 @@ export class BridgeView extends HTMLElement {
             const preview = orphans.slice(0, 12)
                 .map(r => `${r.day_label}: ${r.asset || '(no asset)'} — ${r.activity || '(no activity)'}`)
                 .join('\n') + (orphans.length > 12 ? `\n...and ${orphans.length - 12} more` : '');
-            const ok = confirm(`Bridge has no matching activity for ${orphans.length} row(s) currently shown in the Scheduler:\n\n${preview}\n\nClear them from the Scheduler so it matches Bridge? This cannot be undone.`);
+            const ok = confirm(`Bridge has no matching activity for ${orphans.length} row(s) currently shown in the Scheduler:\n\n${preview}\n\nClear them from the Scheduler so it matches Bridge? Cleared lines are kept and can be restored from Deleted lines in the Schedule.`);
             if (!ok) return 0;
         }
 

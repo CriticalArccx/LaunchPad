@@ -66,6 +66,8 @@ begin
     ) using p_new_id, p_day_label, p_activity, p_asset, p_notes, p_place, p_trade_partners;
 
     if p_old_id is not null and p_old_id <> p_new_id then
+        -- Keeps the old copy as 'moved', not 'deleted' (sync/schedule_line_status.sql).
+        perform set_config('launchpad.line_removal', 'moved', true);
         execute format('delete from %I where id = $1', p_table) using p_old_id;
     end if;
 end;

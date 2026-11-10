@@ -46,6 +46,12 @@ project's tables copy the structure of an existing project's, and chosen setting
 copied from any project, then or later from Settings → Copy Settings. See
 [ADR 0003](docs/adr/0003-create-projects-in-launchpad.md).
 
+Deleted Schedule lines are kept: each BackEndData row has a `line_status` (`live`,
+`deleted`, `moved`, `restored`), and a delete keeps the line under a new id so its row is
+free again. The app only sees live lines. Schedule → Deleted lines restores one
+(`schedule-deleted-lines.js`, `sync/schedule_line_status.sql`). See
+[ADR 0004](docs/adr/0004-keep-deleted-schedule-lines.md).
+
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared
 calendar in step, one way. Setup steps are at the top of that file; see

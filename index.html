@@ -1682,6 +1682,7 @@ body.help-docked #loading-overlay {
             <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
                 <button class="tool-btn" onclick="orderChronologically()" style="background: #ffffff; color: #fe8c0a; border-color: #fe8c0a; font-weight: bold;">Order</button>
                 <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: var(--lp-action-hover, #276629); border-color: var(--lp-action-hover, #276629); font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
+                <button class="tool-btn" onclick="openDeletedLines()" style="background: #ffffff; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-color: var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); font-weight: bold;" title="Deleted lines are kept. See them and put any back on the Schedule.">Deleted lines</button>
             </div>
             <div class="search-container" style="display: inline-flex; align-items: center; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-radius: 4px; padding: 2px 8px; margin-right: 18px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
                     <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 14px; width: 100px; font-size: 13px;">
@@ -2887,6 +2888,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="dropdown-options.js"></script>
     <script src="project-setup.js"></script>
+    <script src="schedule-deleted-lines.js"></script>
     <script src="settings.js"></script>
 
 <script>
@@ -6517,6 +6519,13 @@ function initRealtimeSync() {
             schema: 'public',
             table: T('BackEndData')
         }, payload => {
+            // Deleted lines are kept as non-live rows (ARC-298). The database
+            // already hides them; this is a second guard so one can never
+            // be drawn as a Schedule line.
+            if (payload.eventType !== 'DELETE' && payload.new && payload.new.line_status && payload.new.line_status !== 'live') {
+                removeScheduleCacheRow(payload.new.id);
+                return;
+            }
             // Keep the cached copy current for the Calendar view.
             if (payload.eventType === 'DELETE') removeScheduleCacheRow(payload.old && payload.old.id);
             else patchScheduleCacheRow(payload.new);
@@ -9176,7 +9185,7 @@ async function saveReorderedDay(container, dayLabel) {
 }
 
 async function bulkDelete() {
-    if (!confirm(`Are you sure you want to permanently delete these ${selectedRowIds.size} selected item(s)?`)) {
+    if (!confirm(`Delete these ${selectedRowIds.size} selected line(s)? They're kept, and you can restore them from Deleted lines.`)) {
         return;
     }
     
@@ -11141,7 +11150,7 @@ async function confirmBulkAction() {
 
         // Wipe the old row if we are Moving
         if (currentBulkAction === 'move') {
-            await deleteFullRow(item.rowDiv.id, true);
+            await deleteFullRow(item.rowDiv.id, true, 'moved');
         }
 
         // INSTANT LOOKUP: Force the row to fetch its status immediately
@@ -11353,8 +11362,9 @@ async function applyBulkActionToBridge(action, ops, origItemsByOldId) {
     }
 }
 
-async function deleteFullRow(wrapperId, bypassConfirm = false) {
-    if (bypassConfirm || confirm("Delete this entire line?")) {
+// reason is 'deleted' or 'moved' (Move clears the old row the same way).
+async function deleteFullRow(wrapperId, bypassConfirm = false, reason = 'deleted') {
+    if (bypassConfirm || confirm("Delete this line? It's kept, and you can restore it from Deleted lines.")) {
         const rowNumericId = parseInt(wrapperId.replace('row-wrapper-', ''));
         
         deletingRows.add(rowNumericId);
@@ -11386,7 +11396,7 @@ async function deleteFullRow(wrapperId, bypassConfirm = false) {
         }
 
         try {
-            const { error } = await _supabase.from(T('BackEndData')).delete().eq('id', rowNumericId);
+            const { error } = await removeScheduleLine(rowNumericId, reason);
             if (error) throw error;
             removeScheduleCacheRow(rowNumericId);
         } catch (err) {
@@ -11394,6 +11404,34 @@ async function deleteFullRow(wrapperId, bypassConfirm = false) {
             deletingRows.delete(rowNumericId);
         }
     }
+}
+
+// A delete still clears the row's slot, and the database keeps the line
+// with line_status 'deleted' (ARC-298, sync/schedule_line_status.sql). A
+// Move says so, so the old copy is kept as 'moved' and isn't listed under
+// Deleted lines. Falls back to a plain delete if that SQL isn't run yet.
+async function removeScheduleLine(id, reason) {
+    if (reason === 'moved') {
+        const res = await _supabase.rpc('lp_schedule_remove_line', { p_table: T('BackEndData'), p_id: id, p_reason: 'moved' });
+        const missing = res.error && (res.error.code === 'PGRST202' || /Could not find the function/i.test(res.error.message || ''));
+        if (!missing) return res;
+    }
+    return _supabase.from(T('BackEndData')).delete().eq('id', id);
+}
+
+// Deleted lines dialog (schedule-deleted-lines.js). A restored line is
+// drawn straight away; other open screens get it through realtime.
+function openDeletedLines() {
+    if (!window.LPDeletedLines || !_supabase) return;
+    LPDeletedLines.open(_supabase, T('BackEndData'), {
+        onRestored: async newId => {
+            const { data, error } = await _supabase.from(T('BackEndData')).select('*').eq('id', newId).maybeSingle();
+            if (error || !data) return;
+            patchScheduleCacheRow(data);
+            updateRowInUI(data);
+            scheduleCriticalPathResync();
+        }
+    });
 }
 
 async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
