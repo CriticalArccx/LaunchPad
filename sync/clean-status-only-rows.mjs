@@ -59,7 +59,10 @@ async function cleanProject(projectKey, tablePrefix) {
     // Only fetch rows that could possibly match — Status actually set to
     // something — instead of pulling every row in the project.
     const res = await supabaseRequest(
-        `${table}?select=id,${BLANK_IF_EMPTY_COLUMNS.join(',')},status&status=not.is.null`
+        // line_status=eq.live: deleted lines are kept in the table (ARC-298)
+        // and must never be changed, and this key bypasses the read policy
+        // that hides them from the app.
+        `${table}?select=id,${BLANK_IF_EMPTY_COLUMNS.join(',')},status&status=not.is.null&line_status=eq.live`
     );
     const rows = await res.json();
 
@@ -74,7 +77,7 @@ async function cleanProject(projectKey, tablePrefix) {
     }
 
     for (const row of toClean) {
-        await supabaseRequest(`${table}?id=eq.${row.id}`, {
+        await supabaseRequest(`${table}?id=eq.${row.id}&line_status=eq.live`, {
             method: 'PATCH',
             body: JSON.stringify({ status: '' }),
         });

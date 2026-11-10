@@ -1,3 +1,6 @@
+-- Since ARC-298, BackEndData deletes also keep the line in BackEndData
+-- itself (sync/schedule_line_status.sql); this log keeps running as well.
+--
 -- Run this once in the Supabase SQL editor. Records every row deleted from
 -- every project's BackEndData AND schedule_items tables — "a table or
 -- column that denotes when activity line items have been deleted," per
