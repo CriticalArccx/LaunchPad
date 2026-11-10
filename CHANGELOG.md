@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.17.0...v1.18.0) (2026-11-10)
+
+
+### Features
+
+* **ARC-323:** daily CCM seal digest with recipients and time in settings ([4571d91](https://github.com/CriticalArccx/LaunchPad/commit/4571d9171858826f63011a6ae631fe5ee65e3466))
+
 ## [1.17.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.16.0...v1.17.0) (2026-11-10)
 
 
