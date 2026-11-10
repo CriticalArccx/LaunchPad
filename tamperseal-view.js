@@ -24,8 +24,9 @@
 // The Assets data has been migrated in and its old separate AssetRegistry
 // table is no longer used — asset/location suggestions now come from the
 // shared dropdownoptions table instead (see fetchLookupData()).
-const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
+// From env.js (ARC-326): test database on local runs and previews, production live.
+const SUPABASE_URL = window.LAUNCHPAD_ENV.supabaseUrl;
+const SUPABASE_KEY = window.LAUNCHPAD_ENV.supabaseKey;
 
 // Lazy-load jsPDF + autotable only when the PDF export is actually used.
 function loadScriptOnce(src) {
