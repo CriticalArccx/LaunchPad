@@ -1747,6 +1747,9 @@ body.help-docked #loading-overlay {
             </div>
         </div>
 
+        <!-- Copy Settings (ARC-307): filled in by project-setup.js, platform owner only. -->
+        <div id="owner-copy-settings" style="display: none; border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;"></div>
+
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
             <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Equivalent Activity Statuses</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Select which Activity Types apply to each Phase.</p>
@@ -2883,6 +2886,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="dropdown-options.js"></script>
+    <script src="project-setup.js"></script>
     <script src="settings.js"></script>
 
 <script>
@@ -7068,7 +7072,9 @@ function renderProjectPicker(projects, opts) {
         ? '<div id="picker-access-requests"></div>'
         : '';
 
-    list.innerHTML = requestsSlot + projectsHtml;
+    // "+ Add new project" (ARC-307): filled in only for the platform owner.
+    list.innerHTML = '<div id="picker-owner-actions"></div>' + requestsSlot + projectsHtml;
+    if (window.LPProjectSetup) LPProjectSetup.mountPicker(_supabase, document.getElementById('picker-owner-actions'), opts.currentUserEmail);
     // Rendered in the sticky footer outside the scrollable list (see the
     // #project-picker-footer markup) instead of appended after the
     // projects, so "Request access to another project" is always visible
@@ -7460,6 +7466,7 @@ async function toggleSwitchProjectPopover(event) {
                 onmouseout="this.style.background='var(--neutrals-lightmode-light-mode-Page, #f3f2ee)'; this.style.borderColor='var(--neutrals-lightmode-light-mode-Border, #d6d3cb)';">
                 <span>←</span> Return to Site Selector
             </button>
+            <div id="switch-project-owner-slot"></div>
         </div>
         <div id="switch-project-popover-list" style="padding:6px; overflow-y:auto; flex:1; min-height:0;">
             <div style="padding:10px; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Loading...</div>
@@ -7467,6 +7474,8 @@ async function toggleSwitchProjectPopover(event) {
     `;
     document.body.appendChild(popover);
     const popoverList = document.getElementById('switch-project-popover-list');
+    // "+ Add new project" (ARC-307), platform owner only.
+    if (window.LPProjectSetup) LPProjectSetup.mountPopover(_supabase, document.getElementById('switch-project-owner-slot'), user.email, window.LP_CONFIG.projectKey);
 
     const { data: memberships } = await _supabase
         .from('launchpad_memberships')
@@ -8074,6 +8083,8 @@ function openScheduleConfigModal() {
     if (typeof Settings !== 'undefined' && Settings.init) {
         Settings.init();
     }
+    // "Copy settings from another project" (ARC-307), platform owner only.
+    if (window.LPProjectSetup) LPProjectSetup.mountSettings(_supabase, document.getElementById('owner-copy-settings'), window.LP_CONFIG.projectKey);
 
     loadPhaseRules();
     
