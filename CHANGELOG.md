@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.15.2...v1.16.0) (2026-11-10)
+
+
+### Features
+
+* **ARC-307:** owner-only Add new project, copying tables and settings from existing projects ([0f8a789](https://github.com/CriticalArccx/LaunchPad/commit/0f8a789b807c36e3ab1700179a8d4e7e3ab93ee8))
+
 ## [1.15.2](https://github.com/CriticalArccx/LaunchPad/compare/v1.15.1...v1.15.2) (2026-11-10)
 
 
