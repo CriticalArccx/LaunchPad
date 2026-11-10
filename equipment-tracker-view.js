@@ -20,8 +20,9 @@
 // `position:absolute` + `inset:0` instead, so they stay scoped to this
 // component's own box exactly like the iframe used to be.
 
-const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
+// From env.js (ARC-326): test database on local runs and previews, production live.
+const SUPABASE_URL = window.LAUNCHPAD_ENV.supabaseUrl;
+const SUPABASE_KEY = window.LAUNCHPAD_ENV.supabaseKey;
 
 const PDF_OPTIONS = [
     { id: 'asset', label: 'Assets', type: 'asset' },

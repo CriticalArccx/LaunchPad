@@ -2885,6 +2885,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     <table id="grid"></table>
 
+    <script src="env.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="dropdown-options.js"></script>
     <script src="project-setup.js"></script>
@@ -5392,8 +5393,10 @@ async function triggerFullStatusRefresh(fullRange = false) {
 }
 
         // --- CONFIGURE THESE ---
-        const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
+        // From env.js: the test database on local runs and previews once it's
+        // set up there, production on the live site (ARC-326).
+        const SUPABASE_URL = window.LAUNCHPAD_ENV.supabaseUrl;
+        const SUPABASE_KEY = window.LAUNCHPAD_ENV.supabaseKey;
 
         // 1. Initialize Supabase
         const { createClient } = supabase;
@@ -6680,7 +6683,7 @@ async function handleForgotPin() {
         return;
     }
     const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://sty4a-launch-pad.vercel.app/" 
+        redirectTo: window.LAUNCHPAD_ENV.appUrl
     }); // <-- ADDED THE MISSING `});` HERE
 
     if (error) {

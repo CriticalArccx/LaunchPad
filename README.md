@@ -68,8 +68,24 @@ calendar in step, one way. Setup steps are at the top of that file; see
 npx serve .        # or: python -m http.server 8000
 ```
 
-Local runs and Vercel previews use the **production** Supabase data. Read-only testing only;
-see [dashboardedit.md](dashboardedit.md).
+`env.js` picks the database. The live site uses production. Local runs and Vercel previews of
+other branches use the **test** Supabase project once its URL and anon key are filled in
+`env.js`; pages on it show a "TEST DATA" badge, and anything can be saved there. Until then
+they use production: read-only testing only; see [dashboardedit.md](dashboardedit.md).
+See [ADR 0006](docs/adr/0006-test-environment.md).
+
+Setting up the test project (once, and again with `--reset` to bring its structure up to date):
+
+1. Create a second Supabase project for test data.
+2. Install the PostgreSQL client tools (`pg_dump`, `psql`, 17 or newer).
+3. Put both connection strings (Supabase → Connect → Session pooler) in environment
+   variables, `LP_PROD_DB_URL` and `LP_TEST_DB_URL`, and run
+   `node test-env/setup-test-db.mjs --template <prefix of a production project> --owner <your email>`.
+   It copies production's table structure (no rows) and adds a fake Demo project.
+4. In the test project's Authentication, add your user and the redirect URLs the script
+   prints, then put its URL and anon key in `env.js` under `TEST`.
+
+After running a new `sync/*.sql` file on production, run it on the test project too.
 
 ## 5. Deploy
 
@@ -79,7 +95,8 @@ Merging to `main` deploys production on Vercel. Every branch gets a preview depl
 
 | Name | Where | Used by |
 |---|---|---|
-| Supabase URL + anon key | `index.html` (public by design) | Browser |
+| Supabase URL + anon key, production and test | `env.js` (public by design) | Browser |
+| `LP_PROD_DB_URL`, `LP_TEST_DB_URL` | Your own environment only, never in the repo | `test-env/setup-test-db.mjs` |
 | `SUPABASE_SERVICE_KEY` | GitHub Actions secret | `sync/` jobs only |
 | `ANTHROPIC_API_KEY` | GitHub org secret | Claude docs check on PRs |
 

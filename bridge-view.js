@@ -37,8 +37,9 @@
 // still works via an older two-step fallback, just without the same
 // guarantee against a dropped connection leaving a stale duplicate behind.
 
-const SUPABASE_URL = "https://rcnxetcomdrlxvlarqoc.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU";
+// From env.js (ARC-326): test database on local runs and previews, production live.
+const SUPABASE_URL = window.LAUNCHPAD_ENV.supabaseUrl;
+const SUPABASE_ANON_KEY = window.LAUNCHPAD_ENV.supabaseKey;
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes("YOUR-PROJECT-REF") && !SUPABASE_ANON_KEY.includes("YOUR-ANON-PUBLIC-KEY");
 
 // Table names. {PROJECT_KEY}schedule_items is the one table this app writes
