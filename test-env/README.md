@@ -35,7 +35,7 @@ live site always uses production. Background: [ADR 0006](../docs/adr/0006-test-e
    - `-Template` is the table prefix of a production project whose table layout is
      current. Only its structure is copied, never its rows.
    - If Windows blocks the script, run it as
-     `powershell -ExecutionPolicy Bypass -File .	est-env\setup-test-db.ps1 -Template <prefix> -Owner <email>`.
+     `powershell -ExecutionPolicy Bypass -File .\test-env\setup-test-db.ps1 -Template <prefix> -Owner <email>`.
    - The script asks for the production string first, then the test string.
    - It stops if the test string points at production, or if the test database already
      has real projects.
