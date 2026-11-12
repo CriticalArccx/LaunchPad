@@ -104,6 +104,31 @@
         background-color: var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);
     }
 
+    /* Day header, right side: "3 Activities" pill next to the arrow.
+       Blue = the design system's Partial badge colours. */
+    .date-header .day-header-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .date-header .day-line-count {
+        background: var(--workflow-partialfill-badgebg, #e1eafb);
+        color: var(--workflow-partial-badgetext, #2a4f8f);
+        border-radius: 9999px;
+        padding: 2px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.5;
+        white-space: nowrap;
+    }
+    .date-header .day-line-count:empty {
+        display: none;
+    }
+    body.dark-mode .date-header .day-line-count {
+        background: rgba(127, 169, 232, 0.18);
+        color: var(--workflow-partial-chart, #7fa9e8);
+    }
+
     .rows-container {
         display: block; /* Shown by default */
         padding: 10px 20px;
@@ -9942,7 +9967,7 @@ function createWeekElement(baseDate, w) {
 
         const header = document.createElement('div');
         header.className = 'date-header';
-        header.innerHTML = `<span>${dateString}<span class="day-line-count"></span></span> <span class="arrow">▶</span>`;
+        header.innerHTML = `<span>${dateString}</span> <span class="day-header-right"><span class="day-line-count"></span><span class="arrow">▶</span></span>`;
 
         const rowsDiv = document.createElement('div');
         rowsDiv.className = 'rows-container hidden';
@@ -12092,7 +12117,7 @@ function buildDayRows(rowsDiv, dayLabel) {
     return rowsDiv;
 }
 
-// "· 3 lines" on each day header, from the last schedule load.
+// "3 Activities" on the right of each day header, from the last schedule load.
 function refreshDayLineCounts() {
     const counts = {};
     (__lastScheduleData || []).forEach(r => {
@@ -12105,7 +12130,7 @@ function refreshDayLineCounts() {
         const el = rowsDiv.previousElementSibling && rowsDiv.previousElementSibling.querySelector('.day-line-count');
         if (!el) return;
         const n = counts[rowsDiv.id.replace('rows-', '')] || 0;
-        const text = n ? ` · ${n} line${n === 1 ? '' : 's'}` : '';
+        const text = n ? `${n} ${n === 1 ? 'Activity' : 'Activities'}` : '';
         if (el.textContent !== text) el.textContent = text;
     });
 }
