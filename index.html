@@ -3148,12 +3148,9 @@ async function addSelectedReadyItems() {
     const targetRowsDiv = document.getElementById(`rows-${targetDate}`);
     if (!targetRowsDiv) return alert("The selected date is outside of the active schedule window.");
     
-   // Ensure the rows are initialized for this day
-    if (targetRowsDiv.innerHTML === '') {
-        const addBtn = createAddRowsButton(targetRowsDiv, targetDate);
-        addRowsToContainer(targetRowsDiv, targetDate, addBtn);
-    }
-    
+   // Ensure the rows are initialized (and filled) for this day
+    buildDayRows(targetRowsDiv, targetDate);
+
     // Grab all empty rows
     const targetEmptyRows = Array.from(targetRowsDiv.querySelectorAll('.cell-row:not([data-occupied="true"])'));
     if (targetEmptyRows.length < selectedReadyItems.size) {
@@ -5225,6 +5222,23 @@ function performSearch(query) {
         return;
     }
 
+    // Overall Schedule only builds days that have been opened, so first
+    // build the days whose saved lines match (nearest to today first, at
+    // most 30 so a broad search can't freeze the page).
+    if (isLazyDayView() && __lastScheduleData) {
+        const q = searchState.query;
+        const today = calLocalDateId(new Date());
+        const days = [...new Set(__lastScheduleData
+            .filter(r => ['time', 'place', 'activity', 'asset', 'status', 'trade_partners', 'result', 'notes', 'duration', 'loto', 'people']
+                .some(k => String(r[k] || '').toLowerCase().includes(q)))
+            .map(r => r.day_label))]
+            .sort((a, b) => Math.abs(new Date(a) - new Date(today)) - Math.abs(new Date(b) - new Date(today)))
+            .slice(0, 30);
+        days.forEach(day => {
+            if (ensureWeekRenderedForDayLabel(day)) buildDayRows(document.getElementById(`rows-${day}`), day);
+        });
+    }
+
     // Find all potential data elements
     const elements = document.querySelectorAll('.cell-input, .status-cell, select[id*="-c"]');
     
@@ -6622,6 +6636,13 @@ function updateRowInUI(row) {
         // below) — extend rendering just far enough to cover it, then retry
         // once, instead of silently dropping a real-time update on the floor.
         if (!ensureWeekRenderedForDayLabel(row.day_label)) return;
+        const dayRows = document.getElementById(`rows-${row.day_label}`);
+        if (dayRows && dayRows.innerHTML === '') {
+            // Overall Schedule: the cache is already patched; the day is
+            // filled from it when opened.
+            if (isLazyDayView()) return;
+            buildDayRows(dayRows, row.day_label);
+        }
         // The day's container might already exist but only have its
         // default first 20 slots built — Bridge can assign a row to any
         // slot up to index 98 (see findFreeLaunchPadIndex() in
@@ -9692,6 +9713,7 @@ async function confirmReschedule() {
     }
     const container = document.getElementById(`rows-${newDate}`);
     if (!container) { alert("Could not find that day on the schedule."); return; }
+    buildDayRows(container, newDate); // its existing lines first, so a used slot is never picked
 
     // Find an open slot, building 5 more if every currently-built one on
     // this day is already occupied — same fallback "+ Add 5 Rows" uses.
@@ -9920,8 +9942,8 @@ function createWeekElement(baseDate, w) {
 
         const header = document.createElement('div');
         header.className = 'date-header';
-        header.innerHTML = `<span>${dateString}</span> <span class="arrow">▶</span>`;
-        
+        header.innerHTML = `<span>${dateString}<span class="day-line-count"></span></span> <span class="arrow">▶</span>`;
+
         const rowsDiv = document.createElement('div');
         rowsDiv.className = 'rows-container hidden';
         rowsDiv.id = `rows-${dateId}`;
@@ -9929,10 +9951,11 @@ function createWeekElement(baseDate, w) {
         header.onclick = (e) => {
             e.stopPropagation();
             
-            // NEW: If rows don't exist yet, build them now
+            // Build the day's rows the first time it's opened, filled from
+            // the last schedule load (Overall Schedule builds nothing else).
             if (rowsDiv.innerHTML === '') {
-                const addBtn = createAddRowsButton(rowsDiv, dateId);
-                addRowsToContainer(rowsDiv, dateId, addBtn);
+                buildDayRows(rowsDiv, dateId);
+                if (appConfig?.sidebar?.bridge) scheduleCriticalPathResync();
             }
 
             const isHidden = rowsDiv.classList.toggle('hidden');
@@ -9992,12 +10015,14 @@ function patchScheduleCacheRow(row) {
     if (i >= 0) __lastScheduleData[i] = { ...__lastScheduleData[i], ...row };
     else __lastScheduleData.push(row);
     scheduleWeekCalendarRender();
+    scheduleDayLineCountRefresh();
 }
 
 function removeScheduleCacheRow(id) {
     if (!__lastScheduleData || id === undefined || id === null) return;
     __lastScheduleData = __lastScheduleData.filter(r => String(r.id) !== String(id));
     scheduleWeekCalendarRender();
+    scheduleDayLineCountRefresh();
 }
 
 function setScheduleCalendarMode(on) {
@@ -10239,10 +10264,7 @@ function openCalEditPanel(row) {
         alert('This day is not loaded in the current view. Switch to Overall Schedule and try again.');
         return;
     }
-    const rowsDiv = document.getElementById(`rows-${row.day_label}`);
-    if (rowsDiv && rowsDiv.innerHTML === '') {
-        addRowsToContainer(rowsDiv, row.day_label, createAddRowsButton(rowsDiv, row.day_label));
-    }
+    const rowsDiv = buildDayRows(document.getElementById(`rows-${row.day_label}`), row.day_label);
     ensureRowSlotExists(rowsDiv, row.day_label, row.id);
     const rowEl = document.getElementById(`row-wrapper-${row.id}`);
     if (!rowEl) return;
@@ -10345,6 +10367,8 @@ document.addEventListener('keydown', e => {
 function jumpToScheduleRow(row) {
     setScheduleCalendarMode(false);
     if (!ensureWeekRenderedForDayLabel(row.day_label)) return;
+    const dayRows = buildDayRows(document.getElementById(`rows-${row.day_label}`), row.day_label);
+    ensureRowSlotExists(dayRows, row.day_label, row.id);
     const rowEl = document.getElementById(`row-wrapper-${row.id}`);
     if (!rowEl) return;
     revealElement(rowEl);
@@ -11057,11 +11081,8 @@ async function confirmBulkAction() {
 
     closeBulkDateModal();
     
-    // Build target rows if they haven't been dynamically generated yet
-    if (targetRowsDiv.innerHTML === '') {
-        const addBtn = createAddRowsButton(targetRowsDiv, targetDate);
-        addRowsToContainer(targetRowsDiv, targetDate, addBtn);
-    }
+    // Build (and fill) target rows if they haven't been generated yet
+    buildDayRows(targetRowsDiv, targetDate);
     
     // Scrape data from the selected rows
     const rowsToProcess = [];
@@ -11637,7 +11658,15 @@ function expandAllWeeks() {
 
 // 2. Only targets the grey Day bars
 function expandAllDays() {
+    const lazy = isLazyDayView();
     document.querySelectorAll('.rows-container').forEach((container, i) => {
+        if (lazy) {
+            // Overall Schedule: open (and build) only the days of weeks that
+            // are open, not every day of the project.
+            const week = container.closest('.week-content');
+            if (week && week.classList.contains('hidden')) return;
+            buildDayRows(container, container.id.replace('rows-', ''));
+        }
         container.classList.remove('hidden');
         const arrow = document.querySelectorAll('.arrow')[i];
         if (arrow) arrow.innerText = '▼';
@@ -12043,19 +12072,70 @@ function getTimestamp() {
 // without triggering another Supabase fetch of the whole dataset.
 let __lastScheduleData = null;
 
-function applyScheduleDataToDom(data) {
+// Overall Schedule covers the whole project, so building every day's rows up
+// front (20 rows each, every dropdown filled with the project's full lists)
+// made millions of elements and froze the page. In Overall a day's rows are
+// built only when someone opens that day; the header shows how many lines it
+// has. The Look Ahead views still build their few days straight away.
+function isLazyDayView() {
+    return currentView !== 'view2' && currentView !== 'view3';
+}
+
+// Builds a day's rows if they aren't built yet, and fills them from the last
+// schedule load, so a day that has lines is never shown (or written into)
+// as if it were empty. Every place that needs a day's rows goes through here.
+function buildDayRows(rowsDiv, dayLabel) {
+    if (!rowsDiv || rowsDiv.innerHTML !== '') return rowsDiv;
+    addRowsToContainer(rowsDiv, dayLabel, createAddRowsButton(rowsDiv, dayLabel));
+    const lines = (__lastScheduleData || []).filter(r => r.day_label === dayLabel);
+    if (lines.length) applyScheduleDataToDom(lines, { partial: true });
+    return rowsDiv;
+}
+
+// "· 3 lines" on each day header, from the last schedule load.
+function refreshDayLineCounts() {
+    const counts = {};
+    (__lastScheduleData || []).forEach(r => {
+        if (r && r.day_label && ['time', 'place', 'activity', 'asset', 'trade_partners', 'result', 'notes', 'people']
+                .some(k => String(r[k] || '').trim())) {
+            counts[r.day_label] = (counts[r.day_label] || 0) + 1;
+        }
+    });
+    document.querySelectorAll('.rows-container').forEach(rowsDiv => {
+        const el = rowsDiv.previousElementSibling && rowsDiv.previousElementSibling.querySelector('.day-line-count');
+        if (!el) return;
+        const n = counts[rowsDiv.id.replace('rows-', '')] || 0;
+        const text = n ? ` · ${n} line${n === 1 ? '' : 's'}` : '';
+        if (el.textContent !== text) el.textContent = text;
+    });
+}
+
+function scheduleDayLineCountRefresh() {
+    clearTimeout(window.__dayLineCountTimer);
+    window.__dayLineCountTimer = setTimeout(refreshDayLineCounts, 100);
+}
+
+// opts.partial: data is only some days' lines (buildDayRows), so don't treat
+// lines missing from it as deleted.
+function applyScheduleDataToDom(data, opts = {}) {
     if (!data) return;
+    const lazy = isLazyDayView();
     const liveIds = new Set(data.map(row => String(row.id)));
     data.forEach(row => {
         if (deletingRows.has(row.id)) return;
 
         let rowsDiv = document.getElementById(`rows-${row.day_label}`);
-        if (!rowsDiv && ensureWeekRenderedForDayLabel(row.day_label)) {
-            rowsDiv = document.getElementById(`rows-${row.day_label}`);
-        }
-        if (rowsDiv && rowsDiv.innerHTML === '') {
-            const addBtn = createAddRowsButton(rowsDiv, row.day_label);
-            addRowsToContainer(rowsDiv, row.day_label, addBtn);
+        if (lazy) {
+            // Overall Schedule: filled when the day is opened (buildDayRows).
+            if (!rowsDiv || rowsDiv.innerHTML === '') return;
+        } else {
+            if (!rowsDiv && ensureWeekRenderedForDayLabel(row.day_label)) {
+                rowsDiv = document.getElementById(`rows-${row.day_label}`);
+            }
+            if (rowsDiv && rowsDiv.innerHTML === '') {
+                const addBtn = createAddRowsButton(rowsDiv, row.day_label);
+                addRowsToContainer(rowsDiv, row.day_label, addBtn);
+            }
         }
         ensureRowSlotExists(rowsDiv, row.day_label, row.id);
 
@@ -12106,11 +12186,14 @@ function applyScheduleDataToDom(data) {
     // (backgrounded tab, brief reconnect, event ordering) used to require
     // a full hard page reload to notice. This makes every call here
     // self-healing instead.
-    document.querySelectorAll('.cell-row[data-occupied="true"]').forEach(rowEl => {
-        const idStr = rowEl.id.replace('row-wrapper-', '');
-        if (deletingRows.has(parseInt(idStr, 10))) return;
-        if (!liveIds.has(idStr)) clearRowElement(rowEl);
-    });
+    if (!opts.partial) {
+        document.querySelectorAll('.cell-row[data-occupied="true"]').forEach(rowEl => {
+            const idStr = rowEl.id.replace('row-wrapper-', '');
+            if (deletingRows.has(parseInt(idStr, 10))) return;
+            if (!liveIds.has(idStr)) clearRowElement(rowEl);
+        });
+        scheduleDayLineCountRefresh();
+    }
     scheduleWeekCalendarRender();
 }
 
@@ -12748,11 +12831,8 @@ async function commitBatchAdd() {
         return alert("The selected date is outside of the active schedule window.");
     }
 
-    // Initialize day if completely empty
-    if (targetRowsDiv.innerHTML === '') {
-        const addBtn = createAddRowsButton(targetRowsDiv, targetDate);
-        addRowsToContainer(targetRowsDiv, targetDate, addBtn);
-    }
+    // Initialize (and fill) the day if it isn't built yet
+    buildDayRows(targetRowsDiv, targetDate);
 
     // Ensure we have enough blank rows, auto-generate more if we don't
     let emptyRows = Array.from(targetRowsDiv.querySelectorAll('.cell-row:not([data-occupied="true"])'));
