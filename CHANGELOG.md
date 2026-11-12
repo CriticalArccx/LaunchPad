@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.18.0...v1.18.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ARC-328:** Overall Schedule builds a day's lines only when it's opened ([5e17dfa](https://github.com/CriticalArccx/LaunchPad/commit/5e17dfa9dc42711bd4432bbbef891179a4539104))
+* **ARC-328:** Overall Schedule builds a day's lines only when it's opened ([4d1767a](https://github.com/CriticalArccx/LaunchPad/commit/4d1767a3ec2b04b7c08ce94535b83905b754f7f7))
+
 ## [1.18.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.17.0...v1.18.0) (2026-11-10)
 
 
