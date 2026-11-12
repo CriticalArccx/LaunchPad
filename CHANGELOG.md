@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.18.1...v1.19.0) (2026-11-12)
+
+
+### Features
+
+* **ARC-328:** show each day's count as a blue 'N Activities' pill next to the arrow ([24e7cf4](https://github.com/CriticalArccx/LaunchPad/commit/24e7cf4ace03a169677a59d4ceb05391ebb76147))
+* **ARC-328:** show each day's count as a blue 'N Activities' pill next to the arrow ([3c92669](https://github.com/CriticalArccx/LaunchPad/commit/3c9266942184508521c23d3603fb4f55085d08e7))
+
 ## [1.18.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.18.0...v1.18.1) (2026-11-12)
 
 
