@@ -414,6 +414,18 @@ input,select,textarea{font-family:inherit;}
 /* Overview + Overview Extended (one bar per row) — as thin as the label
    content allows, down to a bare color sliver when there's no label at all. */
 .gantt-item.thin{min-height:16px; padding:1px 4px; border-radius:3px; box-shadow:none;}
+/* Milestone rows in the Schedule view (ARC-451): a diamond on its due day,
+   name beside it. Not draggable or linkable; clicking opens Milestones. */
+.gantt-item.gantt-ms{width:16px; min-height:16px; height:16px; padding:0; background:transparent !important; border:0; box-shadow:none; text-shadow:none; cursor:pointer; overflow:visible;}
+.gantt-ms .gms-diamond{position:absolute; left:2px; top:2px; width:12px; height:12px; transform:rotate(45deg); background:#3e9aab; border:1px solid #12454f; border-radius:2px;}
+.gantt-ms.late .gms-diamond{background:#a1231b; border-color:#5c120d;}
+.gantt-ms .gms-label{position:absolute; left:22px; top:-1px; white-space:nowrap; font-size:11px; font-weight:700; color:#12454f;}
+.gantt-ms.late .gms-label{color:#a1231b;}
+.gantt-row.ms-row .gantt-rowlabel{color:#12454f; background:#eaf6f8;}
+:host(.dark-mode) .gantt-ms .gms-label{color:#bfeaf1;}
+:host(.dark-mode) .gantt-ms.late .gms-label{color:#ef9a9a;}
+:host(.dark-mode) .gantt-row.ms-row .gantt-rowlabel{color:#bfeaf1; background:#173f46;}
+.connections-svg path.conn-line.conn-ms{stroke:#3e9aab; stroke-dasharray:5 3; pointer-events:none;}
 .gantt-item.thin .gi-asset{font-size:9px; line-height:1.15;}
 /* The link-handle (drag-to-connect) is opacity:0 until the item is
    hovered elsewhere — fine at normal bar sizes, but a hover-then-hit-a-
@@ -575,6 +587,24 @@ input,select,textarea{font-family:inherit;}
     box-shadow:-6px 0 24px rgba(0,0,0,0.15); z-index:1500; padding:20px; overflow-y:auto;
 }
 .detail-panel.open{display:block;}
+/* Detail panel: milestones the line feeds, and its history (ARC-451) */
+.dp-h{margin:18px 0 6px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--green-dark);}
+.dp-chips{display:flex; flex-wrap:wrap; gap:6px;}
+.dp-chip{font-size:12px; font-weight:700; padding:2px 7px; border-radius:4px; background:#cdeef3; border:1px solid #3e9aab; color:#12454f;}
+.dp-hist{list-style:none; margin:0; padding:0; font-size:12.5px;}
+.dp-hist li{display:grid; grid-template-columns:12px minmax(0,1fr); gap:8px; padding:6px 0; border-top:1px solid var(--grey-border);}
+.dp-hist li:first-child{border-top:0;}
+.dp-hist .dot{width:10px; height:10px; border-radius:50%; margin-top:4px; background:#9aa0a6;}
+.dp-hist li.k-done .dot{background:#2f7d32;}
+.dp-hist li.k-fail .dot{background:#c62828;}
+.dp-hist li.k-moved .dot{background:#d98a1c;}
+.dp-hist li.k-removed .dot{background:#5f6368;}
+.dp-hist li.k-planned .dot{background:#4a7fc1;}
+.dp-hist li.this{background:var(--green-light); margin:0 -8px; padding:6px 8px; border-radius:6px;}
+.dp-hist .sub{color:var(--text-muted); font-size:11.5px;}
+.dp-note{font-size:12px; color:var(--text-muted); margin:6px 0 0;}
+:host(.dark-mode) .dp-chip{background:#173f46; border-color:#4fb3c4; color:#bfeaf1;}
+:host(.dark-mode) .dp-hist li.this{background:#1b3d1e;}
 
 /* Toast */
 #toast{
@@ -2255,6 +2285,10 @@ export class BridgeView extends HTMLElement {
         this.renderLegend();
         this.renderGantt();
         this.initWaterfallSyncedScroll();
+        // Milestone rows in the Schedule view, and their dates for the axis.
+        if (this._milestones && this._supabase) {
+            this._milestones.load().then(() => this.renderGantt()).catch(err => console.error('Milestones failed to load', err));
+        }
         this.updateLaunchPadSyncBtn();
         this.setSaveIndicator('ready', 'Ready');
         if (this._supabase) {
@@ -2447,10 +2481,35 @@ export class BridgeView extends HTMLElement {
     latestActivityDate() {
         let latest = null;
         this.DATA.items.forEach(it => {
-            const end = new Date(new Date(it.start_ts).getTime() + it.duration_hours * 3600000);
+            const end = new Date(new Date(it.start_ts).getTime() + (parseFloat(it.duration_hours) || 24) * 3600000);
+            if (isNaN(end)) return;
             if (!latest || end > latest) latest = end;
         });
+        // Milestone rows (ARC-451) need their day on the axis too.
+        if (this._milestones && this._milestones.loaded) {
+            this._milestones.milestones.forEach(m => {
+                const end = new Date(m.t + 86400000);
+                if (!latest || end > latest) latest = end;
+            });
+        }
         return latest;
+    }
+    // With "Use last activity" ticked, the end date is worked out once when
+    // the range is applied. Lines that move later after that (a drag, the
+    // background ordering repair, a change from Schedule) then sat past the
+    // end of the axis (ARC-451). Every render now re-checks it.
+    followLastActivityEnd() {
+        const box = this.$('useLastActivityEnd'), endInput = this.$('rangeEndInput');
+        if (!box || !endInput || !box.checked || !this.TIMELINE_START) return;
+        const latest = this.latestActivityDate();
+        if (!latest) return;
+        const padded = new Date(latest);
+        padded.setDate(padded.getDate() + 30);
+        const endVal = padded.toISOString().slice(0, 10);
+        if (endInput.value === endVal) return;
+        endInput.value = endVal;
+        const end = new Date(endVal + 'T00:00');
+        this.TIMELINE_DAYS = Math.max(1, Math.round((end - this.TIMELINE_START) / 86400000) + 1);
     }
     applyTimelineRange() {
         const startInput = this.$('rangeStartInput');
@@ -3024,6 +3083,42 @@ export class BridgeView extends HTMLElement {
         </div>`;
     }
 
+    // Milestones as Schedule-view rows: not schedule items, never saved.
+    // ids start with "ms:" so nothing mistakes one for a real line.
+    ganttMilestoneItems() {
+        this._ganttMsById = new Map();
+        if (!this._milestones || !this._milestones.loaded) return [];
+        return this._milestones.ganttMilestones().map(g => {
+            const d = new Date(g.t); d.setHours(7, 0, 0, 0);
+            const item = {
+                id: 'ms:' + g.key, asset_name: g.name, activity_name: 'Milestone',
+                start_ts: d.toISOString(), duration_hours: 24,
+                predecessor_ids: g.preds.concat(g.msPreds.map(k => 'ms:' + k)),
+                _milestone: g
+            };
+            this._ganttMsById.set(item.id, item);
+            return item;
+        });
+    }
+    milestoneBarHtml(it) {
+        const g = it._milestone;
+        const dayLeft = Math.floor(this.dayIndexForDate(new Date(it.start_ts))) * this.DAY_WIDTH;
+        const left = dayLeft + this.DAY_WIDTH / 2 - 8;
+        const top = it._top !== undefined ? it._top : ROW_PAD_TOP;
+        const late = g.stats.late > 0;
+        const d = new Date(g.t);
+        const title = `${g.name}: due ${d.toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric', year: 'numeric' })} — ${g.stats.done} of ${g.stats.total} required lines done${g.stats.late ? `, ${g.stats.late} late` : ''}${g.stats.risk ? `, ${g.stats.risk} at risk` : ''}${g.moreLinks ? ` — links shown from the ${g.preds.length} latest lines, ${g.moreLinks} more not drawn` : ''}. Click to open it in Milestones.`;
+        const dimmed = this.focusChainSet && !g.preds.some(p => this.focusChainSet.has(p));
+        return `<div class="gantt-item gantt-ms ${late ? 'late' : ''} ${dimmed ? 'dimmed' : ''}" data-id="${escAttr(it.id)}" data-ms="${escAttr(g.key)}" role="button" tabindex="0" style="left:${left}px; top:${top}px;" title="${escAttr(title)}">
+            <span class="gms-diamond"></span><span class="gms-label">⚑ ${escHtml(g.name)} · ${d.getMonth() + 1}/${d.getDate()}</span>
+        </div>`;
+    }
+    openMilestoneFromGantt(key) {
+        if (!this._milestones) return;
+        this._milestones.state.anchorKey = key;
+        this.setBridgeView('milestones');
+    }
+
     buildRowHtml(gname, laidOut, totalWidth, groupBy, opts) {
         opts = opts || {};
         const height = opts.forceNatural ? laidOut.totalHeight : (this.rowHeightOverrides[gname] || laidOut.totalHeight);
@@ -3036,7 +3131,7 @@ export class BridgeView extends HTMLElement {
         const labelHtml = opts.displayLabel
             ? escHtml(opts.displayLabel)
             : `${escHtml(gname)} <span style="color:#aaa; font-weight:500; margin-left:2px;">(${laidOut.items.length})</span>`;
-        return `<div class="gantt-row" data-group="${escAttr(gname)}" style="height:${height}px; min-width:${rowMinWidth}px;">
+        return `<div class="gantt-row ${String(gname).startsWith('ms:') ? 'ms-row' : ''}" data-group="${escAttr(gname)}" style="height:${height}px; min-width:${rowMinWidth}px;">
             <div class="gantt-rowlabel ${opts.displayLabel ? 'wide' : ''}" style="height:${height}px;">
                 <span>${labelHtml}</span>
                 ${!opts.displayLabel ? `<button class="row-expand-btn" title="Show only this row (filters down to it, same as clicking its filter chip)" onclick="this.getRootNode().host.openRowFullscreen('${gname.replace(/'/g, "\\'")}')">⛶</button>` : ''}
@@ -3149,6 +3244,7 @@ export class BridgeView extends HTMLElement {
         // Filters, search and data reloads all end up here; keep Milestones
         // in step when it's the view showing.
         if (this.bridgeViewMode === 'milestones' && this._milestones) this._milestones.render();
+        this.followLastActivityEnd();
         this.style.setProperty('--daywidth', this.DAY_WIDTH + 'px');
         // Grouping and "Expand All Activities" no longer have any UI (only
         // Overview/Overview Extended remain, which always render one row
@@ -3230,10 +3326,13 @@ export class BridgeView extends HTMLElement {
             // previous one's lane frees up, by construction), so this is
             // the only change actually needed — an ordinary single-day
             // item just groups under its own id same as before.
-            visibleItems.slice().sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts)).forEach(it => {
-                const rootId = this.getChainRootId(it);
+            // Milestones (ARC-451) take a row each, in date order with the
+            // lines, linked from the lines they need.
+            const msItems = this.ganttMilestoneItems().filter(m => new Date(m.start_ts).getTime() >= rangeStartMs);
+            visibleItems.concat(msItems).sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts)).forEach(it => {
+                const rootId = it._milestone ? it.id : this.getChainRootId(it);
                 (groups[rootId] = groups[rootId] || []).push(it);
-                if (!displayLabels[rootId]) displayLabels[rootId] = `${it.asset_name} — ${it.activity_name}`;
+                if (!displayLabels[rootId]) displayLabels[rootId] = it._milestone ? `⚑ ${it._milestone.name} — Milestone` : `${it.asset_name} — ${it.activity_name}`;
             });
         } else {
             items.forEach(it => {
@@ -3408,6 +3507,7 @@ export class BridgeView extends HTMLElement {
     }
 
     itemBarHtml(it) {
+        if (it._milestone) return this.milestoneBarHtml(it);
         const left = this.displayLeft(it);
         const width = this.displayWidth(it);
         const top = it._top !== undefined ? it._top : ROW_PAD_TOP;
@@ -3909,6 +4009,7 @@ export class BridgeView extends HTMLElement {
     }
 
     async addPredecessorLink(targetId, sourceId) {
+        if (String(targetId).startsWith('ms:') || String(sourceId).startsWith('ms:')) return; // milestone rows aren't schedule items
         const target = this.DATA.items.find(i => i.id === targetId);
         const source = this.DATA.items.find(i => i.id === sourceId);
         if (!target || !source) return;
@@ -3969,8 +4070,9 @@ export class BridgeView extends HTMLElement {
 
         let paths = svg.querySelector('defs').outerHTML;
         Object.keys(rectById).forEach(succId => {
-            const succItem = this.DATA.items.find(i => i.id === succId);
+            const succItem = this.DATA.items.find(i => i.id === succId) || (this._ganttMsById && this._ganttMsById.get(succId));
             if (!succItem || !succItem.predecessor_ids) return;
+            const toMilestone = !!succItem._milestone;
             succItem.predecessor_ids.forEach(predId => {
                 if (this.focusChainSet && !this.focusChainSet.has(predId) && !this.focusChainSet.has(succId)) return;
                 const predRect = rectById[predId];
@@ -4001,7 +4103,11 @@ export class BridgeView extends HTMLElement {
                     const trunkX = this.pickTrunkX(dropX, predRect.bottom, succRect.left, succRect.midY, obstacles);
                     d = this.branchConnectorPath(predRect.left, predRect.right, predRect.bottom, trunkX, succRect.left, succRect.midY);
                 }
-                paths += `<path class="conn-line" d="${d}" marker-end="url(#arrowHead-${svgId})" data-pred="${predId}" data-succ="${succId}" onclick="this.getRootNode().host.handleConnectorClick('${predId}','${succId}')"></path>`;
+                // Links into a milestone row show what it needs; they
+                // aren't schedule links, so they can't be clicked off.
+                paths += toMilestone
+                    ? `<path class="conn-line conn-ms" d="${d}" marker-end="url(#arrowHead-${svgId})" data-pred="${predId}" data-succ="${succId}"></path>`
+                    : `<path class="conn-line" d="${d}" marker-end="url(#arrowHead-${svgId})" data-pred="${predId}" data-succ="${succId}" onclick="this.getRootNode().host.handleConnectorClick('${predId}','${succId}')"></path>`;
             });
         });
         svg.innerHTML = paths;
@@ -4106,6 +4212,13 @@ export class BridgeView extends HTMLElement {
     // predecessor_ids from origItemId to the new item). Every hop after
     // that first one is a normal walk between real, already-linked items,
     // same as enforceDependencies().
+    // Which milestones a set of moves would push past their date. [] when
+    // Milestones is off. moves: [{ id, start_ts, duration_hours? }].
+    async milestoneImpact(moves) {
+        if (!this._milestones || !this._supabase) return [];
+        return this._milestones.impactOf(moves);
+    }
+
     simulateReschedulePreview(hypotheticalItem, origItemId) {
         const changes = []; // [{ item, oldStartTs, newStartTs }], item = the REAL DATA.items object
         const working = new Map(); // real item id -> proposed new start_ts, for items already shifted earlier in this same walk
@@ -4298,6 +4411,12 @@ export class BridgeView extends HTMLElement {
     attachDragHandlers(root) {
         root = root || document;
         root.querySelectorAll('.gantt-item').forEach(el => {
+            if (el.classList.contains('gantt-ms')) {
+                const open = () => this.openMilestoneFromGantt(el.dataset.ms);
+                el.addEventListener('click', open);
+                el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+                return;
+            }
             el.addEventListener('pointerdown', (e) => {
                 // Both handled separately by their own listeners (see
                 // attachLinkHandlers() below) — those call stopPropagation()
@@ -4610,6 +4729,9 @@ export class BridgeView extends HTMLElement {
                 <div><strong>Successors:</strong> ${this.DATA.items.filter(x=>(x.predecessor_ids||[]).includes(it.id)).map(x=>escHtml(x.asset_name+' — '+x.activity_name)).join(', ') || '—'}</div>
                 ${it.notes ? `<div style="margin-top:8px;"><strong>Notes:</strong><br>${escHtml(it.notes)}</div>` : ''}
             </div>
+            ${this.detailMilestonesHtml(it)}
+            <h4 class="dp-h">History · ${escHtml(it.asset_name)} — ${escHtml(it.activity_name)}</h4>
+            <div id="detailHistory" class="dp-note" style="margin:0;">Loading history…</div>
             <div style="margin-top:20px; display:flex; gap:8px;">
                 <button class="tool-btn primary small" onclick="this.getRootNode().host.editItem('${it.id}')">Edit</button>
                 <button class="tool-btn small" style="border-color:var(--red); color:var(--red);" onclick="this.getRootNode().host.deleteItemById('${it.id}')">Delete</button>
@@ -4623,13 +4745,85 @@ export class BridgeView extends HTMLElement {
                 if (el) el.textContent = label;
             });
         }
+        this.loadLineHistoryInto(it, 'detailHistory');
         this.connectionFocusId = id;
+        if (this._milestones) this._milestones.state.sel = id;
         this.renderGantt();
+        if (this.bridgeViewMode === 'milestones') return; // the chain shows in the Milestones timeline instead
         const chainSize = this.focusChainSet ? this.focusChainSet.size : 1;
         this.toast(chainSize > 1 ? `Highlighting this chain (${chainSize} linked activities) — click empty space to clear` : 'This activity has no links yet', 3200);
     }
+    // "Needed for FR1 (Mon 12/21)" chips, when Milestones is on.
+    detailMilestonesHtml(it) {
+        if (!this._milestones) return '';
+        const feeds = this._milestones.feedsOf(it.id);
+        if (feeds === null) return '';
+        const day = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric' });
+        return `<h4 class="dp-h">Milestones</h4>${feeds.length
+            ? `<div class="dp-chips">${feeds.map(f => `<span class="dp-chip" title="This line has to be done for ${escAttr(f.name)}">⚑ ${escHtml(f.name)} · ${day(f.t)}</span>`).join('')}</div>`
+            : '<div class="dp-note" style="margin:0;">Not needed for any milestone.</div>'}`;
+    }
+
+    // Every Schedule line for this asset + activity: when it ran and how,
+    // reruns after a fail, moves to other days, removals (ARC-451). Moves
+    // and removals are kept as hidden copies (sync/schedule_line_status.sql)
+    // that only sync/line_history.sql's lp_schedule_line_history() reads;
+    // without it, just the current lines show.
+    async loadLineHistoryInto(it, elementId) {
+        const forId = this._historyFor = it.id; // a newer panel wins
+        const target = () => (this._historyFor === forId ? this.$(elementId) : null);
+        if (!this._supabase || !this.LAUNCHPAD_TABLE) { if (target()) target().textContent = 'No history available.'; return; }
+        let rows = null, partial = false;
+        try {
+            const { data, error } = await this._supabase.rpc('lp_schedule_line_history', { p_table: this.LAUNCHPAD_TABLE, p_asset: it.asset_name || '', p_activity: it.activity_name || '' });
+            if (error) throw error;
+            rows = data || [];
+        } catch (e) {
+            partial = true;
+            const { data, error } = await this._supabase.from(this.LAUNCHPAD_TABLE).select('*').eq('asset', it.asset_name || '').eq('activity', it.activity_name || '');
+            if (error) { console.error('Loading line history failed', error); if (target()) target().textContent = 'History could not be loaded.'; return; }
+            rows = data || [];
+        }
+        const el = target();
+        if (!el || !this.$('detailPanel').classList.contains('open')) return;
+        el.outerHTML = `<div id="${elementId}">${this.lineHistoryHtml(rows, it, partial)}</div>`;
+    }
+    lineHistoryHtml(rows, it, partial) {
+        const dayOf = s => { const [y, m, d] = String(s || '').slice(0, 10).split('-').map(Number); return y ? new Date(y, m - 1, d) : null; };
+        const dayOfId = id => { const n = Math.floor(Math.abs(Number(id)) / 100); return n > 19000101 ? new Date(Math.floor(n / 10000), Math.floor(n / 100) % 100 - 1, n % 100) : null; };
+        const fmt = d => d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric', year: '2-digit' }) : '?';
+        const who = s => s ? ` by ${escHtml(String(s).split('@')[0])}` : '';
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const live = rows.filter(r => !r.line_status || r.line_status === 'live').sort((a, b) => String(a.day_label).localeCompare(String(b.day_label)) || a.id - b.id);
+        const events = [];
+        live.forEach((r, i) => {
+            const d = dayOf(r.day_label), res = String(r.result || '').trim();
+            let kind = 'planned', text = d && d < today ? 'No result yet' : 'Scheduled';
+            if (/pass|complete/i.test(res)) { kind = 'done'; text = res; }
+            else if (/fail/i.test(res)) { kind = 'fail'; text = res; }
+            else if (res) { kind = 'other'; text = res; }
+            const nextDay = r.superseded_by ? dayOfId(r.superseded_by) : (kind === 'fail' && live[i + 1] ? dayOf(live[i + 1].day_label) : null);
+            const label = i === 0 ? (live.length > 1 ? 'First run' : 'Scheduled') : `Repeat ${i}`;
+            events.push({ at: d, kind, isThis: String(r.id) === String(it.launchpad_id), html: `<b>${escHtml(label)} · ${fmt(d)}</b> — ${escHtml(text)}${nextDay ? `<div class="sub">Repeated on ${fmt(nextDay)}</div>` : ''}` });
+        });
+        rows.filter(r => r.line_status && r.line_status !== 'live').forEach(r => {
+            const when = r.deleted_at ? new Date(r.deleted_at) : null;
+            const from = dayOf(r.day_label);
+            if (r.line_status === 'moved') events.push({ at: when || from, kind: 'moved', html: `<b>Moved off ${fmt(from)}</b><div class="sub">${when ? `On ${fmt(when)}` : ''}${who(r.deleted_by)}</div>` });
+            else events.push({ at: when || from, kind: 'removed', html: `<b>Removed from ${fmt(from)}</b>${r.result ? ` — ${escHtml(r.result)}` : ''}<div class="sub">${when ? `On ${fmt(when)}` : ''}${who(r.deleted_by)}${r.line_status === 'restored' ? ` · restored${r.restored_at ? ' ' + fmt(new Date(r.restored_at)) : ''}${who(r.restored_by)}` : ''}</div>` });
+        });
+        events.sort((a, b) => (a.at ? a.at.getTime() : 0) - (b.at ? b.at.getTime() : 0));
+        const list = events.length
+            ? `<ol class="dp-hist">${events.map(e => `<li class="k-${e.kind} ${e.isThis ? 'this' : ''}"><span class="dot" aria-hidden="true"></span><div>${e.html}${e.isThis ? '<div class="sub">This line</div>' : ''}</div></li>`).join('')}</ol>`
+            : '<div class="dp-note" style="margin:0;">Nothing on the Schedule for this pair yet.</div>';
+        return list + (partial ? '<p class="dp-note">Moves and removals show here once sync/line_history.sql has been run in Supabase.</p>' : '');
+    }
     closeDetailPanel() {
         this.$('detailPanel').classList.remove('open');
+        if (this._milestones && this._milestones.state.sel) {
+            this._milestones.state.sel = null;
+            if (this.bridgeViewMode === 'milestones') this._milestones.render();
+        }
         if (this.connectionFocusId) {
             this.connectionFocusId = null;
             this.renderGantt();

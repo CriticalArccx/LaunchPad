@@ -21,7 +21,15 @@
 //   by zone; those zone choices still count.
 // - Line status: Done when the line's Schedule result reads Pass or
 //   Complete; Late when it isn't done and its last day has passed; At risk
-//   when a predecessor is late or at risk; otherwise Planned.
+//   when a predecessor is late or at risk; otherwise Planned. Clicking a
+//   status in the readiness summary shows only lines with that status.
+// - The axis runs from the current week to the milestone; older lines fold
+//   into one "earlier" column.
+// - Clicking a line opens Bridge's detail panel on the right, the same one
+//   the Schedule view uses.
+// - The Schedule view also draws each milestone as a row, linked from the
+//   lines it needs (ganttMilestones()), and Schedule's Reschedule dialog asks
+//   impactOf() which milestones a move would push.
 //
 // Everything renders into #milestonesView inside Bridge's shadow root. The
 // host (<bridge-view>) owns the data; this class only reads it, except for
@@ -30,8 +38,9 @@
 const DAY = 86400000;
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MAX_COLS = 26; // older weeks fold into one "Earlier" column
+const MAX_COLS = 26; // only when today is past the milestone: older weeks fold into one "Earlier" column
 const ST_TEXT = { done: 'Done', late: 'Late', risk: 'At risk', planned: 'Planned' };
+const MAX_MS_LINKS = 25; // Schedule view: links drawn into one milestone row
 
 function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function dayStart(ms) { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); }
@@ -104,10 +113,12 @@ export const MILESTONES_STYLE = `
 :host(.ms-mode) #milestonesView{display:block;}
 .ms{--ms-ink:var(--text-dark); --ms-muted:var(--text-muted); --ms-line:#e3e6e8; --ms-soft:#fafbfa; --ms-card:#fff;
     --kd-bg:#cdeef3; --kd-line:#3e9aab; --kd-ink:#12454f;
-    --st-done:#1e6b2a; --st-late:#a1231b; --st-risk:#8a4b00; --st-planned:#4a5056;
+    --st-done:#1e6b2a; --st-late:#a1231b; --st-risk:#8a4b00; --st-planned:#2c5d9e;
+    --bar-done:#2f7d32; --bar-planned:#4a7fc1; --bar-risk:#d98a1c; --bar-late:#a1231b;
     color:var(--ms-ink); font-size:14px;}
 :host(.dark-mode) .ms{--ms-line:#333; --ms-soft:#1a1a1a; --ms-card:#1e1e1e; --kd-bg:#173f46; --kd-line:#4fb3c4; --kd-ink:#bfeaf1;
-    --st-done:#81c784; --st-late:#ef9a9a; --st-risk:#ffb74d; --st-planned:#b0b0b0;}
+    --st-done:#81c784; --st-late:#ef9a9a; --st-risk:#ffb74d; --st-planned:#90b8f0;
+    --bar-done:#66bb6a; --bar-planned:#6f9fdc; --bar-risk:#ffa726; --bar-late:#e57373;}
 :host(.dark-mode) #milestonesView{background:#121212;}
 .ms-controls{display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; padding:12px 24px; border-bottom:1px solid var(--ms-line); background:var(--ms-soft);}
 .ms-lbl{display:flex; flex-direction:column; gap:6px; font-size:11.5px; font-weight:700; letter-spacing:.05em; color:var(--green); text-transform:uppercase;}
@@ -146,11 +157,6 @@ export const MILESTONES_STYLE = `
 :host(.dark-mode) .ms-link{color:#81c784;}
 .ms-link.danger{color:var(--st-late);}
 
-.ms-sel{display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid var(--grey-border); border-radius:10px;}
-.ms-sel dl{display:grid; grid-template-columns:80px minmax(0,1fr); gap:6px 10px; margin:0; font-size:13px;}
-.ms-sel dt{color:var(--ms-muted);} .ms-sel dd{margin:0;}
-.ms-rel-btn{display:flex; justify-content:space-between; gap:8px; width:100%; text-align:left; min-height:34px; padding:6px 8px; border:1px solid var(--ms-line); border-radius:6px; background:var(--ms-card); font:inherit; font-size:13px; color:var(--ms-ink); cursor:pointer; margin-top:4px;}
-.ms-x{border:0; background:transparent; width:36px; height:36px; margin:-8px -8px 0 0; cursor:pointer; color:var(--ms-muted); font-size:18px;}
 
 .st{display:inline-flex; align-items:center; gap:3px; font-weight:500; white-space:nowrap;}
 .st-done{color:var(--st-done);} .st-planned{color:var(--st-planned);}
@@ -159,10 +165,20 @@ export const MILESTONES_STYLE = `
 .ms-ready{display:flex; flex-wrap:wrap; gap:24px; align-items:center; padding:16px 20px; border:1px solid var(--ms-line); border-radius:12px; background:var(--ms-card);}
 .ms-ready h1{margin:0; font-size:26px; font-weight:700;}
 .ms-ready p{margin:0; font-size:14px;}
-.ms-stats{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px;}
-.ms-stat{display:flex; flex-direction:column; gap:2px;}
-.ms-stat b{font-size:24px;}
+.ms-stats{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px;}
+.ms-stat{display:flex; flex-direction:column; gap:2px; text-align:left; padding:6px 8px; border:1px solid transparent; border-left:4px solid var(--c); border-radius:8px; background:transparent; font:inherit; color:var(--ms-ink); cursor:pointer;}
+.ms-stat b{font-size:24px; color:var(--c);}
+.ms-stat span{font-size:12.5px; color:var(--ms-muted);}
+.ms-stat:hover{background:var(--ms-soft); border-color:var(--grey-border); border-left-color:var(--c);}
+.ms-stat[aria-pressed="true"]{background:var(--ms-soft); border-color:var(--c); box-shadow:inset 0 0 0 1px var(--c);}
+.ms-stat[aria-pressed="true"] span{color:var(--ms-ink); font-weight:700;}
+.ms-stat.s-done{--c:var(--st-done);} .ms-stat.s-planned{--c:var(--st-planned);}
+.ms-stat.s-risk{--c:var(--st-risk);} .ms-stat.s-late{--c:var(--st-late);}
 .ms-stack{display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--grey-bg); gap:2px;}
+.ms-stack > span{cursor:pointer;}
+.ms-defs{margin:0; font-size:12px; line-height:1.45; color:var(--ms-muted);}
+.ms-defs b{color:var(--ms-ink);}
+.ms-filtered{display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; color:var(--ms-muted);}
 .ms-empty{padding:28px; border:1px dashed var(--grey-border); border-radius:12px; text-align:center; color:var(--ms-muted); line-height:1.5;}
 
 .ms-tl{border:1px solid var(--ms-line); border-radius:10px; overflow-x:auto; background:var(--ms-card);}
@@ -232,7 +248,8 @@ export class BridgeMilestones {
     constructor(host, root) {
         this.host = host;   // <bridge-view>
         this.root = root;   // #milestonesView
-        this.state = { anchorKey: null, bucket: 1, scope: 'req', sel: null, hidden: new Set() };
+        // stf: statuses picked in the readiness summary (empty = all).
+        this.state = { anchorKey: null, bucket: 1, scope: 'req', sel: null, hidden: new Set(), stf: new Set() };
         this.milestones = [];
         this.results = {};
         this.loaded = false;
@@ -375,6 +392,70 @@ export class BridgeMilestones {
         return { today, items, byId, succ, status, closure, reqOf, statsOf };
     }
 
+    // ---- used by the host (bridge-view.js, index.html) -------------------
+
+    // Milestones the line needs to be done for, for the detail panel.
+    // null until milestones have loaded.
+    feedsOf(id) {
+        if (!this.loaded || this.loadError) return null;
+        const M = this._model();
+        if (!M.byId.has(id)) return [];
+        return this.milestones.filter(k => M.reqOf(k).has(id)).map(k => ({ key: k.key, name: k.name, t: k.t }));
+    }
+
+    // Milestones for the Schedule view: one row each, linked from the
+    // required lines nothing else required waits on (the last ones before
+    // it), at most MAX_MS_LINKS of them, latest-finishing first. A milestone
+    // based on another is linked to it, earlier one first.
+    ganttMilestones() {
+        if (!this.loaded || this.loadError) return [];
+        const M = this._model();
+        const rows = this.milestones.map(k => {
+            const req = M.reqOf(k);
+            const ends = [...req].filter(id => !(M.succ.get(id) || []).some(c => req.has(c)))
+                .map(id => M.byId.get(id)).sort((a, b) => b.t - a.t);
+            const shown = ends.slice(0, MAX_MS_LINKS).map(x => x.id);
+            return { key: k.key, name: k.name, t: k.t, preds: shown, moreLinks: ends.length - shown.length, stats: M.statsOf(req), msPreds: [] };
+        });
+        const rowOf = new Map(rows.map(r => [r.key, r]));
+        this.milestones.forEach(k => {
+            if (!k.base) return;
+            const [early, late] = k.base.t <= k.t ? [k.base, k] : [k, k.base];
+            rowOf.get(late.key).msPreds.push(early.key);
+        });
+        return rows;
+    }
+
+    // Which milestones a set of moves would push: a required line that isn't
+    // done and, once moved, finishes after the milestone's date when it
+    // didn't before (or later than it already did).
+    // moves: [{ id, start_ts, duration_hours? }] (Bridge item ids).
+    // Returns [{ name, t, lines: [{ asset, act, from, to, daysAfter }] }].
+    async impactOf(moves) {
+        if (!this.loaded) await this.load();
+        if (this.loadError || !this.milestones.length) return [];
+        const M = this._model();
+        const moved = new Map();
+        moves.forEach(mv => {
+            const x = M.byId.get(mv.id);
+            if (!x || !mv.start_ts) return;
+            const start = dayStart(new Date(mv.start_ts).getTime());
+            const span = mv.duration_hours ? Math.max(1, Math.ceil((parseFloat(mv.duration_hours) || 24) / 24)) : x.span;
+            moved.set(x.id, dayStart(start + (span - 1) * DAY + DAY / 2));
+        });
+        return this.milestones.map(k => {
+            const req = M.reqOf(k);
+            const lines = [...moved].filter(([id, to]) => {
+                const x = M.byId.get(id);
+                return req.has(id) && M.status.get(id) !== 'done' && to > k.t && to > x.t;
+            }).map(([id, to]) => {
+                const x = M.byId.get(id);
+                return { asset: x.asset, act: x.act, from: x.t, to, daysAfter: daysBetween(to, k.t) };
+            }).sort((a, b) => b.to - a.to);
+            return { name: k.name, t: k.t, lines };
+        }).filter(r => r.lines.length);
+    }
+
     // ---- rendering -----------------------------------------------------
 
     render() {
@@ -388,7 +469,8 @@ export class BridgeMilestones {
         const REQ = new Map(kds.map(k => [k.key, M.reqOf(k)]));
         const lanesAll = [...new Set(M.items.map(x => x.act))].sort((a, b) => a.localeCompare(b));
         const h = this.host;
-        const passes = x => h.itemMatchesFilters(x.it, null) && h.passesGlobalSearch(x.it) && !s.hidden.has(x.act);
+        const passes = x => h.itemMatchesFilters(x.it, null) && h.passesGlobalSearch(x.it) && !s.hidden.has(x.act)
+            && (!s.stf.size || s.stf.has(M.status.get(x.id)));
 
         const controls = `
 <div class="ms-controls">
@@ -466,29 +548,7 @@ export class BridgeMilestones {
         return `<section style="display:flex;flex-direction:column;gap:10px;">
   <div><h2 class="ms-h2">Milestones</h2><p class="ms-note">Pick the date the timeline counts back from.</p></div>
   ${kds.length ? `<ul class="ms-kdlist">${list}</ul>` : '<p class="ms-note" style="margin:0;">None yet.</p>'}
-</section>${form}${this._selHtml(M, kds, A, REQ)}`;
-    }
-
-    _selHtml(M, kds, A, REQ) {
-        const x = this.state.sel && M.byId.get(this.state.sel);
-        if (!x) return '';
-        const st = M.status.get(x.id);
-        const rel = y => { const ys = M.status.get(y.id); return `<button type="button" class="ms-rel-btn" data-act="sel" data-v="${esc(y.id)}"><span>${esc(y.asset)} — ${esc(y.act)}</span><span class="st st-${ys}">${ST_TEXT[ys]}</span></button>`; };
-        const preds = x.preds.map(p => M.byId.get(p));
-        const succs = (M.succ.get(x.id) || []).map(id => M.byId.get(id));
-        const feeds = kds.filter(k => REQ.get(k.key).has(x.id)).map(k => k.name);
-        return `<section class="ms-sel" aria-label="Selected line">
-  <div style="display:flex;justify-content:space-between;gap:8px;"><h2 class="ms-h2">Selected line</h2><button type="button" class="ms-x" data-act="sel" data-v="" aria-label="Clear selection">×</button></div>
-  <div><div style="font-size:16px;font-weight:700;">${esc(x.asset)}</div><div class="ms-small">${esc(x.it.area || '')}</div></div>
-  <dl>
-    <dt>Activity</dt><dd>${esc(x.act)}</dd>
-    <dt>Due</dt><dd>${longD(x.t)}${A ? ' · ' + esc(this._relLabel(A, x.t)) : ''}</dd>
-    <dt>Status</dt><dd class="st st-${st}">${ST_TEXT[st]}</dd>
-    <dt>Feeds</dt><dd>${feeds.length ? esc(feeds.join(', ')) : 'No milestone'}</dd>
-  </dl>
-  <div><div class="ms-small" style="font-weight:700;">WAITING ON (${preds.length})</div>${preds.map(rel).join('')}</div>
-  <div><div class="ms-small" style="font-weight:700;">UNLOCKS (${succs.length})</div>${succs.map(rel).join('')}</div>
-</section>`;
+</section>${form}`;
     }
 
     _mainHtml(M, kds, A, REQ, passes) {
@@ -498,17 +558,21 @@ export class BridgeMilestones {
         const colOf = t => { const diff = daysBetween(A.t, t); return diff < 0 ? 'after' : Math.floor(diff / (7 * n)); };
         const maxCols = Math.max(1, Math.floor(MAX_COLS / n));
 
-        // Columns run from a week before today up to the milestone. Anything
-        // older (done work, long-late lines) folds into one "earlier" column,
-        // so a single old line can't stretch the axis across months.
+        // Columns run from the current week all the way to the milestone,
+        // however many weeks that is. Anything older (done work, long-late
+        // lines) folds into one "earlier" column, so a single old line can't
+        // stretch the axis across months. Once today is past the milestone,
+        // the last few weeks before it show instead.
         const todayK = colOf(M.today);
-        const oldestK = typeof todayK === 'number' ? todayK + 1 : Infinity;
-        let maxK = Math.min(3, maxCols - 1);
-        if (typeof todayK === 'number' && todayK > maxK) maxK = todayK;
-        view.forEach(x => { const c = colOf(x.t); if (typeof c === 'number' && c > maxK) maxK = c; });
-        let hasEarlier = false;
-        const limit = Math.min(maxCols - 1, Math.max(3, oldestK));
-        if (maxK > limit) { maxK = limit; hasEarlier = true; }
+        let maxK, hasEarlier = false;
+        if (typeof todayK === 'number') {
+            maxK = todayK;
+            hasEarlier = view.some(x => { const c = colOf(x.t); return typeof c === 'number' && c > maxK; });
+        } else {
+            maxK = Math.min(3, maxCols - 1);
+            view.forEach(x => { const c = colOf(x.t); if (typeof c === 'number' && c > maxK) maxK = c; });
+            if (maxK > maxCols - 1) { maxK = maxCols - 1; hasEarlier = true; }
+        }
         const place = t => { const c = colOf(t); return typeof c === 'number' && c > maxK ? 'earlier' : c; };
         const hasAfter = view.some(x => colOf(x.t) === 'after') || kds.some(k => colOf(k.t) === 'after');
 
@@ -577,7 +641,9 @@ export class BridgeMilestones {
         const left = daysBetween(A.t, M.today);
         const todayText = left >= 0 ? `Today falls in ${A.name}-${Math.floor(left / 7)} · ${left} day${left === 1 ? '' : 's'} to go` : `This date passed ${-left} day${left === -1 ? '' : 's'} ago`;
         const next = M.items.filter(x => req.has(x.id) && M.status.get(x.id) !== 'done' && x.t >= M.today).sort((a, b) => a.t - b.t)[0];
-        const seg = (v, c) => v ? `<span style="flex:${v} 0 0;background:${c};"></span>` : '';
+        const seg = (v, k) => v ? `<span data-act="stf" data-v="${k}" title="Show only ${ST_TEXT[k] === 'Done' ? 'ready' : ST_TEXT[k].toLowerCase()} lines" style="flex:${v} 0 0;background:var(--bar-${k});"></span>` : '';
+        const statBtn = (k, big, label) => `<button type="button" class="ms-stat s-${k}" data-act="stf" data-v="${k}" aria-pressed="${s.stf.has(k)}" title="Show only these lines; click again to show all"><b>${big}</b><span>${label}</span></button>`;
+        const picked = ['done', 'planned', 'risk', 'late'].filter(k => s.stf.has(k));
         const ready = `<section class="ms-ready" aria-label="Milestone readiness">
   <div style="display:flex;flex-direction:column;gap:6px;flex:1 1 300px;min-width:0;">
     <div style="display:flex;align-items:center;gap:10px;"><span class="ms-code">⚑ ${esc(A.name)}-0</span><span class="ms-small">${longD(A.t)}</span></div>
@@ -586,13 +652,15 @@ export class BridgeMilestones {
     <p><b>Next due:</b> ${next ? `${esc(next.asset)} — ${esc(next.act)} · ${dayShort(next.t)} (${esc(this._relLabel(A, next.t))})` : 'Nothing open'}</p>
   </div>
   <div style="display:flex;flex-direction:column;gap:10px;flex:1 1 380px;min-width:0;">
-    <div class="ms-stats">
-      <div class="ms-stat"><b>${st.pct}%</b><span class="ms-small">Ready (${st.done}/${st.total})</span></div>
-      <div class="ms-stat"><b>${st.planned}</b><span class="ms-small">Planned</span></div>
-      <div class="ms-stat"><b class="st-risk">${st.risk}</b><span class="ms-small">At risk</span></div>
-      <div class="ms-stat"><b class="st-late">${st.late}</b><span class="ms-small">Late</span></div>
+    <div class="ms-stats" role="group" aria-label="Show only lines with a status">
+      ${statBtn('done', `${st.pct}%`, `Ready (${st.done}/${st.total})`)}
+      ${statBtn('planned', st.planned, 'Planned')}
+      ${statBtn('risk', st.risk, 'At risk')}
+      ${statBtn('late', st.late, 'Late')}
     </div>
-    <div class="ms-stack" role="img" aria-label="${st.done} done, ${st.planned} planned, ${st.risk} at risk, ${st.late} late">${seg(st.done, '#2f7d32')}${seg(st.planned, '#a9b3bc')}${seg(st.risk, '#d98a1c')}${seg(st.late, '#a1231b')}</div>
+    <div class="ms-stack" role="img" aria-label="${st.done} done, ${st.planned} planned, ${st.risk} at risk, ${st.late} late">${seg(st.done, 'done')}${seg(st.planned, 'planned')}${seg(st.risk, 'risk')}${seg(st.late, 'late')}</div>
+    ${picked.length ? `<div class="ms-filtered" role="status">Showing only ${esc(picked.map(k => k === 'done' ? 'Ready' : ST_TEXT[k]).join(' and '))} lines<button type="button" class="ms-link" data-act="stf" data-v="">Show all</button></div>` : ''}
+    <p class="ms-defs"><b>Ready</b>: the line's Schedule result reads Pass or Complete. <b>Planned</b>: not done yet, and nothing it waits on is behind. <b>At risk</b>: not done yet, and a line it waits on (directly or further up the chain) is late or at risk. <b>Late</b>: not done, and its last scheduled day is before today (${esc(dayShort(M.today))}).</p>
   </div>
 </section>`;
 
@@ -617,7 +685,7 @@ export class BridgeMilestones {
 <section aria-label="Required lines" style="display:flex;flex-direction:column;gap:10px;">
   <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;"><h2 class="ms-h2">Required for ${esc(A.name)}</h2><span class="ms-small">${A.scope ? 'Chosen areas and lines' : 'Everything due by its date'}, plus every predecessor in the chain</span></div>
   <div class="ms-tl"><table class="ms-table"><thead><tr><th scope="col">Week</th><th scope="col">Due</th><th scope="col">Asset</th><th scope="col">Activity</th><th scope="col">Status</th><th scope="col">Waiting on</th></tr></thead>
-  <tbody>${rows || `<tr><td colspan="6" class="ms-small">${A.scope ? 'None of the chosen lines are on the schedule.' : 'No lines are due on or before this milestone.'}</td></tr>`}</tbody></table></div>
+  <tbody>${rows || `<tr><td colspan="6" class="ms-small">${s.stf.size ? 'No lines with the picked status.' : A.scope ? 'None of the chosen lines are on the schedule.' : 'No lines are due on or before this milestone.'}</td></tr>`}</tbody></table></div>
 </section>`;
     }
 
@@ -633,7 +701,18 @@ export class BridgeMilestones {
             case 'bucket': s.bucket = Number(v) || 1; break;
             case 'scope': s.scope = v === 'all' ? 'all' : 'req'; break;
             case 'lane': if (s.hidden.has(v)) s.hidden.delete(v); else s.hidden.add(v); break;
-            case 'sel': s.sel = v && s.sel !== v ? v : null; break;
+            case 'stf':
+                if (!v) s.stf.clear();
+                else if (s.stf.has(v)) s.stf.delete(v);
+                else s.stf.add(v);
+                break;
+            case 'sel':
+                // Same detail panel as the Schedule view, on the right. It
+                // re-renders this view (through renderGantt()), which
+                // highlights the line's chain.
+                if (v && s.sel !== v && this.host.DATA.items.some(i => i.id === v)) { s.sel = v; this.host.openDetailPanel(v); }
+                else { s.sel = null; this.host.closeDetailPanel(); this.render(); }
+                return;
             case 'add': this._openForm(null); return;
             case 'edit': this._openForm(v); return;
             case 'remove': this._remove(v); return;
