@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.19.0...v1.20.0) (2026-11-18)
+
+
+### Features
+
+* **ARC-348:** Milestones view in The Bridge, off until enabled in Settings ([b9f8fda](https://github.com/CriticalArccx/LaunchPad/commit/b9f8fda612f16244b28bd4523ad53c5b007acc6e))
+* **ARC-348:** Milestones view in The Bridge, off until enabled in Settings ([ce67de8](https://github.com/CriticalArccx/LaunchPad/commit/ce67de851f1c24507677751e3ea4f0d4befffc21))
+
 ## [1.19.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.18.1...v1.19.0) (2026-11-12)
 
 
