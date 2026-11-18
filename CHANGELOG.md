@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.21.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.21.0...v1.21.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ARC-450:** move/add to days the view doesn't draw; Milestones pick by Area ([29546a5](https://github.com/CriticalArccx/LaunchPad/commit/29546a5e5c287cb84fd9e0a7efa59284c73e4162))
+* **ARC-450:** move/add to days the view doesn't draw; Milestones pick by Area ([e3d88b2](https://github.com/CriticalArccx/LaunchPad/commit/e3d88b22575ff0a0d05a651147e292a8453d3897))
+
 ## [1.21.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.20.0...v1.21.0) (2026-11-18)
 
 
