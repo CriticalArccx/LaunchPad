@@ -1901,6 +1901,8 @@ body.help-docked #loading-overlay {
         <label style="display: block; font-size: 12px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 5px;">New Date</label>
         <input type="date" id="reschedule-new-date" oninput="onRescheduleDateChanged()" style="width: 100%; padding: 8px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; box-sizing: border-box; margin-bottom: 12px;">
         <div id="reschedule-preview" style="font-size: 12.5px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); background: #fffde7; border: 1px solid #fff59d; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto;"></div>
+        <!-- Milestones this move pushes past their date (ARC-451); only when Bridge Milestones is on. -->
+        <div id="reschedule-milestone-impact" role="alert" style="font-size: 12.5px; color: #7f1d17; background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto;"></div>
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button onclick="closeRescheduleModal()" style="padding: 8px 15px; cursor: pointer; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Cancel</button>
             <button id="reschedule-confirm-btn" onclick="confirmReschedule()" disabled style="padding: 8px 15px; background: var(--lp-action, #2f7a31); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; opacity: 0.5; cursor: not-allowed;">Schedule It</button>
@@ -9428,6 +9430,7 @@ function openRescheduleModal(rowNumericId, dayLabel) {
     const preview = document.getElementById('reschedule-preview');
     preview.style.display = 'none';
     preview.innerHTML = '';
+    showRescheduleMilestoneImpact([]);
     __pendingRescheduleCascade = [];
 
     document.getElementById('reschedule-modal').style.display = 'flex';
@@ -9472,11 +9475,25 @@ function setRescheduleConfirmEnabled(enabled) {
 let __pendingRescheduleCascade = [];
 let __rescheduleCalcToken = 0; // guards against a slow-arriving calc overwriting a newer one if the user changes the date again before it finishes
 
+// The red box under the activity list: milestones the move pushes past
+// their date, and which of the moved lines does it (ARC-451).
+function showRescheduleMilestoneImpact(hits) {
+    const box = document.getElementById('reschedule-milestone-impact');
+    if (!box) return;
+    if (!hits || !hits.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const day = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
+    box.innerHTML = `<div style="margin-bottom:6px; font-weight:bold;">This pushes ${hits.length} milestone${hits.length === 1 ? '' : 's'} past ${hits.length === 1 ? 'its' : 'their'} date:</div>` +
+        hits.map(h => `<div style="margin-top:6px;"><strong>⚑ ${escapeHtmlForReschedule(h.name)}</strong> (due ${day(h.t)})${h.lines.map(l =>
+            `<div style="margin-left:14px;">• ${escapeHtmlForReschedule(l.asset)} — ${escapeHtmlForReschedule(l.act)}: done by ${day(l.from)} → ${day(l.to)}, ${l.daysAfter} day${l.daysAfter === 1 ? '' : 's'} after</div>`).join('')}</div>`).join('');
+    box.style.display = 'block';
+}
+
 async function onRescheduleDateChanged() {
     const newDate = document.getElementById('reschedule-new-date').value;
     const preview = document.getElementById('reschedule-preview');
     setRescheduleConfirmEnabled(false);
     __pendingRescheduleCascade = [];
+    showRescheduleMilestoneImpact([]);
 
     if (!newDate || !__pendingRescheduleSource) {
         preview.style.display = 'none';
@@ -9534,6 +9551,17 @@ async function onRescheduleDateChanged() {
         if (myToken !== __rescheduleCalcToken) return;
 
         __pendingRescheduleCascade = cascade;
+        // Milestones only show when Bridge has them on (milestoneImpact()
+        // returns nothing otherwise). Never blocks the reschedule.
+        try {
+            const moves = [{ id: origItem.id, start_ts: hypotheticalItem.start_ts, duration_hours: hypotheticalItem.duration_hours }]
+                .concat(cascade.map(c => ({ id: c.item.id, start_ts: c.newStartTs })));
+            const hits = bridgeEl.milestoneImpact ? await bridgeEl.milestoneImpact(moves) : [];
+            if (myToken !== __rescheduleCalcToken) return;
+            showRescheduleMilestoneImpact(hits);
+        } catch (err) {
+            console.error('Milestone impact check failed', err);
+        }
         if (!cascade.length) {
             preview.innerHTML = 'No other activities will need to move.';
         } else {
@@ -9542,7 +9570,7 @@ async function onRescheduleDateChanged() {
                 const newD = new Date(c.newStartTs).toISOString().slice(0, 10);
                 return `<div>• <strong>${escapeHtmlForReschedule(c.item.asset_name)} — ${escapeHtmlForReschedule(c.item.activity_name)}</strong>: ${oldD} → ${newD}</div>`;
             }).join('');
-            preview.innerHTML = `<div style="margin-bottom:6px; font-weight:bold;">This will also move ${cascade.length} activit${cascade.length === 1 ? 'y' : 'ies'}:</div>${rows}`;
+            preview.innerHTML = `<div style="margin-bottom:6px; font-weight:bold;">Activities pushed: this will also move ${cascade.length} activit${cascade.length === 1 ? 'y' : 'ies'}:</div>${rows}`;
         }
         setRescheduleConfirmEnabled(true);
     } catch (e) {

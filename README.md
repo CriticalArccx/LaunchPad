@@ -64,6 +64,11 @@ follows it when it moves. The lines it needs are either everything due by its da
 chosen areas and lines (lines stored as asset + activity), always plus their predecessors. A
 chosen area also takes in lines added to it later.
 Bridge works out the rest in the browser, and Done comes from each line's Schedule result.
+With Milestones on, the Bridge Schedule view also draws each milestone as a row linked from
+the lines it needs, and Schedule's Reschedule dialog lists milestones a move would push.
+The History in Bridge's detail panel reads moved and removed lines through
+`lp_schedule_line_history()` (`sync/line_history.sql`); until that's run it shows only the
+current lines.
 
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared
