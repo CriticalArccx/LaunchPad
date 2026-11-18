@@ -12,10 +12,13 @@
 // - Pick one milestone as the end of the axis. The timeline counts back from
 //   it in weeks (FR1-0, FR1-1, ...), with 1–4 weeks per column.
 // - The lines a milestone needs are either automatic (every Bridge line due
-//   on or before it) or chosen: whole zones and/or single lines, matched by
+//   on or before it) or chosen: whole areas and/or single lines. A chosen
+//   area also takes in lines added to it later. Single lines are matched by
 //   asset + activity so they survive a line moving days. Either way, the
-//   chosen lines' predecessors are included. A line's zone is its asset's
-//   Zone in the dropdown options, else the line's Area.
+//   chosen lines' predecessors are included. A line's area is its Area,
+//   else its Place (lines added in Schedule fill Place), else its asset's
+//   Place in the dropdown options. Scopes saved before areas (ARC-449) chose
+//   by zone; those zone choices still count.
 // - Line status: Done when the line's Schedule result reads Pass or
 //   Complete; Late when it isn't done and its last day has passed; At risk
 //   when a predecessor is late or at risk; otherwise Planned.
@@ -38,13 +41,14 @@ function daysBetween(a, b) { return Math.round((a - b) / DAY); } // DST-safe for
 function short(ms) { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; }
 function dayShort(ms) { return `${WD[new Date(ms).getDay()]} ${short(ms)}`; }
 function longD(ms) { const d = new Date(ms); return `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
-// { zones: [...], lines: ['asset|||activity', ...] }, or null for automatic.
+// { areas: [...], zones: [...older zone choices], lines: ['asset|||activity', ...] },
+// or null for automatic.
 function normScope(s) {
     if (typeof s === 'string') { try { s = JSON.parse(s); } catch (e) { s = null; } }
     if (!s || typeof s !== 'object') return null;
     const arr = v => (Array.isArray(v) ? v : []).map(String);
-    const out = { zones: arr(s.zones), lines: arr(s.lines) };
-    return out.zones.length || out.lines.length ? out : null;
+    const out = { areas: arr(s.areas), zones: arr(s.zones), lines: arr(s.lines) };
+    return out.areas.length || out.zones.length || out.lines.length ? out : null;
 }
 // A based milestone's date is its base's date plus its offset, all the way
 // up the chain. Falls back to its own saved date if the base is gone or the
@@ -298,6 +302,10 @@ export class BridgeMilestones {
 
     // ---- model ---------------------------------------------------------
 
+    _areaOf(it) {
+        return (it.area || it.place || (this.host.ASSET_TO_AREA_MAP || {})[it.asset_name] || '').trim();
+    }
+
     _zoneOf(it) {
         return ((this.host.ASSET_TO_ZONE_MAP || {})[it.asset_name] || it.area || '').trim();
     }
@@ -310,7 +318,7 @@ export class BridgeMilestones {
             const due = dayStart(start + (span - 1) * DAY + DAY / 2);
             return {
                 it, id: it.id, start, t: due, span, asset: it.asset_name || '(no asset)', act: it.activity_name || '(no activity)',
-                zone: this._zoneOf(it), lineKey: lineKeyOf(it.asset_name || '', it.activity_name || ''),
+                area: this._areaOf(it), zone: this._zoneOf(it), lineKey: lineKeyOf(it.asset_name || '', it.activity_name || ''),
                 preds: (it.predecessor_ids || []).map(String)
             };
         });
@@ -355,8 +363,8 @@ export class BridgeMilestones {
         };
         const reqOf = m => {
             if (!m.scope) return closure(items.filter(x => x.t <= m.t).map(x => x.id));
-            const zones = new Set(m.scope.zones), lines = new Set(m.scope.lines);
-            return closure(items.filter(x => zones.has(x.zone) || lines.has(x.lineKey)).map(x => x.id));
+            const areas = new Set(m.scope.areas), zones = new Set(m.scope.zones), lines = new Set(m.scope.lines);
+            return closure(items.filter(x => areas.has(x.area) || zones.has(x.zone) || lines.has(x.lineKey)).map(x => x.id));
         };
         const statsOf = set => {
             const c = { total: 0, done: 0, late: 0, risk: 0, planned: 0 };
@@ -416,14 +424,14 @@ export class BridgeMilestones {
         this.root.innerHTML = `<div class="ms">${controls}<div class="ms-body"><aside class="ms-side">${side}</aside><div class="ms-main">${main}</div></div></div>`;
     }
 
-    // "2 wk before FR1 · Zone A, Zone B + 3 lines" under each milestone.
+    // "2 wk before FR1 · Lines: Hall A, Hall B + 3 lines" under each milestone.
     _metaText(k) {
         const parts = [];
         if (k.base) parts.push(`${offsetText(k.offsetDays)} ${k.base.name}`);
         if (!k.scope) parts.push('Lines: everything due by its date');
         else {
-            const z = k.scope.zones.map(n => n || 'No zone');
-            const zs = z.length > 3 ? `${z.slice(0, 3).join(', ')} +${z.length - 3} zones` : z.join(', ');
+            const z = k.scope.areas.map(n => n || 'No area').concat(k.scope.zones.map(n => `zone ${n || '(none)'}`));
+            const zs = z.length > 3 ? `${z.slice(0, 3).join(', ')} +${z.length - 3} more` : z.join(', ');
             const ls = k.scope.lines.length ? `${k.scope.lines.length} line${k.scope.lines.length === 1 ? '' : 's'}` : '';
             parts.push('Lines: ' + [zs, ls].filter(Boolean).join(' + '));
         }
@@ -607,7 +615,7 @@ export class BridgeMilestones {
   <div class="ms-tl" role="table" aria-label="Milestone timeline"><div style="min-width:${minW}px;">${head}${lanesHtml}</div></div>
 </section>
 <section aria-label="Required lines" style="display:flex;flex-direction:column;gap:10px;">
-  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;"><h2 class="ms-h2">Required for ${esc(A.name)}</h2><span class="ms-small">${A.scope ? 'Chosen zones and lines' : 'Everything due by its date'}, plus every predecessor in the chain</span></div>
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;"><h2 class="ms-h2">Required for ${esc(A.name)}</h2><span class="ms-small">${A.scope ? 'Chosen areas and lines' : 'Everything due by its date'}, plus every predecessor in the chain</span></div>
   <div class="ms-tl"><table class="ms-table"><thead><tr><th scope="col">Week</th><th scope="col">Due</th><th scope="col">Asset</th><th scope="col">Activity</th><th scope="col">Status</th><th scope="col">Waiting on</th></tr></thead>
   <tbody>${rows || `<tr><td colspan="6" class="ms-small">${A.scope ? 'None of the chosen lines are on the schedule.' : 'No lines are due on or before this milestone.'}</td></tr>`}</tbody></table></div>
 </section>`;
@@ -640,7 +648,7 @@ export class BridgeMilestones {
 
     // ---- add / edit dialog ----------------------------------------------
     // Rendered once when it opens; ticking boxes and typing only touch the
-    // DOM in place, so open zones and the scroll position stay put.
+    // DOM in place, so open areas and the scroll position stay put.
 
     _openForm(key) {
         if (!this.canEdit) return;
@@ -648,7 +656,8 @@ export class BridgeMilestones {
         if (key && !m) return;
         this.form = {
             key: m ? m.key : null,
-            zones: new Set(m && m.scope ? m.scope.zones : []),
+            areas: new Set(m && m.scope ? m.scope.areas : []),
+            legacyZones: new Set(m && m.scope ? m.scope.zones : []),
             lines: new Set(m && m.scope ? m.scope.lines : []),
             saving: false
         };
@@ -658,18 +667,18 @@ export class BridgeMilestones {
         const weeks = m ? Math.round(Math.abs(m.offsetDays) / 7) : 2;
         const dir = m && m.offsetDays > 0 ? 1 : -1;
 
-        // Lines grouped by zone, one row per asset + activity.
+        // Lines grouped by area, one row per asset + activity.
         const zones = new Map();
         this._items().forEach(x => {
-            if (!zones.has(x.zone)) zones.set(x.zone, new Map());
-            const g = zones.get(x.zone);
+            if (!zones.has(x.area)) zones.set(x.area, new Map());
+            const g = zones.get(x.area);
             const l = g.get(x.lineKey) || { key: x.lineKey, asset: x.asset, act: x.act, first: x.t, last: x.t };
             l.first = Math.min(l.first, x.t); l.last = Math.max(l.last, x.t);
             g.set(x.lineKey, l);
         });
-        // Zones/lines a saved milestone names that aren't on the schedule now
+        // Areas/lines a saved milestone names that aren't on the schedule now
         // still show, so they can be seen and unticked.
-        f.zones.forEach(z => { if (!zones.has(z)) zones.set(z, new Map()); });
+        f.areas.forEach(z => { if (!zones.has(z)) zones.set(z, new Map()); });
         const known = new Set([].concat(...[...zones.values()].map(g => [...g.keys()])));
         f.lines.forEach(k => {
             if (known.has(k)) return;
@@ -679,11 +688,12 @@ export class BridgeMilestones {
         });
         const zoneNames = [...zones.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
         const fewZones = zoneNames.length <= 3;
+        const legacyHtml = f.legacyZones.size ? `<div class="ms-searchrow" style="flex-wrap:wrap;"><span class="ms-small">Chosen by zone before areas were used:</span>${[...f.legacyZones].map(z => `<label class="ms-radio" style="margin:0;"><input type="checkbox" data-mf-legacy="${esc(z)}" checked>All lines in zone ${esc(z || '(none)')}</label>`).join('')}</div>` : '';
         const zoneHtml = zoneNames.map(z => {
             const lines = [...zones.get(z).values()].sort((a, b) => (a.first ?? Infinity) - (b.first ?? Infinity) || a.asset.localeCompare(b.asset));
-            const allOn = f.zones.has(z);
+            const allOn = f.areas.has(z);
             const picked = lines.filter(l => f.lines.has(l.key)).length;
-            const label = z || 'No zone';
+            const label = z || 'No area';
             return `<details class="ms-zone" data-zone="${esc(z)}" ${fewZones || allOn || picked ? 'open' : ''}>
   <summary><span>${esc(label)}</span><span class="cnt" data-zcnt>${this._zoneCount(lines.length, allOn, picked)}</span></summary>
   <label class="ms-line all"><input type="checkbox" data-mf-zone="${esc(z)}" ${allOn ? 'checked' : ''}><b>All lines in ${esc(label)}</b><span class="d">includes lines added later</span></label>
@@ -713,10 +723,10 @@ export class BridgeMilestones {
 
     <fieldset class="ms-fieldset"><legend>Lines it needs</legend>
       <label class="ms-radio"><input type="radio" name="msfScope" value="auto" ${m && m.scope ? '' : 'checked'}>Everything due on or before its date</label>
-      <label class="ms-radio"><input type="radio" name="msfScope" value="pick" ${m && m.scope ? 'checked' : ''}>Choose zones and lines</label>
+      <label class="ms-radio"><input type="radio" name="msfScope" value="pick" ${m && m.scope ? 'checked' : ''}>Choose areas and lines</label>
       <div class="ms-picksec" data-mf-sec="pick" ${m && m.scope ? '' : 'hidden'}>
-        <div class="ms-searchrow"><input type="search" id="msfSearch" placeholder="Search asset, activity or zone" aria-label="Search lines"><span class="ms-small" id="msfCount"></span></div>
-        <div class="ms-pick">${zoneHtml}</div>
+        <div class="ms-searchrow"><input type="search" id="msfSearch" placeholder="Search asset, activity or area" aria-label="Search lines"><span class="ms-small" id="msfCount"></span></div>
+        ${legacyHtml}<div class="ms-pick">${zoneHtml}</div>
       </div>
       <p class="ms-note">Every predecessor of the chosen lines is included too.</p>
     </fieldset>
@@ -783,22 +793,22 @@ export class BridgeMilestones {
         if (prev) prev.textContent = v.dateMode === 'based' && v.t != null ? `= ${longD(v.t)}` : '';
         const cnt = this._q('#msfCount');
         if (cnt) {
-            const z = f.zones.size, l = [...f.lines].filter(k => !this._lineInChosenZone(k)).length;
-            cnt.textContent = z || l ? `${z} zone${z === 1 ? '' : 's'}, ${l} line${l === 1 ? '' : 's'} chosen` : 'Nothing chosen yet';
+            const z = f.areas.size + f.legacyZones.size, l = [...f.lines].filter(k => !this._lineInChosenZone(k)).length;
+            cnt.textContent = z || l ? `${z} area${z === 1 ? '' : 's'}, ${l} line${l === 1 ? '' : 's'} chosen` : 'Nothing chosen yet';
         }
     }
 
     _lineInChosenZone(key) {
         const box = [...this.modal.querySelectorAll('[data-mf-line]')].find(b => b.getAttribute('data-mf-line') === key);
         const zone = box && box.closest('.ms-zone').getAttribute('data-zone');
-        return zone != null && this.form.zones.has(zone);
+        return zone != null && this.form.areas.has(zone);
     }
 
     _refreshZoneCount(details) {
         const z = details.getAttribute('data-zone');
         const boxes = [...details.querySelectorAll('[data-mf-line]')];
         const picked = boxes.filter(b => this.form.lines.has(b.getAttribute('data-mf-line'))).length;
-        details.querySelector('[data-zcnt]').textContent = this._zoneCount(boxes.length, this.form.zones.has(z), picked);
+        details.querySelector('[data-zcnt]').textContent = this._zoneCount(boxes.length, this.form.areas.has(z), picked);
     }
 
     _onFormClick(e) {
@@ -813,9 +823,12 @@ export class BridgeMilestones {
         const f = this.form;
         if (!f) return;
         const t = e.target;
-        if (t.hasAttribute('data-mf-zone')) {
+        if (t.hasAttribute('data-mf-legacy')) {
+            const z = t.getAttribute('data-mf-legacy');
+            if (t.checked) f.legacyZones.add(z); else f.legacyZones.delete(z);
+        } else if (t.hasAttribute('data-mf-zone')) {
             const z = t.getAttribute('data-mf-zone');
-            if (t.checked) f.zones.add(z); else f.zones.delete(z);
+            if (t.checked) f.areas.add(z); else f.areas.delete(z);
             const details = t.closest('.ms-zone');
             details.querySelectorAll('[data-mf-line]').forEach(b => {
                 b.disabled = t.checked;
@@ -887,8 +900,8 @@ export class BridgeMilestones {
         let scope = null;
         if (v.scopeMode === 'pick') {
             const lines = [...f.lines].filter(k => !this._lineInChosenZone(k));
-            if (!f.zones.size && !lines.length) return fail('Choose at least one zone or line, or use "Everything due on or before its date".');
-            scope = { zones: [...f.zones].sort(), lines: lines.sort() };
+            if (!f.areas.size && !f.legacyZones.size && !lines.length) return fail('Choose at least one area or line, or use "Everything due on or before its date".');
+            scope = { areas: [...f.areas].sort(), zones: [...f.legacyZones].sort(), lines: lines.sort() };
         }
         const key = f.key || newKey();
         const row = {
