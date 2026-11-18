@@ -1773,6 +1773,16 @@ body.help-docked #loading-overlay {
             </div>
         </div>
 
+        <!-- The Bridge (ARC-348): features inside The Bridge, each off until an admin turns it on. -->
+        <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
+            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">The Bridge</h2>
+            <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Turn on extra features inside The Bridge for this project.</p>
+            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
+                <input type="checkbox" id="cfg-bridge-milestones" style="margin:3px 0 0 0; transform:scale(1.2);">
+                <span><b>Milestones</b><br><span style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Adds a Milestones view next to Schedule. Set key dates such as FR1 and track the lines each one needs, counting back week by week.</span></span>
+            </label>
+        </div>
+
         <!-- Copy Settings (ARC-307): filled in by project-setup.js, platform owner only. -->
         <div id="owner-copy-settings" style="display: none; border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;"></div>
 
@@ -2853,7 +2863,10 @@ let appConfig = {
     // feedback (ARC-199) and powerFlow (ARC-237) start hidden; an admin
     // turns them on in Settings. Projects saved before a key existed have no
     // value for it, which also reads as hidden.
-    sidebar: { schedule: true, equipment: true, attributes: true, dashboard: true, bridge: true, tamperSeals: true, sealForm: false, feedback: false, powerFlow: false }
+    sidebar: { schedule: true, equipment: true, attributes: true, dashboard: true, bridge: true, tamperSeals: true, sealForm: false, feedback: false, powerFlow: false },
+    // Features inside The Bridge (Settings → The Bridge). All start off,
+    // including for projects saved before this key existed.
+    bridgeFeatures: { milestones: false }
 };
 
 function applySidebarConfig() {
@@ -3414,6 +3427,7 @@ function ensureViewMounted(viewType) {
             if (window.LP_CONFIG.googleScriptUrl) el.setAttribute('script-url', window.LP_CONFIG.googleScriptUrl);
             if (window.userRole) el.setAttribute('role', window.userRole);
             if (window.__currentUserEmail) el.setAttribute('email', window.__currentUserEmail);
+            if (viewType === 'bridge' && appConfig.bridgeFeatures && appConfig.bridgeFeatures.milestones) el.setAttribute('milestones', 'on');
             el.supabaseClient = window.launchpadSupabaseClient; // reuse the shell's authenticated client
             container.appendChild(el);
         }).catch(err => {
@@ -8156,6 +8170,7 @@ function openScheduleConfigModal() {
     document.getElementById('cfg-nav-sealform').checked = appConfig.sidebar.sealForm;
     document.getElementById('cfg-nav-feedback').checked = !!appConfig.sidebar.feedback;
     document.getElementById('cfg-nav-powerflow').checked = !!appConfig.sidebar.powerFlow;
+    document.getElementById('cfg-bridge-milestones').checked = !!(appConfig.bridgeFeatures && appConfig.bridgeFeatures.milestones);
 
     renderRescheduleTriggerList();
     renderStatusColorRulesUI();
@@ -8344,7 +8359,8 @@ async function saveAllSettings(btn) {
     appConfig.sidebar.sealForm = document.getElementById('cfg-nav-sealform').checked;
     appConfig.sidebar.feedback = document.getElementById('cfg-nav-feedback').checked;
     appConfig.sidebar.powerFlow = document.getElementById('cfg-nav-powerflow').checked;
-    // Which dropdown table this project uses (ARC-238, Settings > Dropdown Management)
+    appConfig.bridgeFeatures = { ...(appConfig.bridgeFeatures || {}), milestones: document.getElementById('cfg-bridge-milestones').checked };
+// Which dropdown table this project uses (ARC-238, Settings > Dropdown Management)
     const ddShared = document.getElementById('cfg-dd-shared');
     if (ddShared) appConfig.dropdownSource = ddShared.checked ? 'shared' : 'legacy';
 
