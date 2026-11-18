@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.21.1...v1.22.0) (2026-11-18)
+
+
+### Features
+
+* **ARC-454:** Milestones status filters, milestone rows in Schedule view, line history ([eee5149](https://github.com/CriticalArccx/LaunchPad/commit/eee51490031248541ff81791d91fb44bc1f27e9a))
+* **ARC-454:** Milestones status filters, milestone rows in Schedule view, line history, reschedule milestone impact ([7e8f2df](https://github.com/CriticalArccx/LaunchPad/commit/7e8f2df4c8290e087461a545f4c2a58fd6b13fd6))
+
 ## [1.21.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.21.0...v1.21.1) (2026-11-18)
 
 
