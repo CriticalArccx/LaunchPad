@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.21.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.20.0...v1.21.0) (2026-11-18)
+
+
+### Features
+
+* **ARC-449:** choose zones and lines for a milestone, and base it on another ([709fde6](https://github.com/CriticalArccx/LaunchPad/commit/709fde6312b365247e63dec471c06ebe047b6a3e))
+* **ARC-449:** choose zones and lines for a milestone, and base it on another ([45f6f55](https://github.com/CriticalArccx/LaunchPad/commit/45f6f55dfa1773deda71355857e8039aa21f7bfa))
+
 ## [1.20.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.19.0...v1.20.0) (2026-11-18)
 
 
