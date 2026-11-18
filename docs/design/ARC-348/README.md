@@ -16,11 +16,18 @@ inside The Bridge. The view is off on every project until an admin turns on
 - Picking a line dims everything outside its chain.
 
 ## Deviations
-- **A milestone is a name and a due date only** (ARC-349). The design has a
-  separate short code and long name. The name, e.g. "FR1", is used on the axis.
-- **What a milestone needs is always worked out**: every Bridge line due on or
-  before it, plus all their predecessors. The design's hand-picked lists for its
-  sample milestones aren't stored anywhere.
+- **A milestone has one name**, e.g. "FR1", used on the axis. The design has a
+  separate short code and long name.
+- **Its date is picked, or based on another milestone** (N weeks before or
+  after it), and then moves with that milestone. Not in the design.
+- **The lines it needs** are everything due on or before it (as in the design's
+  "auto scope"), or chosen in the add/edit dialog: whole zones ("All lines in
+  Hall A", which also takes in lines added later) and/or single lines. Chosen
+  lines are stored as asset + activity. Predecessors are always included. A
+  line's zone is its asset's Zone in the dropdown options, else its Area.
+- **Adding and editing happen in a dialog** opened by "+ Add milestone", not
+  the inline form in the design's left column, to make room for the line
+  picker.
 - **Lanes are Bridge activities**, in Bridge's own activity colours, rather than
   fixed workstreams.
 - **Statuses:** Done (Schedule result is Pass or Complete), Late, At risk (a

@@ -57,10 +57,12 @@ Tamper seal requests reach the CCM in one email a day. The seal form adds a row 
 project's Apps Script sends the digest to the recipients and at the time set in Tamper Seal
 Settings → Notifications. See [ADR 0005](docs/adr/0005-daily-ccm-seal-digest.md).
 
-Bridge milestones (key dates such as FR1) are a name and a due date in `launchpad_milestones`
+Bridge milestones (key dates such as FR1) live in `launchpad_milestones`
 (`sync/milestones.sql`). The table is insert-only: an edit or removal adds a new version.
-Which lines a milestone needs is worked out in the browser from Bridge's line dates and
-predecessors, and Done comes from each line's Schedule result.
+A milestone's date is picked, or based on another milestone ("4 weeks before FR1") and
+follows it when it moves. The lines it needs are either everything due by its date, or
+chosen zones and lines (stored as asset + activity), always plus their predecessors.
+Bridge works out the rest in the browser, and Done comes from each line's Schedule result.
 
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared

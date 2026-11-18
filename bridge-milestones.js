@@ -4,14 +4,18 @@
 // project until an admin turns on Milestones in Settings → The Bridge;
 // index.html then mounts <bridge-view milestones="on">.
 //
-// - A milestone (key date) is only a name and a due date, e.g. "FR1" on
-//   4/22. They live in launchpad_milestones (sync/milestones.sql), which is
+// - A milestone (key date) has a name and a due date, e.g. "FR1" on 4/22.
+//   They live in launchpad_milestones (sync/milestones.sql), which is
 //   insert-only: editing or removing a milestone adds a new version.
+// - Its due date is either picked, or based on another milestone ("2 weeks
+//   before FR1"). A based milestone moves when the one it's based on moves.
 // - Pick one milestone as the end of the axis. The timeline counts back from
 //   it in weeks (FR1-0, FR1-1, ...), with 1–4 weeks per column.
-// - A milestone needs every Bridge line due on or before it, plus all of
-//   those lines' predecessors. Nothing about that is stored; it's worked out
-//   from the lines each time.
+// - The lines a milestone needs are either automatic (every Bridge line due
+//   on or before it) or chosen: whole zones and/or single lines, matched by
+//   asset + activity so they survive a line moving days. Either way, the
+//   chosen lines' predecessors are included. A line's zone is its asset's
+//   Zone in the dropdown options, else the line's Area.
 // - Line status: Done when the line's Schedule result reads Pass or
 //   Complete; Late when it isn't done and its last day has passed; At risk
 //   when a predecessor is late or at risk; otherwise Planned.
@@ -34,6 +38,36 @@ function daysBetween(a, b) { return Math.round((a - b) / DAY); } // DST-safe for
 function short(ms) { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; }
 function dayShort(ms) { return `${WD[new Date(ms).getDay()]} ${short(ms)}`; }
 function longD(ms) { const d = new Date(ms); return `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
+// { zones: [...], lines: ['asset|||activity', ...] }, or null for automatic.
+function normScope(s) {
+    if (typeof s === 'string') { try { s = JSON.parse(s); } catch (e) { s = null; } }
+    if (!s || typeof s !== 'object') return null;
+    const arr = v => (Array.isArray(v) ? v : []).map(String);
+    const out = { zones: arr(s.zones), lines: arr(s.lines) };
+    return out.zones.length || out.lines.length ? out : null;
+}
+// A based milestone's date is its base's date plus its offset, all the way
+// up the chain. Falls back to its own saved date if the base is gone or the
+// chain loops.
+function resolveDates(list) {
+    const by = new Map(list.map(m => [m.key, m]));
+    const dateOf = (m, seen) => {
+        const base = m.basedOn && by.get(m.basedOn);
+        if (!base || seen.has(m.key)) return m.due;
+        seen.add(m.key);
+        return dayStart(dateOf(base, seen) + m.offsetDays * DAY + DAY / 2);
+    };
+    list.forEach(m => { m.t = dateOf(m, new Set()); m.base = (m.basedOn && by.get(m.basedOn)) || null; });
+    return list;
+}
+function offsetText(days) {
+    if (!days) return 'same day as';
+    const w = Math.abs(days) / 7;
+    const amount = Number.isInteger(w) ? `${w} wk` : `${Math.abs(days)} d`;
+    return `${amount} ${days < 0 ? 'before' : 'after'}`;
+}
+const lineKeyOf = (asset, act) => `${asset}|||${act}`;
+
 function newKey() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return 'ms-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -107,13 +141,6 @@ export const MILESTONES_STYLE = `
 .ms-link{border:0; background:transparent; padding:4px 0; font-size:12.5px; font-weight:600; color:var(--green); cursor:pointer; text-decoration:underline; text-underline-offset:2px;}
 :host(.dark-mode) .ms-link{color:#81c784;}
 .ms-link.danger{color:var(--st-late);}
-.ms-form{display:flex; flex-direction:column; gap:10px; padding:14px; border:1px dashed var(--grey-border); border-radius:10px; background:var(--ms-soft);}
-.ms-form label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ms-muted);}
-.ms-form input{min-height:38px; padding:0 10px; border:1px solid var(--grey-border); border-radius:6px; font-size:14px; color:var(--ms-ink); background:#fff;}
-.ms-form .row{display:grid; grid-template-columns:minmax(0,1fr); gap:8px;}
-.ms-form .err{margin:0; font-size:13px; color:var(--st-late); font-weight:500;}
-.ms-form .btns{display:flex; gap:8px;}
-.ms-form .btns .tool-btn{flex:1; justify-content:center; min-height:40px;}
 
 .ms-sel{display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid var(--grey-border); border-radius:10px;}
 .ms-sel dl{display:grid; grid-template-columns:80px minmax(0,1fr); gap:6px 10px; margin:0; font-size:13px;}
@@ -167,7 +194,33 @@ export const MILESTONES_STYLE = `
 .ms-table tr.late td{background:#fdf3f2;} .ms-table tr.sel td{background:var(--green-light);}
 :host(.dark-mode) .ms-table tr.late td{background:#2a1a19;} :host(.dark-mode) .ms-table tr.sel td{background:#1b3d1e;}
 .ms-table button{border:0; background:transparent; padding:2px 0; text-align:left; font:inherit; color:var(--ms-ink); cursor:pointer; text-decoration:underline; text-decoration-color:var(--grey-border); text-underline-offset:3px;}
-@media (max-width:700px){.ms-side{max-width:none; border-right:0; border-bottom:1px solid var(--ms-line);} .ms-main{padding:16px;} .ms-controls{padding:12px 16px;}}
+.ms-kd-meta{font-size:12px; color:var(--ms-muted); line-height:1.35;}
+.ms-add{width:100%; justify-content:center; min-height:40px;}
+
+/* Add / edit milestone dialog (uses Bridge's .modal-overlay/.modal-box) */
+#msModal .modal-box{width:720px;}
+.ms-fieldset{border:0; margin:0 0 18px; padding:0; min-width:0;}
+.ms-fieldset legend{font-weight:700; font-size:12.5px; color:var(--text-muted); margin-bottom:4px; padding:0;}
+.ms-radio{display:flex; align-items:center; gap:8px; font-size:13.5px; margin:8px 0 4px; cursor:pointer;}
+.ms-radio input, .ms-pick input[type="checkbox"]{width:auto; margin:0; accent-color:var(--green);}
+.ms-sub{margin:4px 0 4px 24px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13.5px;}
+.ms-sub input, .ms-sub select, .ms-searchrow input{padding:7px 9px; border:1px solid var(--grey-border); border-radius:5px; font-size:13.5px; background:#fff; color:var(--text-dark);}
+.ms-sub[hidden], .ms-picksec[hidden]{display:none;}
+.ms-picksec{margin:6px 0 0 24px;}
+.ms-searchrow{display:flex; gap:8px; align-items:center; margin:4px 0 8px;}
+.ms-searchrow input{flex:1; min-width:0;}
+.ms-pick{border:1px solid var(--grey-border); border-radius:8px; max-height:320px; overflow:auto;}
+.ms-zone + .ms-zone{border-top:1px solid var(--grey-border);}
+.ms-zone summary{display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer; background:var(--grey-bg); font-weight:600; font-size:13px;}
+.ms-zone summary .cnt{margin-left:auto; font-weight:500; color:var(--text-muted); font-size:12px;}
+.ms-line{display:flex; align-items:center; gap:8px; padding:6px 12px 6px 28px; font-size:13px; cursor:pointer;}
+.ms-line.all{padding-left:12px; border-bottom:1px dashed var(--grey-border);}
+.ms-line .d{margin-left:auto; color:var(--text-muted); font-size:12px; white-space:nowrap;}
+.ms-line[hidden], .ms-zone[hidden]{display:none;}
+.ms-ferr{color:var(--red); font-size:13px; font-weight:600; margin:4px 0 0; min-height:1em;}
+:host(.dark-mode) .ms-sub input, :host(.dark-mode) .ms-sub select, :host(.dark-mode) .ms-searchrow input{background:#2c2c2c; color:#e0e0e0; border-color:#444;}
+:host(.dark-mode) .ms-zone summary{background:#2a2a2a;}
+@media (max-width:700px){.ms-side{max-width:none; border-right:0; border-bottom:1px solid var(--ms-line);} .ms-main{padding:16px;} .ms-controls{padding:12px 16px;} .ms-picksec, .ms-sub{margin-left:0;}}
 </style>
 `;
 
@@ -175,15 +228,23 @@ export class BridgeMilestones {
     constructor(host, root) {
         this.host = host;   // <bridge-view>
         this.root = root;   // #milestonesView
-        this.state = { anchorKey: null, bucket: 1, scope: 'req', sel: null, hidden: new Set(), editKey: null, form: { name: '', date: '' }, err: '', saving: false };
+        this.state = { anchorKey: null, bucket: 1, scope: 'req', sel: null, hidden: new Set() };
         this.milestones = [];
         this.results = {};
         this.loaded = false;
         this.loadError = '';
+        this.form = null; // the open add/edit dialog's state
         root.addEventListener('click', e => this._onClick(e));
         root.addEventListener('change', e => this._onChange(e));
-        root.addEventListener('input', e => this._onInput(e));
-        root.addEventListener('submit', e => { e.preventDefault(); this._save(); });
+        // The add/edit dialog sits over the whole Bridge, like its other modals.
+        this.modal = document.createElement('div');
+        this.modal.className = 'modal-overlay';
+        this.modal.id = 'msModal';
+        host.shadowRoot.appendChild(this.modal);
+        this.modal.addEventListener('click', e => this._onFormClick(e));
+        this.modal.addEventListener('change', e => this._onFormChange(e));
+        this.modal.addEventListener('input', e => this._onFormInput(e));
+        this.modal.addEventListener('keydown', e => { if (e.key === 'Escape') this._closeForm(); });
     }
 
     get canEdit() { return !this.host.isViewerRole && !!this.host._supabase; }
@@ -200,8 +261,9 @@ export class BridgeMilestones {
         const sb = this.host._supabase;
         this.loadError = '';
         if (!sb) { this.milestones = []; return; }
+        // '*' so a database that hasn't had the newer columns added still loads.
         const { data, error } = await sb.from('launchpad_milestones')
-            .select('id, milestone_key, name, due_date, archived, created_at')
+            .select('*')
             .eq('project_key', this.host.PROJECT_KEY)
             .order('created_at', { ascending: true })
             .order('id', { ascending: true });
@@ -214,9 +276,11 @@ export class BridgeMilestones {
         // Newest version of each milestone wins; archived ones drop out.
         const latest = new Map();
         (data || []).forEach(r => latest.set(r.milestone_key, r));
-        this.milestones = [...latest.values()].filter(r => !r.archived)
-            .map(r => ({ key: r.milestone_key, name: r.name, t: parseIsoDay(r.due_date) }))
-            .sort((a, b) => a.t - b.t || a.name.localeCompare(b.name));
+        const list = [...latest.values()].filter(r => !r.archived).map(r => ({
+            key: r.milestone_key, name: r.name, due: parseIsoDay(r.due_date),
+            basedOn: r.based_on || null, offsetDays: Number(r.offset_days) || 0, scope: normScope(r.scope)
+        }));
+        this.milestones = resolveDates(list).sort((a, b) => a.t - b.t || a.name.localeCompare(b.name));
     }
 
     async _loadResults() {
@@ -234,13 +298,21 @@ export class BridgeMilestones {
 
     // ---- model ---------------------------------------------------------
 
+    _zoneOf(it) {
+        return ((this.host.ASSET_TO_ZONE_MAP || {})[it.asset_name] || it.area || '').trim();
+    }
+
     _items() {
         const h = this.host;
         return h.DATA.items.filter(it => !it.superseded_by && it.start_ts).map(it => {
             const start = dayStart(new Date(it.start_ts).getTime());
             const span = Math.max(1, Math.ceil((parseFloat(it.duration_hours) || 24) / 24));
             const due = dayStart(start + (span - 1) * DAY + DAY / 2);
-            return { it, id: it.id, start, t: due, span, asset: it.asset_name || '(no asset)', act: it.activity_name || '(no activity)', preds: (it.predecessor_ids || []).map(String) };
+            return {
+                it, id: it.id, start, t: due, span, asset: it.asset_name || '(no asset)', act: it.activity_name || '(no activity)',
+                zone: this._zoneOf(it), lineKey: lineKeyOf(it.asset_name || '', it.activity_name || ''),
+                preds: (it.predecessor_ids || []).map(String)
+            };
         });
     }
 
@@ -281,7 +353,11 @@ export class BridgeMilestones {
             }
             return out;
         };
-        const reqOf = m => closure(items.filter(x => x.t <= m.t).map(x => x.id));
+        const reqOf = m => {
+            if (!m.scope) return closure(items.filter(x => x.t <= m.t).map(x => x.id));
+            const zones = new Set(m.scope.zones), lines = new Set(m.scope.lines);
+            return closure(items.filter(x => zones.has(x.zone) || lines.has(x.lineKey)).map(x => x.id));
+        };
         const statsOf = set => {
             const c = { total: 0, done: 0, late: 0, risk: 0, planned: 0 };
             set.forEach(id => { c.total++; c[status.get(id)]++; });
@@ -334,10 +410,24 @@ export class BridgeMilestones {
         const side = this._sideHtml(M, kds, A, REQ);
         let main;
         if (this.loadError) main = `<div class="ms-empty" role="alert">${esc(this.loadError)}</div>`;
-        else if (!A) main = `<div class="ms-empty">No milestones yet.<br>${this.canEdit ? 'Add one on the left, such as <b>FR1</b> with its due date. The timeline then counts back from it week by week.' : 'An editor can add one, such as FR1 with its due date.'}</div>`;
+        else if (!A) main = `<div class="ms-empty">No milestones yet.<br>${this.canEdit ? 'Use <b>+ Add milestone</b> on the left, such as <b>FR1</b> with its due date. The timeline then counts back from it week by week.' : 'An editor can add one, such as FR1 with its due date.'}</div>`;
         else main = this._mainHtml(M, kds, A, REQ, passes);
 
         this.root.innerHTML = `<div class="ms">${controls}<div class="ms-body"><aside class="ms-side">${side}</aside><div class="ms-main">${main}</div></div></div>`;
+    }
+
+    // "2 wk before FR1 · Zone A, Zone B + 3 lines" under each milestone.
+    _metaText(k) {
+        const parts = [];
+        if (k.base) parts.push(`${offsetText(k.offsetDays)} ${k.base.name}`);
+        if (!k.scope) parts.push('Lines: everything due by its date');
+        else {
+            const z = k.scope.zones.map(n => n || 'No zone');
+            const zs = z.length > 3 ? `${z.slice(0, 3).join(', ')} +${z.length - 3} zones` : z.join(', ');
+            const ls = k.scope.lines.length ? `${k.scope.lines.length} line${k.scope.lines.length === 1 ? '' : 's'}` : '';
+            parts.push('Lines: ' + [zs, ls].filter(Boolean).join(' + '));
+        }
+        return parts.join(' · ');
     }
 
     _relLabel(A, t) {
@@ -357,26 +447,13 @@ export class BridgeMilestones {
     <span class="ms-rel">${isA ? 'Axis end' : esc(this._relLabel(A, k.t))}</span></span>
     <span class="ms-bar"><span style="width:${st.pct}%"></span></span>
     <span class="ms-small" style="color:inherit;">${st.done}/${st.total} done${flags.length ? ' · ' + flags.join(' · ') : ''}</span>
+    <span class="ms-kd-meta">${esc(this._metaText(k))}</span>
   </button>
   ${this.canEdit ? `<span class="ms-kd-actions"><button type="button" class="ms-link" data-act="edit" data-v="${esc(k.key)}">Edit</button><button type="button" class="ms-link danger" data-act="remove" data-v="${esc(k.key)}">Remove</button></span>` : ''}
 </li>`;
         }).join('');
 
-        const editing = s.editKey ? kds.find(k => k.key === s.editKey) : null;
-        const form = this.canEdit ? `
-<form class="ms-form" novalidate>
-  <h2 class="ms-h2">${editing ? 'Edit ' + esc(editing.name) : 'Add a milestone'}</h2>
-  <div class="row">
-    <label>Name<input type="text" data-ms="name" maxlength="60" placeholder="e.g. FR1" value="${esc(s.form.name)}"></label>
-    <label>Due date<input type="date" data-ms="date" value="${esc(s.form.date)}"></label>
-  </div>
-  ${s.err ? `<p class="err" role="alert">${esc(s.err)}</p>` : ''}
-  <div class="btns">
-    ${editing ? '<button type="button" class="tool-btn" data-act="cancel-edit">Cancel</button>' : ''}
-    <button type="submit" class="tool-btn primary" ${s.saving ? 'disabled' : ''}>${s.saving ? 'Saving…' : editing ? 'Save' : 'Add and set as end'}</button>
-  </div>
-  <p class="ms-note" style="margin:0;">A milestone needs every line due on or before it, plus their predecessors.</p>
-</form>` : '';
+        const form = this.canEdit ? '<button type="button" class="tool-btn primary ms-add" data-act="add">+ Add milestone</button>' : '';
 
         return `<section style="display:flex;flex-direction:column;gap:10px;">
   <div><h2 class="ms-h2">Milestones</h2><p class="ms-note">Pick the date the timeline counts back from.</p></div>
@@ -530,9 +607,9 @@ export class BridgeMilestones {
   <div class="ms-tl" role="table" aria-label="Milestone timeline"><div style="min-width:${minW}px;">${head}${lanesHtml}</div></div>
 </section>
 <section aria-label="Required lines" style="display:flex;flex-direction:column;gap:10px;">
-  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;"><h2 class="ms-h2">Required for ${esc(A.name)}</h2><span class="ms-small">Includes every predecessor in the chain</span></div>
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;"><h2 class="ms-h2">Required for ${esc(A.name)}</h2><span class="ms-small">${A.scope ? 'Chosen zones and lines' : 'Everything due by its date'}, plus every predecessor in the chain</span></div>
   <div class="ms-tl"><table class="ms-table"><thead><tr><th scope="col">Week</th><th scope="col">Due</th><th scope="col">Asset</th><th scope="col">Activity</th><th scope="col">Status</th><th scope="col">Waiting on</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="6" class="ms-small">No lines are due on or before this milestone.</td></tr>'}</tbody></table></div>
+  <tbody>${rows || `<tr><td colspan="6" class="ms-small">${A.scope ? 'None of the chosen lines are on the schedule.' : 'No lines are due on or before this milestone.'}</td></tr>`}</tbody></table></div>
 </section>`;
     }
 
@@ -549,13 +626,8 @@ export class BridgeMilestones {
             case 'scope': s.scope = v === 'all' ? 'all' : 'req'; break;
             case 'lane': if (s.hidden.has(v)) s.hidden.delete(v); else s.hidden.add(v); break;
             case 'sel': s.sel = v && s.sel !== v ? v : null; break;
-            case 'edit': {
-                const k = this.milestones.find(m => m.key === v);
-                if (!k) return;
-                s.editKey = k.key; s.form = { name: k.name, date: isoDay(k.t) }; s.err = '';
-                break;
-            }
-            case 'cancel-edit': s.editKey = null; s.form = { name: '', date: '' }; s.err = ''; break;
+            case 'add': this._openForm(null); return;
+            case 'edit': this._openForm(v); return;
             case 'remove': this._remove(v); return;
             default: return;
         }
@@ -566,51 +638,294 @@ export class BridgeMilestones {
         if (e.target.matches('[data-ms="anchor"]')) { this.state.anchorKey = e.target.value; this.render(); }
     }
 
-    _onInput(e) {
-        const f = e.target.getAttribute('data-ms');
-        if (f === 'name' || f === 'date') this.state.form[f] = e.target.value; // no re-render while typing
+    // ---- add / edit dialog ----------------------------------------------
+    // Rendered once when it opens; ticking boxes and typing only touch the
+    // DOM in place, so open zones and the scroll position stay put.
+
+    _openForm(key) {
+        if (!this.canEdit) return;
+        const m = key ? this.milestones.find(x => x.key === key) : null;
+        if (key && !m) return;
+        this.form = {
+            key: m ? m.key : null,
+            zones: new Set(m && m.scope ? m.scope.zones : []),
+            lines: new Set(m && m.scope ? m.scope.lines : []),
+            saving: false
+        };
+        const f = this.form;
+        const others = this.milestones.filter(x => !m || (x.key !== m.key && !this._dependsOn(x, m.key)));
+        const based = !!(m && m.base);
+        const weeks = m ? Math.round(Math.abs(m.offsetDays) / 7) : 2;
+        const dir = m && m.offsetDays > 0 ? 1 : -1;
+
+        // Lines grouped by zone, one row per asset + activity.
+        const zones = new Map();
+        this._items().forEach(x => {
+            if (!zones.has(x.zone)) zones.set(x.zone, new Map());
+            const g = zones.get(x.zone);
+            const l = g.get(x.lineKey) || { key: x.lineKey, asset: x.asset, act: x.act, first: x.t, last: x.t };
+            l.first = Math.min(l.first, x.t); l.last = Math.max(l.last, x.t);
+            g.set(x.lineKey, l);
+        });
+        // Zones/lines a saved milestone names that aren't on the schedule now
+        // still show, so they can be seen and unticked.
+        f.zones.forEach(z => { if (!zones.has(z)) zones.set(z, new Map()); });
+        const known = new Set([].concat(...[...zones.values()].map(g => [...g.keys()])));
+        f.lines.forEach(k => {
+            if (known.has(k)) return;
+            const [asset, act] = k.split('|||');
+            if (!zones.has('')) zones.set('', new Map());
+            zones.get('').set(k, { key: k, asset: asset || '(no asset)', act: act || '(no activity)', first: null, last: null });
+        });
+        const zoneNames = [...zones.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
+        const fewZones = zoneNames.length <= 3;
+        const zoneHtml = zoneNames.map(z => {
+            const lines = [...zones.get(z).values()].sort((a, b) => (a.first ?? Infinity) - (b.first ?? Infinity) || a.asset.localeCompare(b.asset));
+            const allOn = f.zones.has(z);
+            const picked = lines.filter(l => f.lines.has(l.key)).length;
+            const label = z || 'No zone';
+            return `<details class="ms-zone" data-zone="${esc(z)}" ${fewZones || allOn || picked ? 'open' : ''}>
+  <summary><span>${esc(label)}</span><span class="cnt" data-zcnt>${this._zoneCount(lines.length, allOn, picked)}</span></summary>
+  <label class="ms-line all"><input type="checkbox" data-mf-zone="${esc(z)}" ${allOn ? 'checked' : ''}><b>All lines in ${esc(label)}</b><span class="d">includes lines added later</span></label>
+  ${lines.map(l => `<label class="ms-line" data-find="${esc((l.asset + ' ' + l.act + ' ' + label).toLowerCase())}"><input type="checkbox" data-mf-line="${esc(l.key)}" ${allOn || f.lines.has(l.key) ? 'checked' : ''} ${allOn ? 'disabled' : ''}>${esc(l.asset)} — ${esc(l.act)}<span class="d">${l.first == null ? 'not on the schedule' : l.first === l.last ? dayShort(l.first) : `${short(l.first)}–${short(l.last)}`}</span></label>`).join('')}
+</details>`;
+        }).join('') || '<p class="ms-small" style="padding:12px;margin:0;">There are no lines in Bridge yet.</p>';
+
+        this.modal.innerHTML = `
+<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="msfTitle">
+  <div class="modal-head"><h2 id="msfTitle">${m ? 'Edit ' + esc(m.name) : 'Add milestone'}</h2><button type="button" class="modal-close" data-mf="close" aria-label="Close">×</button></div>
+  <div class="modal-body">
+    <div class="form-row"><label for="msfName">Name</label><input type="text" id="msfName" maxlength="60" placeholder="e.g. FR1" value="${esc(m ? m.name : '')}"></div>
+
+    <fieldset class="ms-fieldset"><legend>Due date</legend>
+      <label class="ms-radio"><input type="radio" name="msfDateMode" value="date" ${based ? '' : 'checked'}>Pick a date</label>
+      <div class="ms-sub" data-mf-sec="date" ${based ? 'hidden' : ''}><input type="date" id="msfDate" aria-label="Due date" value="${m ? isoDay(m.t) : ''}"></div>
+      <label class="ms-radio"><input type="radio" name="msfDateMode" value="based" ${based ? 'checked' : ''} ${others.length ? '' : 'disabled'}>Base it on another milestone${others.length ? '' : ' <span class="ms-small">(add one first)</span>'}</label>
+      <div class="ms-sub" data-mf-sec="based" ${based ? '' : 'hidden'}>
+        <input type="number" id="msfWeeks" min="0" max="260" step="1" value="${weeks}" style="width:72px" aria-label="Weeks">
+        <span>weeks</span>
+        <select id="msfDir" aria-label="Before or after"><option value="-1" ${dir < 0 ? 'selected' : ''}>before</option><option value="1" ${dir > 0 ? 'selected' : ''}>after</option></select>
+        <select id="msfBase" aria-label="Milestone it is based on">${others.map(o => `<option value="${esc(o.key)}" ${m && m.basedOn === o.key ? 'selected' : ''}>${esc(o.name)} (${short(o.t)}/${String(new Date(o.t).getFullYear()).slice(2)})</option>`).join('')}</select>
+        <b id="msfPreview"></b>
+      </div>
+      <p class="ms-note" data-mf-sec="based" ${based ? '' : 'hidden'}>Moves automatically when the milestone it's based on moves.</p>
+    </fieldset>
+
+    <fieldset class="ms-fieldset"><legend>Lines it needs</legend>
+      <label class="ms-radio"><input type="radio" name="msfScope" value="auto" ${m && m.scope ? '' : 'checked'}>Everything due on or before its date</label>
+      <label class="ms-radio"><input type="radio" name="msfScope" value="pick" ${m && m.scope ? 'checked' : ''}>Choose zones and lines</label>
+      <div class="ms-picksec" data-mf-sec="pick" ${m && m.scope ? '' : 'hidden'}>
+        <div class="ms-searchrow"><input type="search" id="msfSearch" placeholder="Search asset, activity or zone" aria-label="Search lines"><span class="ms-small" id="msfCount"></span></div>
+        <div class="ms-pick">${zoneHtml}</div>
+      </div>
+      <p class="ms-note">Every predecessor of the chosen lines is included too.</p>
+    </fieldset>
+    <p class="ms-ferr" id="msfErr" role="alert"></p>
+  </div>
+  <div class="modal-foot"><button type="button" class="tool-btn" data-mf="close">Cancel</button><button type="button" class="tool-btn primary" data-mf="save">${m ? 'Save' : 'Add and set as end'}</button></div>
+</div>`;
+        this.modal.classList.add('open');
+        this._formRefresh();
+        const name = this.modal.querySelector('#msfName');
+        if (name) name.focus();
     }
 
-    async _insert(row) {
-        const { error } = await this.host._supabase.from('launchpad_milestones').insert({ project_key: this.host.PROJECT_KEY, ...row });
+    _closeForm() {
+        this.form = null;
+        this.modal.classList.remove('open');
+        this.modal.innerHTML = '';
+    }
+
+    _zoneCount(total, allOn, picked) {
+        if (allOn) return `all ${total} line${total === 1 ? '' : 's'}`;
+        return picked ? `${picked} of ${total} chosen` : `${total} line${total === 1 ? '' : 's'}`;
+    }
+
+    // True when milestone x is (directly or further up the chain) based on key.
+    _dependsOn(x, key) {
+        const by = new Map(this.milestones.map(m => [m.key, m]));
+        const seen = new Set();
+        let cur = x;
+        while (cur && cur.basedOn && !seen.has(cur.key)) {
+            if (cur.basedOn === key) return true;
+            seen.add(cur.key);
+            cur = by.get(cur.basedOn);
+        }
+        return false;
+    }
+
+    _q(sel) { return this.modal.querySelector(sel); }
+
+    _formValues() {
+        const q = s => this._q(s);
+        const dateMode = (q('input[name="msfDateMode"]:checked') || {}).value || 'date';
+        const scopeMode = (q('input[name="msfScope"]:checked') || {}).value || 'auto';
+        const weeks = Number(q('#msfWeeks')?.value);
+        const dir = Number(q('#msfDir')?.value) || -1;
+        const baseKey = q('#msfBase')?.value || '';
+        const base = this.milestones.find(m => m.key === baseKey) || null;
+        let t = null;
+        if (dateMode === 'date') { const v = q('#msfDate')?.value || ''; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) t = parseIsoDay(v); }
+        else if (base && Number.isInteger(weeks) && weeks >= 0) t = dayStart(base.t + dir * weeks * 7 * DAY + DAY / 2);
+        return { name: (q('#msfName')?.value || '').trim().replace(/\s+/g, ' '), dateMode, scopeMode, weeks, dir, base, t };
+    }
+
+    // Show/hide the sections for the chosen options, the based-on date and the count.
+    _formRefresh() {
+        const f = this.form;
+        if (!f) return;
+        const v = this._formValues();
+        this.modal.querySelectorAll('[data-mf-sec]').forEach(el => {
+            const sec = el.getAttribute('data-mf-sec');
+            el.hidden = sec === 'pick' ? v.scopeMode !== 'pick' : sec !== v.dateMode;
+        });
+        const prev = this._q('#msfPreview');
+        if (prev) prev.textContent = v.dateMode === 'based' && v.t != null ? `= ${longD(v.t)}` : '';
+        const cnt = this._q('#msfCount');
+        if (cnt) {
+            const z = f.zones.size, l = [...f.lines].filter(k => !this._lineInChosenZone(k)).length;
+            cnt.textContent = z || l ? `${z} zone${z === 1 ? '' : 's'}, ${l} line${l === 1 ? '' : 's'} chosen` : 'Nothing chosen yet';
+        }
+    }
+
+    _lineInChosenZone(key) {
+        const box = [...this.modal.querySelectorAll('[data-mf-line]')].find(b => b.getAttribute('data-mf-line') === key);
+        const zone = box && box.closest('.ms-zone').getAttribute('data-zone');
+        return zone != null && this.form.zones.has(zone);
+    }
+
+    _refreshZoneCount(details) {
+        const z = details.getAttribute('data-zone');
+        const boxes = [...details.querySelectorAll('[data-mf-line]')];
+        const picked = boxes.filter(b => this.form.lines.has(b.getAttribute('data-mf-line'))).length;
+        details.querySelector('[data-zcnt]').textContent = this._zoneCount(boxes.length, this.form.zones.has(z), picked);
+    }
+
+    _onFormClick(e) {
+        if (e.target === this.modal) { this._closeForm(); return; } // click on the dimmed backdrop
+        const b = e.target.closest('[data-mf]');
+        if (!b) return;
+        if (b.getAttribute('data-mf') === 'close') this._closeForm();
+        else if (b.getAttribute('data-mf') === 'save') this._save();
+    }
+
+    _onFormChange(e) {
+        const f = this.form;
+        if (!f) return;
+        const t = e.target;
+        if (t.hasAttribute('data-mf-zone')) {
+            const z = t.getAttribute('data-mf-zone');
+            if (t.checked) f.zones.add(z); else f.zones.delete(z);
+            const details = t.closest('.ms-zone');
+            details.querySelectorAll('[data-mf-line]').forEach(b => {
+                b.disabled = t.checked;
+                b.checked = t.checked || f.lines.has(b.getAttribute('data-mf-line'));
+            });
+            this._refreshZoneCount(details);
+        } else if (t.hasAttribute('data-mf-line')) {
+            const k = t.getAttribute('data-mf-line');
+            if (t.checked) f.lines.add(k); else f.lines.delete(k);
+            this._refreshZoneCount(t.closest('.ms-zone'));
+        }
+        this._formRefresh();
+    }
+
+    _onFormInput(e) {
+        if (e.target.id === 'msfSearch') {
+            const q = e.target.value.trim().toLowerCase();
+            this.modal.querySelectorAll('.ms-zone').forEach(d => {
+                let any = false;
+                d.querySelectorAll('.ms-line[data-find]').forEach(row => {
+                    const hit = !q || row.getAttribute('data-find').includes(q);
+                    row.hidden = !hit; any = any || hit;
+                });
+                d.hidden = !!q && !any;
+                if (q && any) d.open = true;
+            });
+            return;
+        }
+        this._formRefresh();
+    }
+
+    // Every version is a full row, so build it from the milestone as it is
+    // now plus the changes.
+    _rowOf(m, changes) {
+        const r = {
+            milestone_key: m.key, name: m.name, due_date: isoDay(m.t),
+            based_on: m.basedOn || null, offset_days: m.offsetDays || 0, scope: m.scope || null, archived: false
+        };
+        return { ...r, ...changes };
+    }
+
+    async _insert(rows) {
+        const list = (Array.isArray(rows) ? rows : [rows]).map(r => ({ project_key: this.host.PROJECT_KEY, ...r }));
+        const { error } = await this.host._supabase.from('launchpad_milestones').insert(list);
         if (error) {
             console.error('Saving milestone failed', error);
             const rls = error.code === '42501' || /row-level security|permission denied/i.test(error.message || '');
-            throw new Error(rls ? 'Only project admins and editors can change milestones.' : 'Saving failed. See the browser console for details.');
+            const oldDb = error.code === '42703' || error.code === 'PGRST204' || /column/i.test(error.message || '');
+            throw new Error(rls ? 'Only project admins and editors can change milestones.'
+                : oldDb ? 'The database needs the latest sync/milestones.sql. Run it again in Supabase, then save.'
+                : 'Saving failed. See the browser console for details.');
         }
     }
 
     async _save() {
-        const s = this.state;
-        if (!this.canEdit || s.saving) return;
-        const name = (s.form.name || '').trim().replace(/\s+/g, ' ');
-        const date = s.form.date;
-        if (!name) { s.err = 'Give the milestone a name, like FR1.'; this.render(); return; }
-        if (name.length > 60) { s.err = 'Keep the name to 60 characters or fewer.'; this.render(); return; }
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) { s.err = 'Pick a due date.'; this.render(); return; }
-        if (this.milestones.some(m => m.key !== s.editKey && m.name.toLowerCase() === name.toLowerCase())) { s.err = `${name} already exists.`; this.render(); return; }
-        const key = s.editKey || newKey();
-        s.saving = true; s.err = ''; this.render();
+        const f = this.form;
+        if (!f || f.saving || !this.canEdit) return;
+        const err = this._q('#msfErr');
+        const fail = msg => { err.textContent = msg; };
+        const v = this._formValues();
+        if (!v.name) return fail('Give the milestone a name, like FR1.');
+        if (v.name.length > 60) return fail('Keep the name to 60 characters or fewer.');
+        if (this.milestones.some(m => m.key !== f.key && m.name.toLowerCase() === v.name.toLowerCase())) return fail(`${v.name} already exists.`);
+        if (v.dateMode === 'date' && v.t == null) return fail('Pick a due date.');
+        if (v.dateMode === 'based') {
+            if (!v.base) return fail('Pick the milestone it is based on.');
+            if (!Number.isInteger(v.weeks) || v.weeks < 0 || v.weeks > 260) return fail('Weeks must be a whole number from 0 to 260.');
+        }
+        let scope = null;
+        if (v.scopeMode === 'pick') {
+            const lines = [...f.lines].filter(k => !this._lineInChosenZone(k));
+            if (!f.zones.size && !lines.length) return fail('Choose at least one zone or line, or use "Everything due on or before its date".');
+            scope = { zones: [...f.zones].sort(), lines: lines.sort() };
+        }
+        const key = f.key || newKey();
+        const row = {
+            milestone_key: key, name: v.name, due_date: isoDay(v.t),
+            based_on: v.dateMode === 'based' ? v.base.key : null,
+            offset_days: v.dateMode === 'based' ? v.dir * v.weeks * 7 : 0,
+            scope, archived: false
+        };
+        f.saving = true; err.textContent = '';
+        const saveBtn = this._q('[data-mf="save"]');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
         try {
-            await this._insert({ milestone_key: key, name, due_date: date, archived: false });
-            s.editKey = null; s.form = { name: '', date: '' }; s.anchorKey = key;
-            this.host.toast(`Milestone ${name} saved.`);
+            await this._insert(row);
+            this._closeForm();
+            this.state.anchorKey = key;
+            this.host.toast(`Milestone ${v.name} saved.`);
             await this._loadMilestones();
-        } catch (err) {
-            s.err = err.message;
-        } finally {
-            s.saving = false;
             this.render();
+        } catch (e) {
+            f.saving = false;
+            fail(e.message);
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = f.key ? 'Save' : 'Add and set as end'; }
         }
     }
 
     async _remove(key) {
         const k = this.milestones.find(m => m.key === key);
         if (!k || !this.canEdit) return;
-        if (!confirm(`Remove milestone ${k.name} (${longD(k.t)})? Its history is kept.`)) return;
+        // Milestones based on this one keep the date they have now.
+        const deps = this.milestones.filter(m => m.basedOn === key);
+        const note = deps.length ? `\n\n${deps.map(d => d.name).join(', ')} ${deps.length === 1 ? 'is' : 'are'} based on it and will keep ${deps.length === 1 ? 'its' : 'their'} current date.` : '';
+        if (!confirm(`Remove milestone ${k.name} (${longD(k.t)})? Its history is kept.${note}`)) return;
         try {
-            await this._insert({ milestone_key: k.key, name: k.name, due_date: isoDay(k.t), archived: true });
-            if (this.state.editKey === key) { this.state.editKey = null; this.state.form = { name: '', date: '' }; }
+            await this._insert([
+                ...deps.map(d => this._rowOf(d, { based_on: null, offset_days: 0 })),
+                this._rowOf(k, { archived: true })
+            ]);
             if (this.state.anchorKey === key) this.state.anchorKey = null;
             this.host.toast(`Milestone ${k.name} removed.`);
             await this._loadMilestones();
