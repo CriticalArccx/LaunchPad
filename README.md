@@ -9,7 +9,7 @@ from that project's Google Sheet and LaunchPad's own Supabase data.
 | Page | File |
 |---|---|
 | LaunchPad (schedule, dashboard tab, settings) | `index.html`, `dashboard.js`, `settings.js` |
-| Pull Plan Scheduler | `bridge.html`, `bridge-view.js` |
+| Pull Plan Scheduler (The Bridge); its Milestones view is off until enabled in Settings → The Bridge, data in `sync/milestones.sql` | `bridge.html`, `bridge-view.js`, `bridge-milestones.js` |
 | Equipment Status Tracker | `equipment-tracker.html`, `equipment-tracker-view.js` |
 | Asset Tamper Seal Log | `tamperseal.html`, `tamperseal-view.js` |
 | Tamper Seal Request | `seal-form.html`, `seal-form-view.js` |
@@ -56,6 +56,11 @@ Tamper seal requests reach the CCM in one email a day. The seal form adds a row 
 `launchpad_seal_notifications` (`sync/seal_digest.sql`), and `apps-script/SealDigest.gs` in the
 project's Apps Script sends the digest to the recipients and at the time set in Tamper Seal
 Settings → Notifications. See [ADR 0005](docs/adr/0005-daily-ccm-seal-digest.md).
+
+Bridge milestones (key dates such as FR1) are a name and a due date in `launchpad_milestones`
+(`sync/milestones.sql`). The table is insert-only: an edit or removal adds a new version.
+Which lines a milestone needs is worked out in the browser from Bridge's line dates and
+predecessors, and Done comes from each line's Schedule result.
 
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the
 project's Apps Script, reads the Schedule from Supabase every 10 minutes and keeps a shared

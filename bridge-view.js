@@ -37,6 +37,9 @@
 // still works via an older two-step fallback, just without the same
 // guarantee against a dropped connection leaving a stale duplicate behind.
 
+// Milestones view (ARC-348), shown only when the project has it turned on.
+import { MILESTONES_STYLE, BridgeMilestones } from './bridge-milestones.js';
+
 const SUPABASE_URL = "https://rcnxetcomdrlxvlarqoc.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU";
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes("YOUR-PROJECT-REF") && !SUPABASE_ANON_KEY.includes("YOUR-ANON-PUBLIC-KEY");
@@ -731,6 +734,11 @@ const MARKUP = `
 
 <!-- ===== FILTER TOOLBAR ===== -->
 <div class="toolbar" id="filterToolbar">
+    <!-- Schedule | Milestones (ARC-348): only shown when Milestones is on -->
+    <div class="view-switch" role="group" aria-label="Bridge view">
+        <button type="button" id="viewSwitchSchedule" aria-pressed="true" onclick="this.getRootNode().host.setBridgeView('schedule')">Schedule</button>
+        <button type="button" id="viewSwitchMilestones" aria-pressed="false" onclick="this.getRootNode().host.setBridgeView('milestones')">Milestones</button>
+    </div>
     <!-- LEFT SIDE: filters + search -->
     <!-- filter chips injected by JS immediately before Clear filters -->
     <button class="filter-clear-all" id="clearAllFiltersBtn" onclick="this.getRootNode().host.clearAllFilters()">Clear filters</button>
@@ -743,7 +751,7 @@ const MARKUP = `
         <option value="14">Zoom: Overview</option>
         <option value="45" selected>Zoom: Overview Extended</option>
     </select>
-    <label class="tool-btn small" style="cursor:pointer; gap:6px; border-color:#f57c0033;" title="Show only the zero-float activities from today forward — the chain(s) that directly control how soon everything finishes. Everything else, including past work, is hidden.">
+    <label class="tool-btn small" id="criticalPathLabel" style="cursor:pointer; gap:6px; border-color:#f57c0033;" title="Show only the zero-float activities from today forward — the chain(s) that directly control how soon everything finishes. Everything else, including past work, is hidden.">
         <input type="checkbox" id="criticalPathToggle" onchange="this.getRootNode().host.toggleCriticalPath(this.checked)" style="margin:0;">
         🔥 Critical Path
     </label>
@@ -762,7 +770,7 @@ const MARKUP = `
     </div>
     <button class="tool-btn" id="optimizeBtn" style="display:none;" onclick="this.getRootNode().host.optimizeSchedule()" title="Pull every linked activity to the earliest date its own dependencies allow, closing gaps left over from edits/reschedules/imports. Nothing publishes automatically — review the report, then Accept &amp; Publish or Discard like any other change.">⚡ Optimize</button>
     <span id="saveIndicator">Ready</span>
-    <div class="menu-btn-wrap">
+    <div class="menu-btn-wrap" id="report-menu-wrap">
         <button class="tool-btn small" onclick="this.getRootNode().host.toggleMenu('reportMenu', event)">📊 Report ▾</button>
         <div class="menu-dropdown right" id="reportMenu">
             <div class="menu-item" onclick="this.getRootNode().host.closeAllMenus(); this.getRootNode().host.exportPDF()">📄 PDF</div>
@@ -793,6 +801,9 @@ const MARKUP = `
         <div class="gantt-body" id="ganttBody"></div>
     </div>
 </div>
+
+<!-- ===== MILESTONES (ARC-348) — see bridge-milestones.js ===== -->
+<div id="milestonesView"></div>
 
 <!-- ===== NEW / EDIT ITEM MODAL ===== -->
 <div class="modal-overlay" id="itemModal">
@@ -1421,8 +1432,13 @@ export class BridgeView extends HTMLElement {
         if (this._mounted) return; // re-entrant connect (e.g. node moved) shouldn't re-init
         this._mounted = true;
         this._resolveParams();
-        this.shadowRoot.innerHTML = STYLE + MARKUP;
+        this.shadowRoot.innerHTML = STYLE + MILESTONES_STYLE + MARKUP;
         this._initSupabase();
+        this.bridgeViewMode = 'schedule';
+        if (this.MILESTONES_ENABLED) {
+            this.classList.add('ms-enabled');
+            this._milestones = new BridgeMilestones(this, this.$('milestonesView'));
+        }
         // Bridge previously had no dark-mode support at all — index.html's
         // toggleDarkMode() only ever reached it via postMessage to an
         // <iframe>, which stopped existing once this became a custom
@@ -1483,6 +1499,9 @@ export class BridgeView extends HTMLElement {
         this.USER_ROLE = this.getAttribute('role') || qp.get('role') || 'editor';
         this.USER_EMAIL = this.getAttribute('email') || qp.get('email') || '';
         this.isViewerRole = this.USER_ROLE === 'viewer';
+        // Milestones view (ARC-348): index.html sets milestones="on" when the
+        // project has Milestones turned on in Settings → The Bridge.
+        this.MILESTONES_ENABLED = this.getAttribute('milestones') === 'on' || qp.get('milestones') === '1';
         this.TABLES = {
             items: `${this.PROJECT_KEY}schedule_items`,
             dropdowns: `${this.PROJECT_KEY}dropdownoptions`,
@@ -1907,6 +1926,24 @@ export class BridgeView extends HTMLElement {
     // fresh render is needed once this element actually becomes visible/sized.
     notifyVisible() {
         requestAnimationFrame(() => this.renderGantt());
+    }
+
+    // Schedule (the Gantt) or Milestones (ARC-348). Filters and search in
+    // the toolbar apply to both; the Gantt-only controls hide in Milestones
+    // (see MILESTONES_STYLE in bridge-milestones.js).
+    setBridgeView(mode) {
+        if (!this._milestones) mode = 'schedule';
+        this.bridgeViewMode = mode === 'milestones' ? 'milestones' : 'schedule';
+        const ms = this.bridgeViewMode === 'milestones';
+        this.classList.toggle('ms-mode', ms);
+        this.$('viewSwitchSchedule')?.setAttribute('aria-pressed', String(!ms));
+        this.$('viewSwitchMilestones')?.setAttribute('aria-pressed', String(ms));
+        if (ms) {
+            this._milestones.render();
+            this._milestones.load().catch(err => console.error('Milestones failed to load', err));
+        } else {
+            requestAnimationFrame(() => this.renderGantt());
+        }
     }
 
     // Defensive: re-measure and redraw connector lines on scroll, throttled to
@@ -3109,6 +3146,9 @@ export class BridgeView extends HTMLElement {
     }
 
     renderGantt() {
+        // Filters, search and data reloads all end up here; keep Milestones
+        // in step when it's the view showing.
+        if (this.bridgeViewMode === 'milestones' && this._milestones) this._milestones.render();
         this.style.setProperty('--daywidth', this.DAY_WIDTH + 'px');
         // Grouping and "Expand All Activities" no longer have any UI (only
         // Overview/Overview Extended remain, which always render one row
