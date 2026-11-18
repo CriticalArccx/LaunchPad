@@ -21,10 +21,12 @@ inside The Bridge. The view is off on every project until an admin turns on
 - **Its date is picked, or based on another milestone** (N weeks before or
   after it), and then moves with that milestone. Not in the design.
 - **The lines it needs** are everything due on or before it (as in the design's
-  "auto scope"), or chosen in the add/edit dialog: whole zones ("All lines in
-  Hall A", which also takes in lines added later) and/or single lines. Chosen
-  lines are stored as asset + activity. Predecessors are always included. A
-  line's zone is its asset's Zone in the dropdown options, else its Area.
+  "auto scope"), or chosen in the add/edit dialog: whole areas ("All lines in
+  Hall A", which also takes in lines added to that area later) and/or single
+  lines. Chosen lines are stored as asset + activity. Predecessors are always
+  included. A line's area is its Area, else its Place (lines added in Schedule
+  fill Place), else its asset's Place in the dropdown options. Milestones saved
+  while the picker grouped by zone keep their zone choice.
 - **Adding and editing happen in a dialog** opened by "+ Add milestone", not
   the inline form in the design's left column, to make room for the line
   picker.

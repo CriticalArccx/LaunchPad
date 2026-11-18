@@ -3183,9 +3183,17 @@ async function addSelectedReadyItems() {
     const targetDate = document.getElementById('ready-target-date').value;
     if (!targetDate) return alert("Please select a target date.");
     
-    const targetRowsDiv = document.getElementById(`rows-${targetDate}`);
-    if (!targetRowsDiv) return alert("The selected date is outside of the active schedule window.");
-    
+    const targetRowsDiv = ensureActionDayRows(targetDate);
+    if (!targetRowsDiv) return;
+    try {
+        await addReadyItemsToDay(targetDate, targetRowsDiv);
+    } finally {
+        releaseActionDayRows(targetRowsDiv);
+    }
+}
+
+async function addReadyItemsToDay(targetDate, targetRowsDiv) {
+
    // Ensure the rows are initialized (and filled) for this day
     buildDayRows(targetRowsDiv, targetDate);
 
@@ -10523,6 +10531,39 @@ function renderNextWeekBatch() {
     }
 }
 
+// Move to Date, Add Ready Items and Batch Add pick a free slot from the
+// target day's rows and save through them, so they need those rows even
+// when this view doesn't draw that day: the Look Ahead views only draw a few
+// weeks around today, and a date past the project's weeks is never drawn.
+// That used to stop them with "The selected date is outside of the active
+// schedule window" (ARC-450). Now: draw the day's week if this view can;
+// otherwise build the day's rows in a hidden holder, filled from the last
+// load so used slots are skipped. Call releaseActionDayRows() when done; the
+// saved lines show wherever that day is drawn.
+function ensureActionDayRows(dayLabel) {
+    if (ensureWeekRenderedForDayLabel(dayLabel)) return document.getElementById(`rows-${dayLabel}`);
+    const existing = document.getElementById(`rows-${dayLabel}`);
+    if (existing) return existing;
+    let holder = document.getElementById('offscreen-day-holder');
+    if (!holder) {
+        holder = document.createElement('div');
+        holder.id = 'offscreen-day-holder';
+        holder.style.display = 'none';
+        holder.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(holder);
+    }
+    const rowsDiv = document.createElement('div');
+    rowsDiv.className = 'offscreen-day-rows'; // not .rows-container, so day loops skip it
+    rowsDiv.id = `rows-${dayLabel}`;
+    holder.appendChild(rowsDiv);
+    return rowsDiv;
+}
+function releaseActionDayRows(rowsDiv) {
+    // The row elements stay alive for any save still in flight; only the
+    // hidden container leaves the page.
+    if (rowsDiv && rowsDiv.classList.contains('offscreen-day-rows')) rowsDiv.remove();
+}
+
 // Real-time updates and applyScheduleDataToDom() both target DOM containers
 // (`rows-${day_label}` / `row-wrapper-${id}`) that only exist for weeks
 // already batch-rendered above. A Bridge dependency cascade can easily push
@@ -11114,12 +11155,16 @@ async function confirmBulkAction() {
     if (!targetDate) { alert("Please select a date."); return; }
     if (!isDateIncluded(targetDate)) { alert("That day is not an active schedule day for this project — pick a different date."); return; }
 
-    const targetRowsDiv = document.getElementById(`rows-${targetDate}`);
-    if (!targetRowsDiv) {
-        alert("The selected date is outside of the active schedule window.");
-        return;
+    const targetRowsDiv = ensureActionDayRows(targetDate);
+    if (!targetRowsDiv) return;
+    try {
+        await moveOrCopyToDay(targetDate, targetRowsDiv);
+    } finally {
+        releaseActionDayRows(targetRowsDiv);
     }
+}
 
+async function moveOrCopyToDay(targetDate, targetRowsDiv) {
     closeBulkDateModal();
     
     // Build (and fill) target rows if they haven't been generated yet
@@ -12865,12 +12910,18 @@ async function commitBatchAdd() {
     if (previewRows.length === 0) return alert("No line items left to add — every row was removed.");
 
     // The date's week may not be drawn yet (weeks render in batches as you
-    // scroll); build it rather than refusing (ARC-184).
-    ensureWeekRenderedForDayLabel(targetDate);
-    let targetRowsDiv = document.getElementById(`rows-${targetDate}`);
-    if (!targetRowsDiv) {
-        return alert("The selected date is outside of the active schedule window.");
+    // scroll), or this view may not draw it at all; see ensureActionDayRows()
+    // (ARC-184, ARC-450).
+    const targetRowsDiv = ensureActionDayRows(targetDate);
+    if (!targetRowsDiv) return;
+    try {
+        commitBatchAddToDay(targetDate, targetRowsDiv, previewRows);
+    } finally {
+        releaseActionDayRows(targetRowsDiv);
     }
+}
+
+function commitBatchAddToDay(targetDate, targetRowsDiv, previewRows) {
 
     // Initialize (and fill) the day if it isn't built yet
     buildDayRows(targetRowsDiv, targetDate);

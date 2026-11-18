@@ -61,7 +61,8 @@ Bridge milestones (key dates such as FR1) live in `launchpad_milestones`
 (`sync/milestones.sql`). The table is insert-only: an edit or removal adds a new version.
 A milestone's date is picked, or based on another milestone ("4 weeks before FR1") and
 follows it when it moves. The lines it needs are either everything due by its date, or
-chosen zones and lines (stored as asset + activity), always plus their predecessors.
+chosen areas and lines (lines stored as asset + activity), always plus their predecessors. A
+chosen area also takes in lines added to it later.
 Bridge works out the rest in the browser, and Done comes from each line's Schedule result.
 
 Schedule → Google Calendar (Sandbox/CASB pilot): `apps-script/CalendarSync.gs`, added to the

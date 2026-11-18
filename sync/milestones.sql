@@ -17,9 +17,10 @@
 --                moves; due_date keeps the date as it was when saved.
 --   offset_days  days after (+) or before (-) the based_on milestone.
 --   scope        which lines the milestone needs: null = every line due on
---                or before it; otherwise {"zones": [...], "lines":
---                ["asset|||activity", ...]}. Predecessors are always added
---                in Bridge, which works the rest out from the lines.
+--                or before it; otherwise {"areas": [...], "lines":
+--                ["asset|||activity", ...]}; older rows may also have
+--                "zones". Predecessors are always added in Bridge, which
+--                works the rest out from the lines.
 
 -- Same function as sync/feedback.sql and sync/power_flow.sql (identical body),
 -- repeated so this file also works on its own.
