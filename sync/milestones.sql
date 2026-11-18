@@ -11,8 +11,15 @@
 -- There is no UPDATE or DELETE policy, so rows can't be changed or removed
 -- from the browser.
 --
--- Which schedule lines a milestone needs is never stored here: Bridge works
--- it out from the lines' dates and predecessors each time.
+-- Added later (columns below, safe to add to an existing table):
+--   based_on     another milestone's milestone_key. The date is then that
+--                milestone's date plus offset_days, and follows it when it
+--                moves; due_date keeps the date as it was when saved.
+--   offset_days  days after (+) or before (-) the based_on milestone.
+--   scope        which lines the milestone needs: null = every line due on
+--                or before it; otherwise {"zones": [...], "lines":
+--                ["asset|||activity", ...]}. Predecessors are always added
+--                in Bridge, which works the rest out from the lines.
 
 -- Same function as sync/feedback.sql and sync/power_flow.sql (identical body),
 -- repeated so this file also works on its own.
@@ -61,6 +68,10 @@ create table if not exists public.launchpad_milestones (
 
 create index if not exists launchpad_milestones_project_idx
     on public.launchpad_milestones (project_key, milestone_key, created_at desc);
+
+alter table public.launchpad_milestones add column if not exists based_on text;
+alter table public.launchpad_milestones add column if not exists offset_days integer not null default 0;
+alter table public.launchpad_milestones add column if not exists scope jsonb;
 
 alter table public.launchpad_milestones enable row level security;
 
