@@ -47,9 +47,9 @@ body {
   scrollbar-width: none;
 }
 .header-right::-webkit-scrollbar { display: none; }
-#dark-mode-toggle { margin-right: 4px !important; min-height: 40px; }
+#dark-mode-toggle { margin-right: 4px !important; min-height: 48px; min-width: 48px; justify-content: center; }
 #schedule-header-controls { gap: 4px !important; }
-#schedule-header-controls .view-btn { white-space: nowrap; padding: 6px 10px; font-size: 14px !important; min-height: 40px; }
+#schedule-header-controls .view-btn { white-space: nowrap; padding: 6px 10px; font-size: 14px !important; min-height: 48px; }
 #alternate-header-img { height: 32px !important; }
 
 #app-body {
@@ -136,7 +136,9 @@ body {
 }
 #filter-sidebar .search-container { margin-right: 0 !important; width: 100%; box-sizing: border-box; }
 #app-search-input { flex: 1; width: auto !important; }
-#mobile-filter-close { margin-left: auto; }
+#mobile-filter-close { margin-left: auto; min-height: 48px; }
+.cal-edit-close, .search-nav-btn { min-width: 48px !important; min-height: 48px !important; }
+#filter-sidebar .tool-btn, #filter-sidebar .place-filter-btn-vertical { min-height: 48px; }
 
 /* ---------- Schedule toolbar: one row that scrolls sideways ---------- */
 .subheader {
@@ -151,7 +153,7 @@ body {
 .subheader .subheader-item { display: flex !important; flex-wrap: nowrap; align-items: center; gap: 6px; flex: none; }
 .subheader .tool-btn {
   min-width: 0 !important;
-  min-height: 40px;
+  min-height: 48px;
   padding: 8px 12px !important;
   margin-left: 0 !important;
   white-space: nowrap;
@@ -172,7 +174,7 @@ body {
 .week-header { font-size: 16px !important; padding: 12px 14px !important; }
 .date-header { padding: 12px 14px !important; }
 #main-content-area .rows-container { padding: 8px !important; }
-.add-rows-btn { margin: 4px 0 8px !important; min-height: 44px; width: 100%; font-size: 14px !important; }
+.add-rows-btn { margin: 4px 0 8px !important; min-height: 48px; width: 100%; font-size: 14px !important; }
 
 /* ---------- Schedule lines -> cards ---------- */
 /* Rows are shown with an inline `display:flex !important`, so the card is a
@@ -223,15 +225,8 @@ body {
 #main-content-area .cell-row > [data-col-index="3"],
 #main-content-area .cell-row > [data-col-index="4"],
 #main-content-area .cell-row > [data-col-index="5"] { display: block !important; }
-/* applyCellColor() paints every cell with an inline !important background and
- * colour (the Status Colour rules), which no stylesheet can override. On a
- * card that's noise, so clip the background to the glyphs and draw the text
- * with -webkit-text-fill-color instead. The Status pill keeps its colours. */
-#main-content-area .cell-row > [data-col-index]:not([data-col-index="5"]) {
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);
-}
+/* Cards: no column dividers. Status is a StatusBadge (css/launchpad-ds.css). */
+#main-content-area .cell-row > [data-col-index] { border-right: 0 !important; }
 /* Line 1: Time | Activity | Status. The ::after item forces line 2: Asset | Place. */
 #main-content-area .cell-row::after { content: ''; order: 4; flex: 0 0 100%; height: 0; }
 #main-content-area .cell-row > [data-col-index="1"] { order: 1; flex: 0 0 auto !important; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -267,8 +262,8 @@ body {
   box-sizing: border-box;
 }
 .cal-edit-foot { padding-bottom: calc(12px + var(--lp-m-safe-b)) !important; }
-.cal-edit-foot .tool-btn { min-height: 44px; flex: 1; }
-#cal-edit-body .cell-row > [data-col-index] { min-height: 44px !important; font-size: 16px !important; }
+.cal-edit-foot .tool-btn { min-height: 48px; flex: 1; }
+#cal-edit-body .cell-row > [data-col-index] { min-height: 48px !important; font-size: 16px !important; }
 
 /* ---------- Floating help buttons sit above the bottom nav ---------- */
 #launchpad-help-widget,
@@ -282,8 +277,8 @@ body {
 body:has(#filter-sidebar.mobile-open) #schedule-help-widget,
 body:has(#schedule-view.cal-edit-open) #schedule-help-widget { display: none !important; }
 #launchpad-help-btn, #schedule-help-btn, #equipment-help-btn, #dashboard-help-btn {
-  width: 44px !important;
-  height: 44px !important;
+  width: 48px !important;
+  height: 48px !important;
   font-size: 20px !important;
 }
 
@@ -299,7 +294,6 @@ body:has(#schedule-view.cal-edit-open) #schedule-help-widget { display: none !im
 }
 
 /* ---------- Dark mode: keep cards dark ---------- */
-body.dark-mode #main-content-area .cell-row { background: #1e1e1e !important; border-color: #333 !important; }
-body.dark-mode #main-content-area .cell-row > [data-col-index]:not([data-col-index="5"]) { -webkit-text-fill-color: #e0e0e0; }
-body.dark-mode #main-content-area .cell-row > [data-col-index="2"] { -webkit-text-fill-color: #aaaaaa; }
-body.dark-mode #main-content-area .cell-row:active { background: #2c2c2c !important; }
+body.dark-mode #main-content-area .cell-row { background: var(--neutrals-darkmode-Surface, #1c1f21) !important; border-color: var(--neutrals-darkmode-Border, #35342f) !important; }
+body.dark-mode #main-content-area .cell-row > [data-col-index="2"] { -webkit-text-fill-color: var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); }
+body.dark-mode #main-content-area .cell-row:active { background: var(--neutrals-darkmode-Page, #141718) !important; }

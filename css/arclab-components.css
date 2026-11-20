@@ -1,0 +1,160 @@
+/* ArcLab Design System components: copied unchanged from the shared "Design System"
+ * artifact (project/components/bundle.css, version 1795034104-ab1c). Update by
+ * re-copying, never by hand-editing. */
+/* ArcLab — StatusBadge. Colors come only from the workflow-* tokens. */
+.al-status {
+  --_bg: var(--workflow-notstarted-badgebg);
+  --_fg: var(--workflow-notstarted-badgetext);
+  --_bd: transparent;
+  --_bs: solid;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space\.1);
+  box-sizing: border-box;
+  min-height: 26px;
+  padding: 3px var(--space\.3);
+  border: 1.5px var(--_bs) var(--_bd);
+  border-radius: var(--radius\.full);
+  background: var(--_bg);
+  color: var(--_fg);
+  font-family: var(--font-roboto);
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.al-status__icon { width: 14px; height: 14px; flex: none; }
+
+/* Sizes */
+.al-status--compact { min-height: 22px; padding: 2px var(--space\.2); font-size: 12px; }
+.al-status--compact .al-status__icon { width: 12px; height: 12px; }
+.al-status--touch { min-height: 48px; padding: 0 var(--space\.4); gap: var(--space\.2); font-size: 16px; }
+.al-status--touch .al-status__icon { width: 18px; height: 18px; }
+.al-status--icon-only { padding-left: 0; padding-right: 0; aspect-ratio: 1; justify-content: center; }
+.al-status--compact.al-status--icon-only { width: 22px; }
+.al-status--default.al-status--icon-only { width: 26px; }
+.al-status--touch.al-status--icon-only { width: 48px; }
+
+/* Statuses */
+.al-status--draft      { --_bg: var(--workflow-draft-badgebg);       --_fg: var(--workflow-draft-badgetext);      --_bd: var(--workflow-draft-badgeborder); --_bs: dotted; }
+.al-status--notStarted { --_bg: var(--workflow-notstarted-badgebg);  --_fg: var(--workflow-notstarted-badgetext); }
+.al-status--inProgress { --_bg: var(--workflow-inprogress-badgebg);  --_fg: var(--workflow-inprogress-badgetext); }
+.al-status--partial    { --_bg: var(--workflow-partialfill-badgebg); --_fg: var(--workflow-partial-badgetext); }
+.al-status--success    { --_bg: var(--workflow-success-badgebg);     --_fg: var(--workflow-success-badgetext); }
+.al-status--failure    { --_bg: var(--workflow-closed-badgebg);      --_fg: var(--workflow-failure-badgetext); }
+.al-status--closed     { --_bg: var(--workflow-draft-badgebg);       --_fg: var(--workflow-closed-badgetext);     --_bd: var(--workflow-closed-badgeborder); }
+.al-status--removed    { --_bg: var(--workflow-draft-badgebg);       --_fg: var(--workflow-removed-badgetext); }
+.al-status--removed .al-status__label { text-decoration: line-through; }
+
+/* Removed rows: strike the whole row and drop it from totals (the app does the math). */
+.al-row--removed, .al-row--removed * { color: var(--workflow-removed-badgetext); text-decoration: line-through; }
+
+/* ---------- Shared ---------- */
+.al-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.al-mono { font-family: ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.al-right { text-align: right; }
+.al-center { text-align: center; }
+
+/* ---------- Tables (Charcoal Neutral) ---------- */
+.al-table-wrap {
+  position: relative;
+  background: var(--neutrals-lightmode-light-mode-Surface, #ffffff);
+  border: 1px solid var(--neutrals-lightmode-light-mode-Border);
+  border-radius: var(--radius\.xl);
+  overflow: hidden;
+  font-family: var(--font-roboto);
+  color: var(--neutrals-lightmode-light-mode-Textprimary);
+}
+.al-table-scroll { overflow-x: auto; }
+.al-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+.al-th {
+  padding: var(--space\.2) var(--space\.3);
+  text-align: left;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--neutrals-lightmode-light-mode-Textsecondary);
+  border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border);
+  white-space: nowrap;
+}
+.al-th__sort { all: unset; cursor: pointer; display: inline-flex; gap: var(--space\.1); align-items: center; }
+.al-th__sort:focus-visible { outline: 2px solid var(--Arc-Green); outline-offset: 2px; border-radius: var(--radius\.small); }
+.al-th__arrow { font-size: 8px; min-width: 8px; }
+.al-td { padding: var(--space\.3); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border); vertical-align: middle; }
+.al-tr:last-child .al-td { border-bottom: 0; }
+.al-tr:hover .al-td { background: var(--neutrals-lightmode-light-mode-Page); }
+
+/* A. Data table: selection */
+.al-tr--selectable { cursor: pointer; }
+.al-tr--selected .al-td, .al-tr--selected:hover .al-td { background: var(--Arc-Green-tint); }
+.al-tr--selected .al-td:first-child { box-shadow: inset 3px 0 0 var(--Arc-Green); }
+.al-tr:has(input.al-sr:focus-visible) .al-td:first-child { box-shadow: inset 3px 0 0 var(--Arc-Green); outline: 2px solid var(--Arc-Green); outline-offset: -2px; }
+.al-bulkbar {
+  display: flex; align-items: center; gap: var(--space\.6);
+  margin: var(--space\.2); padding: var(--space\.2) var(--space\.3);
+  background: var(--neutrals-lightmode-light-mode-Textprimary);
+  color: var(--neutrals-lightmode-light-mode-Surface, #ffffff);
+  border-radius: var(--radius\.lg);
+  font-size: 13px;
+}
+.al-bulkbar__count { font-weight: 600; }
+.al-bulkbar__actions { display: inline-flex; align-items: center; gap: var(--space\.1); }
+.al-bulkbar__btn { all: unset; cursor: pointer; font-weight: 430; }
+.al-bulkbar__btn:hover { text-decoration: underline; }
+.al-bulkbar__btn:focus-visible { outline: 2px solid var(--Arc-Green); outline-offset: 2px; border-radius: var(--radius\.small); }
+.al-bulkbar__clear { margin-left: auto; }
+
+/* B. Grouped table */
+.al-group__cell { padding: 0; background: var(--neutrals-lightmode-light-mode-Page); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border); }
+.al-group__btn {
+  all: unset; box-sizing: border-box; cursor: pointer; width: 100%;
+  display: flex; align-items: center; gap: var(--space\.2);
+  padding: var(--space\.2) var(--space\.3);
+  font-size: 14px; font-weight: 600; color: var(--neutrals-lightmode-light-mode-Textprimary);
+}
+.al-group__btn:hover { background: var(--neutrals-lightmode-light-mode-Subtle); }
+.al-group__btn:focus-visible { outline: 2px solid var(--Arc-Green); outline-offset: -2px; }
+.al-group__count { margin-left: auto; font-size: 12px; font-weight: 430; color: var(--neutrals-lightmode-light-mode-Textsecondary); }
+.al-caret { width: 12px; height: 12px; flex: none; transition: transform 120ms ease; }
+.al-caret--open { transform: rotate(90deg); }
+.al-tr--child .al-td:first-child { padding-left: calc(var(--space\.3) + 20px); }
+
+/* C. Editable grid */
+.al-grid .al-th, .al-grid .al-td { border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border); }
+.al-grid .al-td { padding: var(--space\.2); }
+.al-grid__frozen { position: sticky; left: 0; z-index: 1; background: var(--neutrals-lightmode-light-mode-Page); text-align: left; border-right: 1px solid var(--neutrals-lightmode-light-mode-Border); }
+.al-grid__rowhead { padding: var(--space\.3); font-weight: 600; font-size: 14px; white-space: nowrap; border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Border); }
+.al-tr:last-child .al-grid__rowhead { border-bottom: 0; }
+.al-grid .al-tr:hover .al-td { background: transparent; }
+.al-cell {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 64px; height: 28px;
+  border: 2px solid transparent; border-radius: var(--radius\.small);
+  font-family: ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.al-cell:focus-visible { outline: 2px solid var(--Arc-Green); outline-offset: 2px; }
+.al-cell--neutral { background: var(--neutrals-lightmode-light-mode-Subtle); color: var(--neutrals-lightmode-light-mode-Textprimary); }
+.al-cell--accent  { background: var(--Petrol-tint); color: var(--Petrol); }
+.al-cell--strong  { background: var(--neutrals-lightmode-light-mode-Textprimary); color: var(--neutrals-lightmode-light-mode-Surface, #ffffff); }
+.al-cell--editing { cursor: text; text-align: center; background: var(--neutrals-lightmode-light-mode-Surface, #ffffff); border-color: var(--neutrals-lightmode-light-mode-Textprimary); color: var(--neutrals-lightmode-light-mode-Textprimary); }
+.al-cell:disabled { cursor: default; }
+
+/* ---------- Elevated card ---------- */
+.al-card {
+  box-sizing: border-box;
+  padding: var(--space\.5);
+  background: var(--neutrals-lightmode-light-mode-Surface, #ffffff);
+  border: 1px solid var(--neutrals-lightmode-light-mode-Border);
+  border-radius: var(--radius\.xl);
+  font-family: var(--font-roboto);
+  color: var(--neutrals-lightmode-light-mode-Textprimary);
+}
+.al-card--elevated { border-color: transparent; box-shadow: var(--shadow-elevated, 0 1px 2px rgba(20, 23, 24, 0.06), 0 3px 0 #e0ded8); }
+.al-stat__label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--neutrals-lightmode-light-mode-Textsecondary); }
+.al-stat__value { margin-top: var(--space\.2); font-size: 32px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.al-stat__unit { font-size: 28px; }
+.al-stat__source { margin-top: var(--space\.1); font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary); }
+.al-chip { display: inline-flex; align-items: center; padding: 2px var(--space\.3); border-radius: var(--radius\.full); background: var(--neutrals-lightmode-light-mode-Subtle); font-size: 12px; font-weight: 600; color: var(--neutrals-lightmode-light-mode-Textprimary); }
+.al-th.al-right, .al-td.al-right { text-align: right; }
+.al-th.al-center, .al-td.al-center { text-align: center; }
+.al-cell--editing:focus-visible { outline: none; }

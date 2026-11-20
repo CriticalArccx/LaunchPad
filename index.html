@@ -1590,10 +1590,43 @@ body.help-docked #loading-overlay {
 #picker-access-requests summary::-webkit-details-marker { display: none; }
 #picker-access-requests details[open] .picker-req-arrow { transform: rotate(90deg); }
 </style>
+<!-- ArcLab Design System components (StatusBadge etc.), copied unchanged, and
+     LaunchPad's design-system layer for the shell and Schedule (phase 2). -->
+<link rel="stylesheet" href="css/arclab-components.css">
+<link rel="stylesheet" href="css/launchpad-ds.css">
+<script src="arclab-components.js"></script>
 <!-- Phone layout (ARC-192): only applies on narrow screens. -->
 <link rel="stylesheet" href="css/launchpad-mobile.css" media="(max-width: 768px)">
 </head>
 <body>
+<!-- Line icons (design system: no emoji in product UI). Use as
+     <svg class="lp-icon"><use href="#i-NAME"></use></svg>. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></symbol>
+  <symbol id="i-gantt" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 7h7M10 12h8M8 17h6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17v-4"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  <symbol id="i-switch" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+</svg>
 <div class="header">
     
    <div class="header-left">
@@ -1603,14 +1636,12 @@ body.help-docked #loading-overlay {
         <span onclick="openProjectPicker()" style="cursor: pointer;" title="Switch project">LaunchPad</span>
     </div>
     <div class="header-right">
-        <button id="dark-mode-toggle" class="view-btn" onclick="toggleDarkMode()" style="font-size: 18px; margin-right: 15px;" title="Toggle Dark Mode">
-        🌙
-    </button>
+        <button id="dark-mode-toggle" class="view-btn" onclick="toggleDarkMode()" style="margin-right: 8px;" title="Dark mode" aria-label="Dark mode" aria-pressed="false"><svg class="lp-icon" aria-hidden="true"><use href="#i-moon"></use></svg></button>
         
         <div id="schedule-header-controls" style="display: flex; gap: 8px;">
-            <button class="view-btn" onclick="switchView('view1', this)">Overall Schedule</button>
-            <button class="view-btn active" onclick="switchView('view2', this)">1 Week Look Ahead</button>
-            <button class="view-btn" onclick="switchView('view3', this)">3 Week Look Ahead</button>
+            <button class="view-btn" onclick="switchView('view1', this)">Overall schedule</button>
+            <button class="view-btn active" onclick="switchView('view2', this)">1-week look-ahead</button>
+            <button class="view-btn" onclick="switchView('view3', this)">3-week look-ahead</button>
         </div>
 
         <img id="alternate-header-img" src="https://lh3.googleusercontent.com/u/0/d/1Wy_ftXtce-UG5jV-5vwS80lV1yt7QTbG" alt="View Logo" style="display: none; height: 50px; object-fit: contain; margin-left: 15px;">
@@ -1619,49 +1650,49 @@ body.help-docked #loading-overlay {
 
 <div id="sidebar">
     <div class="nav-item active" onclick="switchMainView('schedule', this)">
-        <span class="nav-icon">📅</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-calendar"></use></svg></span>
         <span class="nav-text">Schedule</span>
     </div>
 
         <div class="nav-item" onclick="switchMainView('equipment', this)">
-        <span class="nav-icon">🏗️</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-clipboard"></use></svg></span>
         <span class="nav-text">Equipment Tracker</span>
     </div>
 
         <div class="nav-item" onclick="switchMainView('bridge', this)">
-        <span class="nav-icon">🌉</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-gantt"></use></svg></span>
         <span class="nav-text">The Bridge</span>
     </div>
 
         <div class="nav-item" onclick="switchMainView('tamperseals', this)">
-        <span class="nav-icon">🩹</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-shield"></use></svg></span>
         <span class="nav-text">Tamper Seals</span>
     </div>
 
         <div id="nav-sealform" class="nav-item" style="display: none;" onclick="switchMainView('sealform', this)">
-        <span class="nav-icon">📋</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-file"></use></svg></span>
         <span class="nav-text">Seal Form</span>
     </div>
 
     <div class="nav-item" onclick="switchMainView('attributes', this)">
-        <span class="nav-icon">🏷️</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-tag"></use></svg></span>
         <span class="nav-text">Asset Attributes</span>
     </div>
 
     <div class="nav-item" onclick="switchMainView('dashboard', this)">
-        <span class="nav-icon">📊</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-chart"></use></svg></span>
         <span class="nav-text">Dashboard</span>
     </div>
 
     <!-- Hidden until turned on in Settings > Navigation Menu (ARC-199). -->
     <div id="nav-feedback" class="nav-item" style="display: none;" onclick="switchMainView('feedback', this)">
-        <span class="nav-icon">💬</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-message"></use></svg></span>
         <span class="nav-text">Feedback</span>
     </div>
 
     <!-- Hidden until turned on in Settings > Navigation Menu (ARC-237). -->
     <div id="nav-powerflow" class="nav-item" style="display: none;" onclick="switchMainView('powerflow', this)">
-        <span class="nav-icon">⚡</span>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-zap"></use></svg></span>
         <span class="nav-text">Power Flow</span>
     </div>
 
@@ -1669,16 +1700,16 @@ body.help-docked #loading-overlay {
     <div style="margin-top: auto; width: 100%;">
         
         <div id="admin-share-btn" class="nav-item" style="display: none;" onclick="toggleAdminPanel()">
-            <span class="nav-icon" style="color: #01579b;">👤</span> <span class="nav-text">Manage Access</span>
+            <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-users"></use></svg></span> <span class="nav-text">Manage access</span>
         </div>
         <div class="nav-item" onclick="toggleSwitchProjectPopover(event)" style="position: relative;">
-            <span class="nav-icon">🔀</span> <span class="nav-text">Switch Project</span>
+            <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-switch"></use></svg></span> <span class="nav-text">Switch project</span>
         </div>
         <div id="nav-settings" class="nav-item" style="display: none;" onclick="openSettingsForCurrentView()">
-            <span class="nav-icon" style="color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">⚙️</span> <span class="nav-text">Settings</span>
+            <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-sliders"></use></svg></span> <span class="nav-text">Settings</span>
         </div>
         <div class="nav-item" onclick="logout()" style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <span class="nav-icon" style="color: #d32f2f;">🚪</span> <span class="nav-text" style="color: #d32f2f; font-weight: bold;">Logout</span>
+            <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-logout"></use></svg></span> <span class="nav-text">Log out</span>
         </div>
     </div>
 </div>
@@ -1686,42 +1717,41 @@ body.help-docked #loading-overlay {
 <div id="filter-sidebar">
     
     <div id="filter-collapsed">
-        <span class="nav-icon" style="font-size: 16px; margin-bottom: 15px;">🔍</span>
-        <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; font-size: 15px; font-weight: bold; color: #3c3939;">
-            <span>F</span><span>I</span><span>L</span><span>T</span><span>E</span><span>R</span>
-        </div>
+        <span class="nav-icon"><svg class="lp-icon" aria-hidden="true"><use href="#i-filter"></use></svg></span>
+        <span class="filter-rail-label">Filters</span>
     </div>
     
     <div id="filter-expanded">
         
         <div style="display: flex; align-items: center; padding: 15px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <span class="nav-icon" style="font-size: 16px; margin-right: 10px;">🔍</span>
-            <span style="font-size: 14px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); letter-spacing: 1px;">FILTER</span>
+            <span class="nav-icon" style="margin-right: 8px;"><svg class="lp-icon" aria-hidden="true"><use href="#i-filter"></use></svg></span>
+            <span class="filter-panel-title">Filters</span>
             <button id="mobile-filter-close" class="tool-btn mobile-only" onclick="toggleMobileFilters(false)">Done</button>
         </div>
         
         <div class="filter-content">
-            <button onclick="resetAllFilters()" style="background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 15px; width: 100%; transition: background 0.2s;">
-                ✖ Reset All Filters
+            <button class="tool-btn" onclick="resetAllFilters()" style="width: 100%; margin-bottom: 16px;">
+                Reset all filters
             </button>
             <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
-                <button class="tool-btn" onclick="orderChronologically()" style="background: #ffffff; color: #fe8c0a; border-color: #fe8c0a; font-weight: bold;">Order</button>
-                <button class="tool-btn" onclick="cleanStatusOnlyRows()" style="background: #ffffff; color: var(--lp-action-hover, #276629); border-color: var(--lp-action-hover, #276629); font-weight: bold;" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
-                <button class="tool-btn" onclick="openDeletedLines()" style="background: #ffffff; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); border-color: var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); font-weight: bold;" title="Deleted lines are kept. See them and put any back on the Schedule.">Deleted lines</button>
+                <button class="tool-btn" onclick="orderChronologically()" title="Sort each day's lines by time">Order by time</button>
+                <button class="tool-btn" onclick="cleanStatusOnlyRows()" title="Wipes the Status cell on any row where every other column is blank — leftover from a row whose Activity/Asset were filled in (triggering a Status lookup) and later cleared, without Status itself ever getting cleared.">Clean</button>
+                <button class="tool-btn" onclick="openDeletedLines()" title="Deleted lines are kept. See them and put any back on the Schedule.">Deleted lines</button>
             </div>
-            <div class="search-container" style="display: inline-flex; align-items: center; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border-radius: 4px; padding: 2px 8px; margin-right: 18px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <input type="text" id="app-search-input" placeholder="Find in data..." style="border: none; background: transparent; outline: none; padding: 14px; width: 100px; font-size: 13px;">
-                    <span id="search-count" style="font-size: 11px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin: 0 1px; min-width: 24px;">0/0</span>
-                    <button onclick="navigateSearch(-1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 1px;">▲</button>
-                    <button onclick="navigateSearch(1)" class="search-nav-btn" style="background:none; border:none; cursor:pointer; padding: 0 1px;">▼</button>
+            <div class="search-container" style="display: flex; align-items: center; gap: 4px; background: var(--neutrals-lightmode-light-mode-Surface, #ffffff); border-radius: var(--radius\.md, 6px); padding: 0 4px 0 8px; margin-bottom: 16px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);">
+                    <svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-search"></use></svg>
+                    <input type="text" id="app-search-input" placeholder="Search" aria-label="Search the Schedule" style="border: none; background: transparent; outline: none; padding: 8px 4px; min-width: 0; flex: 1; font-size: 14px;">
+                    <span id="search-count" style="font-size: 12px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); min-width: 24px;">0/0</span>
+                    <button onclick="navigateSearch(-1)" class="search-nav-btn" title="Previous match" aria-label="Previous match"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-chevron-up"></use></svg></button>
+                    <button onclick="navigateSearch(1)" class="search-nav-btn" title="Next match" aria-label="Next match"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-chevron-down"></use></svg></button>
                 </div>
 
             <button id="my-activities-btn" class="place-filter-btn-vertical" onclick="toggleMyActivitiesFilter()" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 10px;">
-                <span id="my-activities-check" style="font-size: 15px; line-height: 1;">☐</span> My Activities
+                <span id="my-activities-check" aria-hidden="true">☐</span> My activities
             </button>
 
             <button id="critical-path-filter-btn" class="place-filter-btn-vertical" onclick="toggleCriticalPathFilter()" style="display: flex; align-items: center; gap: 8px; margin-bottom: 25px; padding: 10px;" title="Only show activities currently on Bridge's critical path">
-                <span id="critical-path-filter-check" style="font-size: 15px; line-height: 1;">☐</span> 🔥 Critical Path
+                <span id="critical-path-filter-check" aria-hidden="true">☐</span> <svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-flame"></use></svg> Critical path
             </button>
 
             <div id="vertical-places-filter-container"></div>
@@ -1740,25 +1770,25 @@ body.help-docked #loading-overlay {
 </div>
     
 <div class="modal-overlay" id="schedule-config-modal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background: white; width: 1100px; max-height: 90vh; overflow-y: auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);"> 
+    <div class="ds-modal" style="width: 1100px; max-width: 95vw; max-height: 90vh; overflow-y: auto;"> 
         
         <div style="display: flex; gap: 30px; margin-bottom: 30px;">
             <div style="flex: 1;">
-                <h2 style="margin-top:0; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">Schedule Layout</h2>
+                <h2 class="ds-section-title">Schedule layout</h2>
                 <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Drag to reorder, check to show/hide, or click a name to edit.</p>
                 <div id="schedule-col-list" style="display: flex; flex-direction: column; gap: 8px;">
                     </div>
             </div>
 
             <div style="flex: 1.2; border-left: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-left: 30px;">
-                <h2 style="color: var(--lp-action, #2f7a31); margin-top: 0;">System Data</h2>
+                <h2 class="ds-section-title">System data</h2>
                 <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Manage dropdown options and categories across the system.</p>
                 <div id="settings-container"></div>
             </div>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Navigation Menu</h2>
+            <h2 class="ds-section-title">Navigation menu</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Select which modules are available on the left sidebar.</p>
             <div style="display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
                 <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="cfg-nav-schedule" style="margin-right:8px; transform:scale(1.2);"> Schedule</label>
@@ -1775,7 +1805,7 @@ body.help-docked #loading-overlay {
 
         <!-- The Bridge (ARC-348): features inside The Bridge, each off until an admin turns it on. -->
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">The Bridge</h2>
+            <h2 class="ds-section-title">The Bridge</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Turn on extra features inside The Bridge for this project.</p>
             <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size: 14px; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
                 <input type="checkbox" id="cfg-bridge-milestones" style="margin:3px 0 0 0; transform:scale(1.2);">
@@ -1787,52 +1817,52 @@ body.help-docked #loading-overlay {
         <div id="owner-copy-settings" style="display: none; border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;"></div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Equivalent Activity Statuses</h2>
+            <h2 class="ds-section-title">Equivalent activity statuses</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Select which Activity Types apply to each Phase.</p>
             
             <div style="display: flex; gap: 20px;">
                 <div style="flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <h3 style="margin-top: 0; font-size: 14px; color: var(--lp-action, #2f7a31); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L2 Activities</h3>
+                    <h3 class="ds-subsection-title">L2 activities</h3>
                     <div id="eq-act-L2-list" style="max-height: 120px; overflow-y: auto; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; padding: 5px;"></div>
                 </div>
                 <div style="flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <h3 style="margin-top: 0; font-size: 14px; color: var(--lp-action, #2f7a31); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L3 Activities</h3>
+                    <h3 class="ds-subsection-title">L3 activities</h3>
                     <div id="eq-act-L3-list" style="max-height: 120px; overflow-y: auto; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; padding: 5px;"></div>
                 </div>
                 <div style="flex: 1; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb);">
-                    <h3 style="margin-top: 0; font-size: 14px; color: var(--lp-action, #2f7a31); border-bottom: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); padding-bottom: 5px;">L4 Activities</h3>
+                    <h3 class="ds-subsection-title">L4 activities</h3>
                     <div id="eq-act-L4-list" style="max-height: 120px; overflow-y: auto; background: white; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 4px; padding: 5px;"></div>
                 </div>
             </div>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Reschedule Trigger Results</h2>
+            <h2 class="ds-section-title">Reschedule trigger results</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">When a user picks one of these Results on a Schedule row, they'll be prompted to create that activity again on a new date (the original row is left as-is).</p>
             <div id="reschedule-trigger-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); max-height: 150px; overflow-y: auto;"></div>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Included Days</h2>
+            <h2 class="ds-section-title">Included days</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Which days of the week are active schedule days for this project. Unchecked days are greyed out and unselectable in The Bridge, can't be picked when moving/rescheduling an activity in Schedule, and are skipped by Bridge's automatic downstream-move cascade.</p>
             <div id="included-days-list" style="display: flex; gap: 14px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); flex-wrap: wrap;"></div>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Blackout Dates</h2>
+            <h2 class="ds-section-title">Blackout dates</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Specific one-off dates that aren't active schedule days — holidays, planned shutdowns, etc. — on top of the recurring Included Days pattern above.</p>
             <div style="display:flex; gap:10px; margin-bottom:12px;">
                 <input type="date" id="blackout-date-input" style="padding:8px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px;">
-                <button onclick="addBlackoutDate()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31); border-radius:4px;">+ Add Date</button>
+                <button type="button" class="tool-btn" onclick="addBlackoutDate()">Add date</button>
             </div>
             <div id="blackout-dates-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); min-height: 20px;"></div>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Status Refresh Schedule</h2>
+            <h2 class="ds-section-title">Status refresh schedule</h2>
             <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Times of day (in the chosen time zone) at which every occupied row's Status column is fully repopulated, not just the rolling 7-day window already kept current in the background. Requires at least one browser tab with this project open at that time — there is no server-side schedule behind this.</p>
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-                <label style="font-size:12.5px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-weight:600;">Time Zone
+                <label style="font-size:14px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-weight:600;">Time zone
                     <select id="status-refresh-timezone" style="padding:7px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px; margin-left:6px;">
                         <option value="America/New_York">Eastern (America/New_York)</option>
                         <option value="America/Chicago">Central (America/Chicago)</option>
@@ -1845,25 +1875,25 @@ body.help-docked #loading-overlay {
                     </select>
                 </label>
                 <input type="time" id="status-refresh-time-input" style="padding:8px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:4px; font-size:13px;">
-                <button onclick="addStatusRefreshTime()" style="padding: 6px 14px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31); border-radius:4px;">+ Add Time</button>
+                <button type="button" class="tool-btn" onclick="addStatusRefreshTime()">Add time</button>
             </div>
             <div id="status-refresh-times-list" style="display: flex; flex-wrap: wrap; gap: 10px; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); padding: 15px; border-radius: 6px; border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); min-height: 20px;"></div>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px; margin-bottom: 30px;">
-            <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Status Colors</h2>
-            <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">Colors Status/Result cells use for matching keywords, checked top to bottom — the first rule whose keywords match wins. "Default" covers anything that doesn't match a rule above it.</p>
+            <h2 class="ds-section-title">Status badges</h2>
+            <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">The badge the Status and Result columns show for matching keywords. Rules are checked top to bottom and the first match wins. "Default" covers anything no rule above it matches. Other columns show plain text.</p>
             <div id="status-color-rules-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
-            <button onclick="addStatusColorRule()" style="padding: 5px 10px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31);">+ Add Rule</button>
+            <button type="button" class="tool-btn" onclick="addStatusColorRule()">Add rule</button>
         </div>
 
         <div style="border-top: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); padding-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h2 style="color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin: 0;">Phase Rules LP</h2>
-                    <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Read and Write directly to your Google Sheet.</p>
+                    <h2 class="ds-section-title">Phase rules</h2>
+                    <p style="font-size:12px; color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Read from and saved to the project's Google Sheet.</p>
                 </div>
-                <button onclick="loadPhaseRules()" style="padding: 6px 12px; background: #0c44fa; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Refresh Rules</button>
+                <button type="button" class="tool-btn" onclick="loadPhaseRules()"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Refresh rules</button>
             </div>
             
             <div style="overflow-x: auto; margin-top: 15px; border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); max-height: 300px; overflow-y: auto;">
@@ -1877,35 +1907,36 @@ body.help-docked #loading-overlay {
                     </tbody>
                 </table>
             </div>
-            <button onclick="addPhaseRuleRow()" style="margin-top: 10px; padding: 5px 10px; cursor: pointer; border: 1px dashed var(--lp-action, #2f7a31); background: white; color: var(--lp-action, #2f7a31);">+ Add Rule</button>
+            <button type="button" class="tool-btn" onclick="addPhaseRuleRow()" style="margin-top: 8px;">Add rule</button>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); padding-top: 20px; margin-top: 20px;">
-            <button onclick="enterLayoutEditMode()" style="padding: 8px 15px; background: #0c44fa; color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Change Layout</button>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="document.getElementById('schedule-config-modal').style.display='none'" style="padding: 8px 15px; cursor: pointer; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Cancel</button>
-                <button onclick="saveAllSettings(this)" style="padding: 8px 15px; background: var(--lp-action, #2f7a31); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold;">Save All Settings</button>
+            <button type="button" class="tool-btn" onclick="enterLayoutEditMode()">Change column widths</button>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="tool-btn" onclick="document.getElementById('schedule-config-modal').style.display='none'">Cancel</button>
+                <button type="button" class="tool-btn btn-primary" onclick="saveAllSettings(this)">Save settings</button>
             </div>
         </div>
     </div>
 </div>
 
 <div id="reschedule-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
-    <div style="background: white; width: 380px; max-width: 95%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); padding: 25px;">
-        <h3 style="margin-top: 0; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718);">Reschedule Activity</h3>
+    <div class="ds-modal" style="width: 420px; max-width: 95%;">
+        <h3 class="ds-modal-title">Reschedule activity</h3>
         <p style="font-size: 13px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 15px;">This Result flags a reschedule. The original row is left as-is — pick a new date to schedule this activity again.</p>
-        <div style="background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; font-size: 13px;">
+        <div style="background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius: var(--radius\.lg, 8px); padding: 12px; margin-bottom: 16px; font-size: 14px;">
             <div><strong>Activity:</strong> <span id="reschedule-modal-activity"></span></div>
             <div><strong>Asset:</strong> <span id="reschedule-modal-asset"></span></div>
         </div>
-        <label style="display: block; font-size: 12px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom: 5px;">New Date</label>
-        <input type="date" id="reschedule-new-date" oninput="onRescheduleDateChanged()" style="width: 100%; padding: 8px; border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; box-sizing: border-box; margin-bottom: 12px;">
-        <div id="reschedule-preview" style="font-size: 12.5px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); background: #fffde7; border: 1px solid #fff59d; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto;"></div>
-        <!-- Milestones this move pushes past their date (ARC-451); only when Bridge Milestones is on. -->
-        <div id="reschedule-milestone-impact" role="alert" style="font-size: 12.5px; color: #7f1d17; background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: 10px 12px; margin-bottom: 15px; display: none; max-height: 160px; overflow-y: auto;"></div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button onclick="closeRescheduleModal()" style="padding: 8px 15px; cursor: pointer; background: var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border: 1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius: 4px; font-weight: bold; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);">Cancel</button>
-            <button id="reschedule-confirm-btn" onclick="confirmReschedule()" disabled style="padding: 8px 15px; background: var(--lp-action, #2f7a31); color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; opacity: 0.5; cursor: not-allowed;">Schedule It</button>
+        <label for="reschedule-new-date" style="display: block; font-size: 14px; font-weight: 600; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); margin-bottom: 8px;">New date</label>
+        <input type="date" id="reschedule-new-date" class="ds-input" oninput="onRescheduleDateChanged()" style="width: 100%; margin-bottom: 16px;">
+        <!-- Info banner (Petrol-tint role, LaunchPad action tint). -->
+        <div id="reschedule-preview" class="ds-banner" style="display: none; max-height: 160px; overflow-y: auto;"></div>
+        <!-- Milestones this move pushes past their date (ARC-451); only when Bridge Milestones is on. Failure badge colours. -->
+        <div id="reschedule-milestone-impact" class="ds-banner ds-banner--failure" role="alert" style="display: none; max-height: 160px; overflow-y: auto;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="tool-btn" onclick="closeRescheduleModal()">Cancel</button>
+            <button type="button" id="reschedule-confirm-btn" class="tool-btn btn-primary" onclick="confirmReschedule()" disabled style="opacity: 0.5; cursor: not-allowed;">Schedule it</button>
         </div>
     </div>
 </div>
@@ -2092,15 +2123,15 @@ body.help-docked #loading-overlay {
 
         <div class="subheader">
             <div class="subheader-item">
-                <button class="tool-btn mobile-only" id="mobile-filter-btn" onclick="toggleMobileFilters(true)">🔍 Filters</button>
-                <button class="tool-btn" id="btn-expand-weeks" onclick="expandAllWeeks()">Expand Weeks</button>
-                <button class="tool-btn" id="btn-expand-days" onclick="expandAllDays()">Expand Days</button>
-                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse All</button>
-                <button id="ready-activities-btn" class="tool-btn" onclick="toggleReadyActivities()" style="background: #ffffff; color: #0c44fa; border-color: #0c44fa; display: inline-flex; align-items: center; gap: 8px;">
-                    Ready Activities
+                <button class="tool-btn mobile-only" id="mobile-filter-btn" onclick="toggleMobileFilters(true)"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-filter"></use></svg> Filters</button>
+                <button class="tool-btn" id="btn-expand-weeks" onclick="expandAllWeeks()">Expand weeks</button>
+                <button class="tool-btn" id="btn-expand-days" onclick="expandAllDays()">Expand days</button>
+                <button class="tool-btn" id="btn-reset" onclick="collapseEverything()">Collapse all</button>
+                <button id="ready-activities-btn" class="tool-btn" onclick="toggleReadyActivities()">
+                    Ready activities
                 </button>
-                <button id="batch-add-btn" class="tool-btn" onclick="openBatchAddModal()" style="background: #ffffff; color: #9c27b0; border-color: #9c27b0; display: inline-flex; align-items: center; gap: 8px; margin-left: 5px;">
-                    Batch Add
+                <button id="batch-add-btn" class="tool-btn" onclick="openBatchAddModal()">
+                    Batch add
                 </button>
                 <label class="cal-toggle" title="Show each week as a calendar">
                     <input type="checkbox" id="calendar-view-checkbox" onchange="setScheduleCalendarMode(this.checked)">
@@ -2114,20 +2145,20 @@ body.help-docked #loading-overlay {
 
             <div class="subheader-item" style="display: flex; align-items: center; gap: 10px;">
                 <div id="bulk-actions-container" style="display: none; align-items: center; gap: 8px;">
-                    <span id="selected-count-label" style="font-size: 13px; font-weight: bold; color: #d32f2f;">0 Selected</span>
-                    <button class="tool-btn" onclick="openBulkDateModal('move')" style="background: #fbc02d; color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); border-color: #fbc02d;">Move to</button>
-                    <button class="tool-btn" onclick="openBulkDateModal('duplicate')" style="background: #f57f17; color: white; border-color: #f57f17;">Duplicate & Move</button>
-                    
-                    <button class="tool-btn" onclick="bulkDelete()" style="background: #d32f2f; color: white; border-color: #d32f2f;">Delete</button>
-                    
-                    <button class="tool-btn" onclick="uncheckAll()" style="background: var(--neutrals-lightmode-light-mode-Border, #d6d3cb); color: var(--neutrals-lightmode-light-mode-Textprimary, #141718); border-color: var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4);">Cancel</button>
+                    <span id="selected-count-label">0 selected</span>
+                    <button type="button" class="bulk-btn" onclick="openBulkDateModal('move')">Move to</button>
+                    <span class="bulk-sep" aria-hidden="true">·</span>
+                    <button type="button" class="bulk-btn" onclick="openBulkDateModal('duplicate')">Duplicate and move</button>
+                    <span class="bulk-sep" aria-hidden="true">·</span>
+                    <button type="button" class="bulk-btn" onclick="bulkDelete()">Delete</button>
+                    <button type="button" class="bulk-btn" onclick="uncheckAll()" style="margin-left: 12px;">Clear</button>
                 </div>
                 <span id="saveIndicator">Saved</span>
                 
                 <!-- NEW: Refresh Button -->
-                <button class="tool-btn" onclick="refreshScheduleData(this)" style="background: var(--lp-action-tint, #eaf6ea); color: var(--lp-action, #2f7a31); border-color: var(--lp-action, #2f7a31); margin-left: 5px; font-weight: bold;" title="Sync Data">🔄 Refresh</button>
-                
-                <button class="tool-btn" onclick="exportToPDF()" style="background: #ffffff; color: #d6281c; border-color: #d6281c; margin-left: 5px; font-weight: bold;">PDF</button>
+                <button class="tool-btn" onclick="refreshScheduleData(this)" title="Reload the Schedule and Status from the project's data"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-refresh"></use></svg> Refresh</button>
+
+                <button class="tool-btn" onclick="exportToPDF()" title="Export the Schedule as a PDF"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-file"></use></svg> PDF</button>
             </div>
         </div>
 
@@ -2146,21 +2177,19 @@ body.help-docked #loading-overlay {
                     <div id="cal-edit-title" class="cal-edit-title"></div>
                     <div id="cal-edit-date" class="cal-edit-date"></div>
                 </div>
-                <button class="cal-edit-close" onclick="closeCalEditPanel()" title="Close">✕</button>
+                <button class="cal-edit-close" onclick="closeCalEditPanel()" title="Close" aria-label="Close"><svg class="lp-icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
             <div id="cal-edit-body" class="cal-edit-body"></div>
             <div class="cal-edit-foot">
                 <button class="tool-btn" onclick="showCalEditRowInList()">Show in list</button>
-                <button class="tool-btn" onclick="closeCalEditPanel()" style="background: var(--lp-action, #2f7a31); color: white; border-color: var(--lp-action, #2f7a31);">Done</button>
+                <button class="tool-btn btn-primary" onclick="closeCalEditPanel()">Done</button>
             </div>
         </div>
 
     </div> </div> <div id="loading-overlay">
     <div id="loading-spinner-section" style="text-align: center;">
-        <div class="ship-circle">
-            <span class="rocket">🛠️🚀</span>
-        </div>
-        <p class="loading-text">Refueling QCx Rocket...</p>
+        <div class="lp-loading-spinner" role="status" aria-label="Loading"></div>
+        <p class="loading-text">Loading LaunchPad…</p>
     </div>
     <div id="admin-grant-prompt" class="card" style="display: none; max-width: 400px; margin: 100px auto; text-align: center; padding: 30px; border-top: 5px solid var(--lp-action, #2f7a31);">
     <h2 style="color: var(--lp-action, #2f7a31); margin-top: 0;">Grant Access?</h2>
@@ -2627,12 +2656,51 @@ const defaultScheduleConfig = [
 // recolored) — it's what every cell that matches nothing above gets,
 // the same role the old hardcoded light-blue fallback played.
 const defaultStatusColorRules = [
-    { id: 'green', label: 'Green', keywords: ['high', 'pass', ' 4', 'ready', 'completed', 'closed', 'clear'], bg: '#c8e6c9', fg: '#1b5e20' },
-    { id: 'yellow', label: 'Yellow', keywords: ['med', 'hold', ' 2', 'progress', 'pending', 'checking'], bg: '#fff9c4', fg: '#f57f17' },
-    { id: 'red', label: 'Red', keywords: ['open', 'fail', 'incomplete', 'issue', 'rejected'], bg: '#ffcdd2', fg: '#b71c1c' },
-    { id: 'default', label: 'Default', keywords: [], bg: '#e1f5fe', fg: '#01579b' }
+    { id: 'green', label: 'Green', keywords: ['high', 'pass', ' 4', 'ready', 'completed', 'closed', 'clear'], bg: '#c8e6c9', fg: '#1b5e20', badge: 'success' },
+    { id: 'yellow', label: 'Yellow', keywords: ['med', 'hold', ' 2', 'progress', 'pending', 'checking'], bg: '#fff9c4', fg: '#f57f17', badge: 'inProgress' },
+    { id: 'red', label: 'Red', keywords: ['open', 'fail', 'incomplete', 'issue', 'rejected'], bg: '#ffcdd2', fg: '#b71c1c', badge: 'failure' },
+    { id: 'default', label: 'Default', keywords: [], bg: '#e1f5fe', fg: '#01579b', badge: '' }
 ];
 let statusColorRules = defaultStatusColorRules.map(r => ({ ...r, keywords: [...r.keywords] }));
+
+// ArcLab Design System (phase 2): Status and Result show a StatusBadge, so
+// each rule now names one of the design system's eight states instead of a
+// fill colour. '' means plain text (no badge). Rules saved before this
+// change have only bg/fg; statusRuleBadge() picks the nearest state from the
+// colour until an admin saves the rule with a state. bg/fg stay in the saved
+// rule untouched.
+const STATUS_BADGE_STATES = [
+    ['', 'No badge (plain text)'],
+    ['success', 'Success'],
+    ['inProgress', 'In progress'],
+    ['partial', 'Partial'],
+    ['notStarted', 'Not started'],
+    ['failure', 'Failure'],
+    ['closed', 'Closed'],
+    ['draft', 'Draft'],
+    ['removed', 'Removed']
+];
+function badgeFromColor(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return '';
+    const n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d < 0.08) return 'notStarted'; // grey
+    let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    if (h < 20 || h >= 330) return 'failure';
+    if (h < 70) return 'inProgress';
+    if (h < 170) return 'success';
+    if (h < 260) return 'partial';
+    return 'draft';
+}
+function statusRuleBadge(rule) {
+    if (!rule) return '';
+    if (typeof rule.badge === 'string') return rule.badge;
+    if (rule.id === 'default') return '';
+    const known = { green: 'success', yellow: 'inProgress', red: 'failure' };
+    return known[rule.id] || badgeFromColor(rule.bg);
+}
 
 // Schedule's "Included Days" setting — which weekdays (0=Sun..6=Sat,
 // matching Date.getDay()) are active schedule days for this project.
@@ -2795,7 +2863,7 @@ function toggleDarkMode() {
     const isDark = body.classList.toggle('dark-mode');
     
     // Swap icon based on state
-    if (btn) btn.innerText = isDark ? '☀️' : '🌙';
+    if (btn) { btn.innerHTML = `<svg class="lp-icon" aria-hidden="true"><use href="#i-${isDark ? 'sun' : 'moon'}"></use></svg>`; btn.setAttribute('aria-pressed', String(isDark)); }
     
     // Save preference to local storage
     localStorage.setItem('launchpad_dark_mode', isDark ? 'enabled' : 'disabled');
@@ -2839,7 +2907,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('launchpad_dark_mode') === 'enabled') {
         document.body.classList.add('dark-mode');
         const btn = document.getElementById('dark-mode-toggle');
-        if (btn) btn.innerText = '☀️';
+        if (btn) { btn.innerHTML = '<svg class="lp-icon" aria-hidden="true"><use href="#i-sun"></use></svg>'; btn.setAttribute('aria-pressed', 'true'); }
     }
 });
 
@@ -3042,7 +3110,7 @@ async function populateReadyActivities() {
     const listContainer = document.getElementById('ready-list-container');
     const filtersContainer = document.getElementById('ready-filters-container');
     
-    listContainer.innerHTML = '<p style="color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 13px; text-align: center; padding: 20px;">⏳ Loading from Database...</p>';
+    listContainer.innerHTML = '<p style="color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); font-size: 13px; text-align: center; padding: 20px;">Loading…</p>';
     if (filtersContainer) filtersContainer.innerHTML = ''; 
     
     try {
@@ -3073,7 +3141,7 @@ async function populateReadyActivities() {
         renderReadyList();
     } catch (error) {
         console.error("Database Fetch Error:", error);
-        listContainer.innerHTML = '<p style="color: #d32f2f; font-size: 13px; text-align: center; padding: 20px;">❌ Error loading data from Database.</p>';
+        listContainer.innerHTML = '<p style="color: var(--workflow-failure-badgetext, #a32a2a); font-size: 13px; text-align: center; padding: 20px;">Couldn\'t load ready activities. Try again.</p>';
     }
 }
 
@@ -3099,7 +3167,7 @@ async function refreshScheduleData(btn) {
     const originalText = btn ? btn.innerHTML : null;
 
     // UI Feedback: Show loading state
-    if (btn) { btn.innerHTML = "⏳ Syncing..."; btn.disabled = true; }
+    if (btn) { btn.innerHTML = "Syncing..."; btn.disabled = true; }
     document.getElementById('saveIndicator').innerText = "Syncing with cloud...";
     document.getElementById('saveIndicator').style.display = 'inline-block';
 
@@ -3112,11 +3180,11 @@ async function refreshScheduleData(btn) {
         await loadData();
 
         // UI Feedback: Success
-        if (btn) btn.innerHTML = "✅ Synced";
+        if (btn) btn.innerHTML = '<svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-check"></use></svg> Synced';
         document.getElementById('saveIndicator').innerText = `Synced at: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     } catch (error) {
         console.error("Refresh Error:", error);
-        if (btn) btn.innerHTML = "❌ Error";
+        if (btn) btn.innerHTML = '<svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-alert"></use></svg> Sync failed';
         document.getElementById('saveIndicator').innerText = "Sync failed";
     }
 
@@ -3287,12 +3355,12 @@ async function showCellHistory(e, rowId, colIndex) {
 
     content.innerHTML = data.map(h => `
         <div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--neutrals-lightmode-light-mode-Subtle, #e7e5df);">
-            <div style="color:var(--lp-action, #2f7a31); font-weight:bold; margin-bottom:2px;">${new Date(h.changed_at).toLocaleString()}</div>
+            <div style="color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-weight:600; margin-bottom:2px;">${new Date(h.changed_at).toLocaleString()}</div>
             <div style="color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f); margin-bottom:4px;">User: ${lpPersonHtml(h.changed_by)}</div>
             <div style="display:flex; gap:5px; align-items:center;">
-                <span style="color:#d32f2f; text-decoration:line-through; background:#ffebee; padding:2px 4px; border-radius:2px;">${h.old_value || '(empty)'}</span>
-                <span>➔</span>
-                <span style="color:var(--lp-action, #2f7a31); background:var(--lp-action-tint, #eaf6ea); padding:2px 4px; border-radius:2px; font-weight:bold;">${h.new_value || '(empty)'}</span>
+                <span style="color:var(--workflow-removed-badgetext, #6a675f); text-decoration:line-through;">${h.old_value || '(empty)'}</span>
+                <span aria-label="changed to">→</span>
+                <span style="color:var(--neutrals-lightmode-light-mode-Textprimary, #141718); font-weight:600;">${h.new_value || '(empty)'}</span>
             </div>
         </div>
     `).join('');
@@ -6634,15 +6702,15 @@ function initRealtimeSync() {
                 // Flash a red visual alert on the "Manage Access" button if a new request comes in
                 const btn = document.getElementById('admin-share-btn');
                 if (btn && payload.eventType === 'INSERT') {
-                    btn.style.backgroundColor = '#ffebee';
+                    btn.style.backgroundColor = 'var(--lp-action-tint, #eaf6ea)';
                     const icon = btn.querySelector('.nav-icon');
                     const text = btn.querySelector('.nav-text');
-                    if (icon) icon.innerText = '🚨';
-                    if (text) { text.innerText = 'New Access Request!'; text.style.color = '#d32f2f'; }
+                    if (icon) icon.innerHTML = '<svg class="lp-icon" aria-hidden="true"><use href="#i-alert"></use></svg>';
+                    if (text) text.innerText = 'New access request';
                     setTimeout(() => {
-                        btn.style.backgroundColor = 'transparent';
-                        if (icon) icon.innerText = '👤';
-                        if (text) { text.innerText = 'Manage Access'; text.style.color = ''; }
+                        btn.style.backgroundColor = '';
+                        if (icon) icon.innerHTML = '<svg class="lp-icon" aria-hidden="true"><use href="#i-users"></use></svg>';
+                        if (text) text.innerText = 'Manage access';
                     }, 5000);
                 }
             })
@@ -8230,7 +8298,7 @@ function renderBlackoutDatesUI() {
     container.innerHTML = __blackoutDatesDraft.slice().sort().map(d => `
         <span style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:14px; padding:5px 10px 5px 12px; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
             ${d}
-            <span onclick="removeBlackoutDate('${d}')" title="Remove" style="cursor:pointer; color:#d32f2f; font-weight:bold;">✕</span>
+            <button type="button" class="ds-icon-btn" onclick="removeBlackoutDate('${d}')" title="Remove" aria-label="Remove ${d}"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
         </span>
     `).join('');
 }
@@ -8265,7 +8333,7 @@ function renderStatusRefreshTimesUI() {
     container.innerHTML = __statusRefreshTimesDraft.slice().sort().map(t => `
         <span style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:14px; padding:5px 10px 5px 12px; font-size:13px; color:var(--neutrals-lightmode-light-mode-Textprimary, #141718);">
             ${t}
-            <span onclick="removeStatusRefreshTime('${t}')" title="Remove" style="cursor:pointer; color:#d32f2f; font-weight:bold;">✕</span>
+            <button type="button" class="ds-icon-btn" onclick="removeStatusRefreshTime('${t}')" title="Remove" aria-label="Remove ${t}"><svg class="lp-icon lp-icon--sm" aria-hidden="true"><use href="#i-x"></use></svg></button>
         </span>
     `).join('');
 }
@@ -8294,19 +8362,34 @@ function renderStatusColorRulesUI() {
     const container = document.getElementById('status-color-rules-list');
     if (!container) return;
     container.innerHTML = statusColorRules.map(rule => statusColorRuleRowHtml(rule)).join('');
+    container.querySelectorAll('.sc-badge').forEach(updateStatusRulePreview);
 }
 
 function statusColorRuleRowHtml(rule) {
     const isDefault = rule.id === 'default';
     const keywordsStr = escapeHtmlForReschedule((rule.keywords || []).join(', '));
-    return `<div class="status-color-rule-row" data-rule-id="${escapeHtmlForReschedule(rule.id)}" style="display:flex; align-items:center; gap:8px; background:var(--neutrals-lightmode-light-mode-Page, #f3f2ee); border:1px solid var(--neutrals-lightmode-light-mode-Border, #d6d3cb); border-radius:4px; padding:8px;">
-        <input type="text" class="sc-label" value="${escapeHtmlForReschedule(rule.label)}" placeholder="Label" style="flex:1; min-width:70px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:3px; padding:4px 6px; font-size:12.5px;">
-        <input type="text" class="sc-keywords" value="${keywordsStr}" placeholder="${isDefault ? 'matches anything else' : 'comma-separated keywords'}" ${isDefault ? 'disabled' : ''} style="flex:2; min-width:160px; border:1px solid var(--neutrals-lightmode-light-mode-Borderstrong, #b2aea4); border-radius:3px; padding:4px 6px; font-size:12.5px; ${isDefault ? 'background:var(--neutrals-lightmode-light-mode-Subtle, #e7e5df); color:var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);' : ''}">
-        <label style="font-size:11px; color:#666; display:flex; align-items:center; gap:4px;">BG <input type="color" class="sc-bg" value="${rule.bg}" oninput="this.closest('.status-color-rule-row').querySelector('.sc-preview').style.background=this.value"></label>
-        <label style="font-size:11px; color:#666; display:flex; align-items:center; gap:4px;">Text <input type="color" class="sc-fg" value="${rule.fg}" oninput="this.closest('.status-color-rule-row').querySelector('.sc-preview').style.color=this.value"></label>
-        <span class="sc-preview" style="padding:4px 10px; border-radius:3px; font-size:11.5px; font-weight:bold; background:${rule.bg}; color:${rule.fg};">Abc</span>
-        ${isDefault ? '<span style="width:14px; flex-shrink:0;"></span>' : `<span style="cursor:pointer; color:#d32f2f; font-weight:bold; padding:0 4px;" title="Remove rule" onclick="this.closest('.status-color-rule-row').remove()">✕</span>`}
+    const badge = statusRuleBadge(rule);
+    const opts = STATUS_BADGE_STATES.map(([v, l]) => `<option value="${v}"${v === badge ? ' selected' : ''}>${l}</option>`).join('');
+    // bg/fg aren't edited any more but are kept on the rule as saved.
+    return `<div class="status-color-rule-row ds-rule-row" data-rule-id="${escapeHtmlForReschedule(rule.id)}" data-bg="${escapeHtmlForReschedule(rule.bg || '')}" data-fg="${escapeHtmlForReschedule(rule.fg || '')}">
+        <input type="text" class="sc-label ds-input" value="${escapeHtmlForReschedule(rule.label)}" placeholder="Label" aria-label="Rule name" style="flex:1; min-width:70px;">
+        <input type="text" class="sc-keywords ds-input" value="${keywordsStr}" placeholder="${isDefault ? 'Matches anything else' : 'Comma-separated keywords'}" aria-label="Keywords" ${isDefault ? 'disabled' : ''} style="flex:2; min-width:160px;">
+        <select class="sc-badge ds-input" aria-label="Badge" onchange="updateStatusRulePreview(this)" style="flex:0 0 170px;">${opts}</select>
+        <span class="sc-preview" style="flex:0 0 130px; display:inline-flex;"></span>
+        ${isDefault ? '<span class="ds-icon-btn" aria-hidden="true" style="visibility:hidden;"></span>' : `<button type="button" class="ds-icon-btn" title="Remove rule" aria-label="Remove rule" onclick="this.closest('.status-color-rule-row').remove()"><svg class="lp-icon lp-icon--sm"><use href="#i-x"></use></svg></button>`}
     </div>`;
+}
+
+// Live StatusBadge next to each rule's state picker.
+function updateStatusRulePreview(selectEl) {
+    const row = selectEl.closest('.status-color-rule-row');
+    const slot = row && row.querySelector('.sc-preview');
+    if (!slot) return;
+    slot.innerHTML = '';
+    const v = selectEl.value;
+    if (!v) { slot.textContent = 'Plain text'; slot.style.color = 'var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f)'; slot.style.fontSize = '12px'; return; }
+    slot.style.color = '';
+    if (window.ArcLab && ArcLab.createStatusBadge) slot.appendChild(ArcLab.createStatusBadge(v, { size: 'compact', label: (row.querySelector('.sc-label') || {}).value || undefined }));
 }
 
 // New rules always insert just above 'default', which must stay last —
@@ -8317,9 +8400,10 @@ function addStatusColorRule() {
     if (!container) return;
     const defaultRow = container.querySelector('.status-color-rule-row[data-rule-id="default"]');
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = statusColorRuleRowHtml({ id: `rule_${Date.now()}`, label: 'New Rule', keywords: [], bg: '#e1f5fe', fg: '#01579b' });
+    wrapper.innerHTML = statusColorRuleRowHtml({ id: `rule_${Date.now()}`, label: 'New rule', keywords: [], bg: '#e1f5fe', fg: '#01579b', badge: 'notStarted' });
     const newEl = wrapper.firstElementChild;
     if (defaultRow) container.insertBefore(newEl, defaultRow); else container.appendChild(newEl);
+    updateStatusRulePreview(newEl.querySelector('.sc-badge'));
 }
 
 // Builds one checkbox per known Result value (same list the Result
@@ -8355,7 +8439,7 @@ function moveCol(index, direction) {
 async function saveAllSettings(btn) {
     // 1. Update UI so user knows it's working
     const originalText = btn.innerText;
-    btn.innerText = "Saving to Cloud... ⏳";
+    btn.innerText = "Saving…";
     btn.style.opacity = "0.7";
     btn.disabled = true;
 
@@ -8424,9 +8508,10 @@ async function saveAllSettings(btn) {
         const label = rowEl.querySelector('.sc-label')?.value.trim() || id;
         const keywordsInput = rowEl.querySelector('.sc-keywords');
         const keywords = id === 'default' ? [] : (keywordsInput?.value || '').split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-        const bg = rowEl.querySelector('.sc-bg')?.value || '#e1f5fe';
-        const fg = rowEl.querySelector('.sc-fg')?.value || '#01579b';
-        return { id, label, keywords, bg, fg };
+        const bg = rowEl.getAttribute('data-bg') || '#e1f5fe';
+        const fg = rowEl.getAttribute('data-fg') || '#01579b';
+        const badge = rowEl.querySelector('.sc-badge')?.value || '';
+        return { id, label, keywords, bg, fg, badge };
     });
 
 // 4. SAVE THE THREE SUPABASE-BACKED SETTINGS, PLUS PHASE RULES (still sheet-backed)
@@ -8497,7 +8582,7 @@ async function saveAllSettings(btn) {
         // Phase Rules still writes to Google Sheets in the background, so we
         // still give that a moment to finish before reloading — the three
         // Supabase saves above are already confirmed by the time we get here.
-        btn.innerText = "Finalizing... ⏳";
+        btn.innerText = "Finishing…";
         await new Promise(resolve => setTimeout(resolve, 1000));
         
     } catch (e) {
@@ -8546,27 +8631,31 @@ function applyCellColor(element, value) {
         element.style.height = "40px";
     }
 
-    // --- Color Logic (Expanded to catch all standard statuses) ---
-    // Use setProperty(..., 'important') so these inline colors always win over the
-    // dark-mode stylesheet's "body.dark-mode input/select/textarea { background-color: ... !important }"
-    // rule, which would otherwise flatten every select/input/textarea to the same dark grey.
-    const isDark = document.body.classList.contains('dark-mode');
+    // --- Status badge (ArcLab Design System, phase 2) ---
+    // Cells are plain text on the row; only Status (5) and Result (7) show
+    // a StatusBadge, drawn by css/launchpad-ds.css from data-badge. Nothing
+    // is written into the cell itself (Status's HTML is saved as-is).
+    element.style.removeProperty('background-color');
+    element.style.removeProperty('color');
+    const colIdx = element.getAttribute('data-col-index') || ((element.id || '').match(/-c(\d+)$/) || [])[1];
+    const isBadgeCol = colIdx === '5' || colIdx === '7';
 
     if (cleanVal === "" || lowerVal === "select..." || lowerVal === "..." || lowerVal === "na" || lowerVal.includes("no rule matched")) {
-        element.style.setProperty('background-color', isDark ? '#2c2c2c' : '#f9f9f9', 'important');
-        element.style.setProperty('color', isDark ? '#888888' : '#666666', 'important');
+        element.setAttribute('data-empty', 'true');
+        element.removeAttribute('data-badge');
         return;
     }
+    element.removeAttribute('data-empty');
+    if (!isBadgeCol) { element.removeAttribute('data-badge'); return; }
 
     // First rule (in statusColorRules, admin-editable via Settings →
-    // Status Colors) whose keywords substring-match wins; 'default' has
+    // Status badges) whose keywords substring-match wins; 'default' has
     // no keywords and never matches here, so it's really just whatever
     // the loop falls through to below.
     const matched = statusColorRules.find(r => r.id !== 'default' && (r.keywords || []).some(kw => kw && lowerVal.includes(kw.toLowerCase())));
     const rule = matched || statusColorRules.find(r => r.id === 'default') || defaultStatusColorRules[defaultStatusColorRules.length - 1];
-
-    element.style.setProperty('background-color', rule.bg, 'important');
-    element.style.setProperty('color', rule.fg, 'important');
+    const badge = statusRuleBadge(rule);
+    if (badge) element.setAttribute('data-badge', badge); else element.removeAttribute('data-badge');
 }
 
 async function syncAllAssetLookups() {
@@ -8673,7 +8762,7 @@ function generateNumericId(dateStr, index) {
 function createAddRowsButton(rowsDiv, dayLabel) {
     const addBtn = document.createElement('button');
     addBtn.className = 'add-rows-btn';
-    addBtn.innerText = "+ Add Line";
+    addBtn.innerText = "+ Add line";
     addBtn.onclick = (e) => {
         if (e) e.stopPropagation();
         const rows = Array.from(rowsDiv.querySelectorAll('.cell-row'));
@@ -8828,8 +8917,10 @@ function addRowsToContainer(container, dayLabel, anchorBtn = null, startIdx = 0,
         const criticalIcon = document.createElement('span');
         criticalIcon.className = 'critical-path-icon';
         criticalIcon.id = `critical-icon-${rowNumericId}`;
-        criticalIcon.textContent = '🔥';
-        criticalIcon.title = 'On Critical Path';
+        criticalIcon.innerHTML = '<svg class="lp-icon" aria-hidden="true"><use href="#i-flame"></use></svg>';
+        criticalIcon.title = 'On the critical path';
+        criticalIcon.setAttribute('role', 'img');
+        criticalIcon.setAttribute('aria-label', 'On the critical path');
         criticalIcon.style.cssText = 'display:none; position:absolute; left:1px; top:50%; transform:translateY(-50%); font-size:14px; line-height:1; cursor:default; pointer-events:none; z-index:2;';
         rowDiv.appendChild(criticalIcon);
 
@@ -10042,7 +10133,7 @@ function createWeekElement(baseDate, w) {
 
         const addBtn = document.createElement('button');
         addBtn.className = 'add-rows-btn';
-        addBtn.innerText = "+ Add 5 Rows";
+        addBtn.innerText = "+ Add 5 lines";
 
         addBtn.onclick = (e) => {
             e.stopPropagation();
@@ -10840,7 +10931,7 @@ function toggleAllSections() {
     });
 
     // Update the button text to show the next action
-    btn.innerText = allWeeksCollapsed ? "Expand All Weeks" : "Collapse All Weeks";
+    btn.innerText = allWeeksCollapsed ? "Expand all weeks" : "Collapse all weeks";
 }
 
 // Creates and positions a floating multi-select checkbox menu with a search bar
@@ -11032,7 +11123,7 @@ function updateBulkActionUI() {
     if (selectedRowIds.size > 0) {
         saveInd.style.display = 'none';
         bulkCont.style.display = 'flex';
-        lbl.innerText = `${selectedRowIds.size} Selected`;
+        lbl.innerText = `${selectedRowIds.size} selected`;
     } else {
         saveInd.style.display = 'inline-block';
         bulkCont.style.display = 'none';
@@ -11259,9 +11350,9 @@ async function moveOrCopyToDay(targetDate, targetRowsDiv) {
 
             if (col === 5) {
                 // Initialize as checking so it doesn't show old/stale data while loading
-                el.innerText = "⏳ Checking...";
+                el.innerText = "Checking...";
                 applyCellColor(el, "Checking...");
-                content = "⏳ Checking...";
+                content = "Checking...";
             } else if (col === 6 || col === 11) {
                 el.setAttribute('data-selected', content);
                 if (el.options && el.options[0]) el.options[0].text = content ? `Selected: ${content}` : "+ Add Multi";
@@ -11597,7 +11688,7 @@ async function lookupColumn5Value(rowNum, dayLabel, isBackground = false) {
     }
 
     try {
-        if (!isBackground) col5.innerText = "⏳ Checking...";
+        if (!isBackground) col5.innerText = "Checking...";
 
         const url = `${GOOGLE_SCRIPT_URL}?action=lookup&col3=${encodeURIComponent(phaseToLookup)}&col4=${encodeURIComponent(val4)}`;
         const response = await fetch(url);
