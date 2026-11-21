@@ -7628,9 +7628,13 @@ async function chooseProject(projectKey) {
     if (user) {
         continueStartAppAfterProject(user);
     } else {
+        // The picker is only shown once signed in (ARC-457), so this means
+        // the session ended while it was open. Ask them to sign in again.
         document.getElementById('loading-spinner-section').style.display = 'none';
         document.getElementById('auth-prompt').style.display = 'block';
-        handleAuthAction();
+        const errorEl = document.getElementById('auth-error');
+        errorEl.innerText = 'Your session ended. Please sign in again.';
+        errorEl.style.display = 'block';
     }
 }
 
@@ -10755,60 +10759,32 @@ async function handleAuthAction() {
             successEl.innerText = "Success! Check your email to verify your account. Once verified, sign in here and you'll be able to request access to a project.";
             successEl.style.display = 'block';
         } else {
-        // Resolve which project this email belongs to before touching any
-        // project-specific table (verifyPermission included). If there's
-        // more than one project, show the picker and pause here;
-        // chooseProject() re-calls handleAuthAction() once one is picked.
-        if (!window.LP_CONFIG.tablePrefix) {
-            document.getElementById('auth-prompt').style.display = 'none';
-            const projectReady = await selectProject(email);
-            if (!projectReady) { btn.disabled = false; return; }
-            document.getElementById('auth-prompt').style.display = 'block';
-        }
-
-        const perm = await verifyPermission(email);
-
-
-            // Attempt the sign-in itself so we can tell a bad PIN apart from a
-            // not-yet-authorized email, and report both if both are true.
+            // Check the PIN FIRST (ARC-457). This used to show the project
+            // picker before any sign-in, so a wrong PIN (or an invited
+            // account that never set one) looked like a successful sign-in
+            // until a project was picked, then bounced back here. It also
+            // listed any typed email's projects to whoever typed it.
             const { error: loginError } = await _supabase.auth.signInWithPassword({ email, password: pin });
 
-            if (loginError || !perm.isAuthorized) {
-                const reasons = [];
-                if (!perm.isAuthorized) reasons.push("this email is not authorized for this project");
-                if (loginError) {
-                    const msg = (loginError.message || "").toLowerCase();
-                    if (msg.includes("invalid login credentials") || msg.includes("invalid")) {
-                        reasons.push("the PIN entered is incorrect, or you haven't created one yet — use \"First time? Create your PIN\" below if this is your first time signing in");
-                    } else if (msg.includes("email not confirmed")) {
-                        reasons.push("this email hasn't been verified yet \u2014 check your inbox for the confirmation link");
-                    } else {
-                        reasons.push(loginError.message);
-                    }
-                }
-                // If a wrong PIN is the ONLY problem (they're authorized and
-                // already have an account), use the exact simple phrasing
-                // instead of the combined "Sign in failed: ..." message.
-                if (perm.isAuthorized && loginError && reasons.length === 1) {
-                    errorEl.innerText = "Incorrect PIN entered, or you haven't created one yet — use \"First time? Create your PIN\" below if this is your first time signing in.";
+            if (loginError) {
+                const msg = (loginError.message || "").toLowerCase();
+                if (msg.includes("email not confirmed")) {
+                    errorEl.innerText = "This email hasn't been verified yet \u2014 check your inbox for the confirmation link.";
+                } else if (msg.includes("invalid login credentials")) {
+                    errorEl.innerText = "Incorrect PIN, or no PIN has been set for this email yet. If you were invited or don't remember your PIN, use \"Forgot PIN?\" below to set one. New to LaunchPad? Use \"First time? Create your PIN\".";
                 } else {
-                    errorEl.innerText = "Sign in failed: " + reasons.join(", and ") + ".";
+                    errorEl.innerText = "Sign in failed: " + loginError.message;
                 }
                 errorEl.style.display = 'block';
                 btn.disabled = false;
                 return;
             }
 
+            // Signed in. Reload into the normal signed-in startup, which
+            // shows the picker and checks access to the chosen project the
+            // same way it does for anyone returning with a saved session.
             localStorage.setItem('launchpad_email', email);
-            // If this login was resumed from the picker (chooseProject()
-            // re-invoking this function after project resolution), LP_CONFIG
-            // is already set to the project they picked. Skip showing the
-            // picker again on reload — otherwise they'd pick a project, log
-            // in, and land right back on the picker having to pick again.
-            if (window.LP_CONFIG && window.LP_CONFIG.projectKey) {
-                sessionStorage.setItem('launchpad_skip_picker_once', window.LP_CONFIG.projectKey);
-            }
-            location.reload(); 
+            location.reload();
         }
     } catch (err) {
         errorEl.innerText = err.message;
