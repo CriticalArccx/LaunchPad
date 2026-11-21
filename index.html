@@ -2231,7 +2231,7 @@ body.help-docked #loading-overlay {
         <div style="margin-top: 20px; font-size: 14px; display: flex; justify-content: center; gap: 20px;">
             <a href="javascript:void(0)" id="auth-toggle-link" onclick="toggleAuthMode()" style="color: var(--lp-action, #2f7a31); text-decoration: none; font-weight: 600;">First time? Create your PIN</a>
             <span style="color: #d33b3b;">|</span>
-            <a href="javascript:void(0)" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
+            <a href="javascript:void(0)" id="forgot-pin-link" onclick="handleForgotPin()" style="color: #e53737; text-decoration: none;">Forgot PIN?</a>
         </div>
     </div>
 
@@ -5458,6 +5458,18 @@ async function triggerFullStatusRefresh(fullRange = false) {
         const SUPABASE_URL = 'https://rcnxetcomdrlxvlarqoc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjbnhldGNvbWRybHh2bGFycW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NDIyMjksImV4cCI6MjA5MjAxODIyOX0.gP37sT5OrCOVRZXekMrBZHm5mtfnr6JrC2YGflWsDQU';
 
+        // Read the email-link hash BEFORE createClient(): supabase-js clears
+        // window.location.hash once it has signed the user in from it, which
+        // can happen before startApp() runs (ARC-456). An expired or already
+        // used link comes back as #error=...&error_code=otp_expired instead,
+        // which supabase-js rejects quietly — keep it so we can explain it.
+        const LP_INITIAL_HASH = window.location.hash || '';
+        window.__authLinkError = (() => {
+            const p = new URLSearchParams(LP_INITIAL_HASH.replace(/^#/, ''));
+            if (!p.get('error') && !p.get('error_code') && !p.get('error_description')) return null;
+            return { code: p.get('error_code') || p.get('error') || '', description: p.get('error_description') || '' };
+        })();
+
         // 1. Initialize Supabase
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -5530,20 +5542,22 @@ async function triggerFullStatusRefresh(fullRange = false) {
 
         // --- THE FIX: Let Supabase officially flag when a password reset happens ---
         _supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'PASSWORD_RECOVERY') {
-                window.isUpdateMode = true; // Raise the flag!
-                
-                // Force the UI to the PIN Update screen instantly
-                document.getElementById('loading-spinner-section').style.display = 'none';
-                document.getElementById('auth-prompt').style.display = 'block';
-                
-                document.getElementById('auth-title').innerText = "Update PIN";
-                document.getElementById('auth-subtitle').innerText = "Enter your new 6-digit PIN below.";
-                document.getElementById('auth-btn').innerText = "Set New PIN";
-                document.getElementById('user-email-input').style.display = 'none';
-                document.getElementById('auth-toggle-link').parentElement.style.display = 'none';
-            }
+            if (event === 'PASSWORD_RECOVERY') showPinUpdateScreen();
         });
+
+        // The "Update PIN" screen a reset link lands on. Shared by the
+        // PASSWORD_RECOVERY event and startApp(), whichever sees it first.
+        function showPinUpdateScreen() {
+            window.isUpdateMode = true;
+            document.getElementById('loading-spinner-section').style.display = 'none';
+            document.getElementById('auth-prompt').style.display = 'block';
+            document.getElementById('auth-title').innerText = "Update PIN";
+            document.getElementById('auth-subtitle').innerText = "Enter your new 6-digit PIN below.";
+            document.getElementById('auth-btn').innerText = "Set New PIN";
+            document.getElementById('user-email-input').style.display = 'none';
+            document.getElementById('auth-toggle-link').parentElement.style.display = 'none';
+            document.getElementById('auth-error').style.display = 'none';
+        }
 
         // 1. Define the Admin Email at the top of your <script>
 // ADMIN_EMAIL now comes from the selected project's row in
@@ -6740,26 +6754,63 @@ function updateRowInUI(row) {
     refreshRowVisibility(rowEl);
 }
 
+// Each new reset email cancels the link in the previous one, so a second
+// click while the first is still sending (or right after) leaves the user
+// holding a dead link. Block repeats while sending and for 60s after a send,
+// which is also Supabase's own per-email limit (ARC-456).
+let forgotPinBusyUntil = 0;
+const FORGOT_PIN_COOLDOWN_MS = 60000;
+
 async function handleForgotPin() {
     const email = document.getElementById('user-email-input').value.trim().toLowerCase();
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
+    const link = document.getElementById('forgot-pin-link');
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
     if (!email) {
         errorEl.innerText = "Please enter your email address first.";
         errorEl.style.display = 'block';
         return;
     }
-    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://sty4a-launch-pad.vercel.app/" 
-    }); // <-- ADDED THE MISSING `});` HERE
+    if (Date.now() < forgotPinBusyUntil) {
+        successEl.innerText = "A reset link was just sent. Check your email (and spam). Only the newest email's link works.";
+        successEl.style.display = 'block';
+        return;
+    }
+
+    forgotPinBusyUntil = Infinity;
+    const linkText = link ? link.innerText : '';
+    if (link) { link.innerText = 'Sending…'; link.style.pointerEvents = 'none'; link.style.opacity = '0.6'; }
+
+    // Send them back to the site they asked from (as sign-up already does).
+    // Inside the old Google Apps Script wrapper the page's own address isn't
+    // a real one, so fall back to production there.
+    const inAppsScript = typeof google !== 'undefined' && google.script;
+    const redirectTo = inAppsScript
+        ? 'https://www.launchpad.criticalarccx.com/'
+        : window.location.origin + window.location.pathname;
+
+    let error = null;
+    try {
+        ({ error } = await _supabase.auth.resetPasswordForEmail(email, { redirectTo }));
+    } catch (e) {
+        error = e;
+    }
+
+    if (link) { link.innerText = linkText; link.style.pointerEvents = ''; link.style.opacity = ''; }
 
     if (error) {
-        errorEl.innerText = error.message;
+        forgotPinBusyUntil = 0;
+        const msg = (error.message || '').toLowerCase();
+        errorEl.innerText = (msg.includes('rate limit') || msg.includes('only request this after') || error.status === 429)
+            ? "A reset link was sent to this email very recently. Please wait a minute, then try again, or use the newest email you already have."
+            : "Couldn't send the reset link: " + (error.message || 'please try again.');
         errorEl.style.display = 'block';
     } else {
-        successEl.innerText = "Reset link sent! Check your email to set a new PIN.";
+        forgotPinBusyUntil = Date.now() + FORGOT_PIN_COOLDOWN_MS;
+        successEl.innerText = "Reset link sent! Check your email (and spam) and open the link within an hour. Only the newest email's link works.";
         successEl.style.display = 'block';
-        errorEl.style.display = 'none';
     }
 }
 
@@ -7673,8 +7724,9 @@ async function startApp() {
     window.__grantTarget = grantTarget;
 
     // --- THE FIX: Ask Google Apps Script to read the URL outside the iframe ---
-    let currentHash = window.location.hash;
-    
+    // LP_INITIAL_HASH was read before supabase-js could clear it (ARC-456).
+    let currentHash = LP_INITIAL_HASH;
+
     // If running in Google Apps Script, use their specific tool to find the hash
     if (typeof google !== 'undefined' && google.script && google.script.url) {
         currentHash = await new Promise(resolve => {
@@ -7685,22 +7737,32 @@ async function startApp() {
     const isRecovery = currentHash.includes('type=recovery') || window.isUpdateMode === true;
 
     if (isRecovery) {
-        spinnerSection.style.display = 'none';
-        authPrompt.style.display = 'block';
-        
-        document.getElementById('auth-title').innerText = "Update PIN";
-        document.getElementById('auth-subtitle').innerText = "Enter your new 6-digit PIN below.";
-        document.getElementById('auth-btn').innerText = "Set New PIN";
-        document.getElementById('user-email-input').style.display = 'none'; 
-        document.getElementById('auth-toggle-link').parentElement.style.display = 'none'; 
-        
-        window.isUpdateMode = true; 
-        return; 
+        showPinUpdateScreen();
+        return;
+    }
+
+    // An expired or already-used email link (reset, invite or sign-up
+    // confirmation). Supabase only puts the error in the address, so say
+    // what happened instead of showing a plain sign-in form (ARC-456).
+    if (window.__authLinkError) {
+        console.warn('Email link rejected:', window.__authLinkError.code, window.__authLinkError.description);
+        try { history.replaceState(history.state, '', window.location.pathname + window.location.search); } catch (e) {}
+        const errorEl = document.getElementById('auth-error');
+        errorEl.innerText = "That email link has expired or was already used. If you were resetting your PIN, enter your email below and tap \"Forgot PIN?\" to get a new link, then open the newest email within an hour.";
+        errorEl.style.display = 'block';
     }
 
 try {
         const savedEmail = localStorage.getItem('launchpad_email');
         const { data: { user } } = await _supabase.auth.getUser();
+
+        // A reset link can sign the user in before startApp() sees it (the
+        // PASSWORD_RECOVERY event fires while getUser() is running). Stay on
+        // the Update PIN screen instead of opening the app over it.
+        if (window.isUpdateMode) {
+            showPinUpdateScreen();
+            return;
+        }
 
         // Arrived from an admin's invite email and hasn't set a PIN yet (ARC-195).
         if (user && user.user_metadata && user.user_metadata.lp_invite_pending) {
