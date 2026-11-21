@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.22.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.22.0...v1.22.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **ARC-456:** Forgot PIN explains dead links, blocks repeat sends, always lands on Update PIN ([ece39ba](https://github.com/CriticalArccx/LaunchPad/commit/ece39ba12d172c1134d69c2898f3f6c965ab6eb1))
+* **ARC-456:** Forgot PIN explains dead links, blocks repeat sends, always lands on Update PIN ([f95b633](https://github.com/CriticalArccx/LaunchPad/commit/f95b633157053f50259fdce464414275e018ae4d))
+* **ARC-457:** Check the PIN before showing the project picker ([0a4f3b1](https://github.com/CriticalArccx/LaunchPad/commit/0a4f3b1acf3222a4321e687210498b5d95350f04))
+* **ARC-457:** Show the real sign-in error, and check the PIN before the project picker ([50a8be0](https://github.com/CriticalArccx/LaunchPad/commit/50a8be079802cc4df0b3c85a701a0268a2495273))
+
 ## [1.22.0](https://github.com/CriticalArccx/LaunchPad/compare/v1.21.1...v1.22.0) (2026-11-18)
 
 
