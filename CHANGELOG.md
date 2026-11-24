@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.2](https://github.com/CriticalArccx/LaunchPad/compare/v1.22.1...v1.22.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **ARC-464:** Email links wait for a tap, and unverified users can resend verification ([b06ab67](https://github.com/CriticalArccx/LaunchPad/commit/b06ab674b44c6e7479f120a950a80326d1a9a55e))
+* **auth:** Email links wait for a tap, and unverified users can resend verification ([c1d447b](https://github.com/CriticalArccx/LaunchPad/commit/c1d447bb4e0882b8463e358c1e4013455dd72c74))
+
 ## [1.22.1](https://github.com/CriticalArccx/LaunchPad/compare/v1.22.0...v1.22.1) (2026-11-21)
 
 
