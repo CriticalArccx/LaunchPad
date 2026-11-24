@@ -2235,8 +2235,22 @@ body.help-docked #loading-overlay {
         </div>
     </div>
 
+    <!-- Opened from an email link (?token_hash=...&type=...). The link only
+         counts once this button is tapped, so email security scanners that
+         open links ahead of the user can't use it up. See
+         showEmailLinkConfirm(). -->
+    <div id="auth-link-view" style="display: none;">
+        <h2 id="auth-link-title" style="margin-top: 0; color: var(--lp-action, #2f7a31); font-size: 26px;"></h2>
+        <p id="auth-link-text" style="margin-bottom: 25px; color: var(--neutrals-lightmode-light-mode-Textsecondary, #6a675f);"></p>
+        <button id="auth-link-btn" onclick="confirmEmailLink()"
+                style="background: var(--lp-action, #2f7a31); color: white; border: none; padding: 14px; min-height: 48px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;"></button>
+    </div>
+
     <p id="auth-error" style="color: #d32f2f; margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
     <p id="auth-success" style="color: var(--lp-action, #2f7a31); margin-top: 20px; font-size: 14px; display: none; font-weight: bold;"></p>
+    <!-- Shown when sign-in fails with "Email not confirmed". -->
+    <button id="resend-verify-btn" onclick="resendVerificationEmail()"
+            style="display: none; margin: 4px auto 0; background: white; color: var(--lp-action, #2f7a31); border: 1px solid var(--lp-action, #2f7a31); padding: 12px 16px; min-height: 48px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px;">Send a new verification email</button>
 </div>
 </div>
 
@@ -5470,6 +5484,21 @@ async function triggerFullStatusRefresh(fullRange = false) {
             return { code: p.get('error_code') || p.get('error') || '', description: p.get('error_description') || '' };
         })();
 
+        // Email links in the newer format (see docs/email-templates.md):
+        // ?token_hash=...&type=recovery|email. They open LaunchPad itself,
+        // not Supabase's verify address, and the token is only used when the
+        // person taps the button on showEmailLinkConfirm(). Company email
+        // scanners open links to check them, which used up the old links
+        // before the person ever clicked.
+        window.__emailLinkToken = (() => {
+            const p = new URLSearchParams(window.location.search);
+            const tokenHash = p.get('token_hash');
+            const type = p.get('type');
+            const allowed = ['recovery', 'email', 'signup', 'magiclink', 'invite'];
+            if (!tokenHash || !allowed.includes(type)) return null;
+            return { tokenHash, type };
+        })();
+
         // 1. Initialize Supabase
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -5549,6 +5578,9 @@ async function triggerFullStatusRefresh(fullRange = false) {
         // PASSWORD_RECOVERY event and startApp(), whichever sees it first.
         function showPinUpdateScreen() {
             window.isUpdateMode = true;
+            // Coming from the "Set a new PIN" button on an email link.
+            document.getElementById('auth-link-view').style.display = 'none';
+            document.getElementById('auth-login-view').style.display = 'block';
             document.getElementById('loading-spinner-section').style.display = 'none';
             document.getElementById('auth-prompt').style.display = 'block';
             document.getElementById('auth-title').innerText = "Update PIN";
@@ -6761,6 +6793,131 @@ function updateRowInUI(row) {
 let forgotPinBusyUntil = 0;
 const FORGOT_PIN_COOLDOWN_MS = 60000;
 
+// ===== EMAIL LINKS THAT WAIT FOR A TAP =====
+// A link in the newer email format opens this screen first. Nothing is used
+// until the person taps the button, so a scanner that opens the link to
+// check it leaves it working. Templates: docs/email-templates.md.
+function showEmailLinkConfirm() {
+    const link = window.__emailLinkToken;
+    if (!link) return;
+    const isReset = link.type === 'recovery';
+    const isInvite = link.type === 'magiclink' || link.type === 'invite';
+    document.getElementById('loading-spinner-section').style.display = 'none';
+    document.getElementById('auth-prompt').style.display = 'block';
+    document.getElementById('auth-login-view').style.display = 'none';
+    document.getElementById('auth-link-view').style.display = 'block';
+    document.getElementById('auth-link-title').innerText = isReset ? 'Set a new PIN' : (isInvite ? 'Welcome to LaunchPad' : 'Verify your email');
+    document.getElementById('auth-link-text').innerText = isReset
+        ? 'Tap the button below to continue and choose a new PIN.'
+        : (isInvite ? 'Tap the button below to continue setting up your LaunchPad account.' : 'Tap the button below to verify your email and sign in to LaunchPad.');
+    document.getElementById('auth-link-btn').innerText = isReset ? 'Set a new PIN' : (isInvite ? 'Continue' : 'Verify my email');
+}
+
+async function confirmEmailLink() {
+    const link = window.__emailLinkToken;
+    if (!link) return;
+    const btn = document.getElementById('auth-link-btn');
+    const errorEl = document.getElementById('auth-error');
+    btn.disabled = true;
+    btn.innerText = 'Checking…';
+    errorEl.style.display = 'none';
+
+    let data = null, error = null;
+    try {
+        ({ data, error } = await _supabase.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type }));
+    } catch (e) {
+        error = e;
+    }
+    // A link only works once, so take it out of the address either way.
+    window.__emailLinkToken = null;
+    try { history.replaceState(history.state, '', window.location.pathname); } catch (e) {}
+
+    if (error || !data || !data.session) {
+        console.warn('Email link rejected:', error && error.message);
+        document.getElementById('auth-link-view').style.display = 'none';
+        document.getElementById('auth-login-view').style.display = 'block';
+        errorEl.innerText = link.type === 'recovery'
+            ? "That reset link has expired or was already used. Enter your email below and tap \"Forgot PIN?\" to get a new one, then open the newest email."
+            : "That link has expired or was already used. Enter your email and PIN below and tap Login. If your email still isn't verified, you'll be offered a new verification email.";
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    if (link.type === 'recovery') {
+        showPinUpdateScreen();
+        return;
+    }
+
+    // Verified and signed in: continue the same way a PIN sign-in does. An
+    // invite whose PIN isn't set yet lands on "Create your PIN" (ARC-195).
+    if (data.user && data.user.email) localStorage.setItem('launchpad_email', data.user.email.toLowerCase());
+    location.replace(window.location.pathname);
+}
+
+// ===== RESEND VERIFICATION EMAIL =====
+// Offered when sign-in fails with "Email not confirmed". The original link
+// expires after a day (or was used up by a scanner), and there was no way to
+// get another one.
+let resendVerifyEmail = null;
+let resendVerifyBusyUntil = 0;
+
+function showResendVerification(email) {
+    resendVerifyEmail = email;
+    const btn = document.getElementById('resend-verify-btn');
+    btn.disabled = false;
+    btn.innerText = 'Send a new verification email';
+    btn.style.display = 'block';
+}
+
+function hideResendVerification() {
+    const btn = document.getElementById('resend-verify-btn');
+    if (btn) btn.style.display = 'none';
+}
+
+async function resendVerificationEmail() {
+    const email = resendVerifyEmail;
+    if (!email) return;
+    const btn = document.getElementById('resend-verify-btn');
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+    if (Date.now() < resendVerifyBusyUntil) {
+        successEl.innerText = "A verification email was just sent. Check your email (and spam or junk). Only the newest email's link works.";
+        successEl.style.display = 'block';
+        return;
+    }
+    resendVerifyBusyUntil = Infinity;
+    btn.disabled = true;
+    btn.innerText = 'Sending…';
+
+    let error = null;
+    try {
+        ({ error } = await _supabase.auth.resend({
+            type: 'signup',
+            email,
+            options: { emailRedirectTo: window.location.origin + window.location.pathname }
+        }));
+    } catch (e) {
+        error = e;
+    }
+
+    btn.disabled = false;
+    btn.innerText = 'Send a new verification email';
+    if (error) {
+        resendVerifyBusyUntil = 0;
+        const msg = (error.message || '').toLowerCase();
+        errorEl.innerText = (msg.includes('rate limit') || msg.includes('only request this after') || error.status === 429)
+            ? "A verification email was sent to this address very recently. Please wait a minute, then try again, or use the newest email you already have."
+            : "Couldn't send the verification email: " + (error.message || 'please try again.');
+        errorEl.style.display = 'block';
+        return;
+    }
+    resendVerifyBusyUntil = Date.now() + 60000;
+    errorEl.style.display = 'none';
+    hideResendVerification();
+    successEl.innerText = `Verification email sent to ${email}. Open the newest one (check spam or junk too) and tap the link, then sign in here.`;
+    successEl.style.display = 'block';
+}
+
 async function handleForgotPin() {
     const email = document.getElementById('user-email-input').value.trim().toLowerCase();
     const errorEl = document.getElementById('auth-error');
@@ -7737,6 +7894,13 @@ async function startApp() {
             google.script.url.getLocation(loc => resolve(loc.hash || ""));
         });
     }
+    // Opened from a verification, reset or invite email in the newer
+    // format: wait for a tap before using the link.
+    if (window.__emailLinkToken) {
+        showEmailLinkConfirm();
+        return;
+    }
+
     // Detect Recovery (Forgot PIN) link
     const isRecovery = currentHash.includes('type=recovery') || window.isUpdateMode === true;
 
@@ -10701,6 +10865,7 @@ let isSignUpMode = false;
 
 function toggleAuthMode() {
     isSignUpMode = !isSignUpMode;
+    hideResendVerification();
     const title = document.getElementById('auth-title');
     const subtitle = document.getElementById('auth-subtitle');
     const btn = document.getElementById('auth-btn');
@@ -10750,6 +10915,7 @@ async function handleAuthAction() {
     btn.disabled = true;
     errorEl.style.display = 'none';
     successEl.style.display = 'none';
+    hideResendVerification();
 
     try {
         // --- 1. HANDLE PIN UPDATE (Recovery Mode) ---
@@ -10831,7 +10997,8 @@ async function handleAuthAction() {
             if (loginError) {
                 const msg = (loginError.message || "").toLowerCase();
                 if (msg.includes("email not confirmed")) {
-                    errorEl.innerText = "This email hasn't been verified yet \u2014 check your inbox for the confirmation link.";
+                    errorEl.innerText = "This email hasn't been verified yet. Tap below for a new verification email (check spam or junk too), or use \"Forgot PIN?\" \u2014 setting a new PIN also verifies your email.";
+                    showResendVerification(email);
                 } else if (msg.includes("invalid login credentials")) {
                     errorEl.innerText = "Incorrect PIN, or no PIN has been set for this email yet. If you were invited or don't remember your PIN, use \"Forgot PIN?\" below to set one. New to LaunchPad? Use \"First time? Create your PIN\".";
                 } else {
